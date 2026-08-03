@@ -1,4 +1,0 @@
-repository "The Office/The Office@7972251882214@cloud"
-  path "/"
-    br "/main"
-    co "/main"
