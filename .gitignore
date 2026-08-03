@@ -44,3 +44,9 @@ crashlytics-build.properties
 .Trashes
 Thumbs.db
 desktop.ini
+
+*.plastic/
+The Office-*/
+ignore.conf
+*.slnx
+*.slnf
