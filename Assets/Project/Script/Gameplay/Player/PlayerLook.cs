@@ -1,0 +1,102 @@
+using Office.Data;
+using Unity.Netcode;
+using UnityEngine;
+
+namespace Office.Gameplay
+{
+    /// <summary>
+    /// Camera aiming and eye height. Technical Plan §7.2.
+    ///
+    /// Yaw is applied to the body transform, so it replicates through NetworkTransform and
+    /// remote players visibly turn. Pitch stays on a local camera pivot: nothing on a remote
+    /// client needs it yet, and replicating it would cost bandwidth for an invisible value.
+    /// It becomes a replicated head bone the moment third-person bodies exist.
+    /// </summary>
+    public sealed class PlayerLook : NetworkBehaviour
+    {
+        [SerializeField] private PlayerLookConfig config;
+        [SerializeField] private PlayerInputReader input;
+        [SerializeField] private PlayerMovement movement;
+
+        [Tooltip("Child transform the camera is parented to. Moves with crouch and view bob.")]
+        [SerializeField] private Transform cameraPivot;
+
+        [SerializeField] private Camera playerCamera;
+
+        /// <summary>Runtime sensitivity multiplier from the settings menu. 1 = as configured.</summary>
+        public float SensitivityScale { get; set; } = 1f;
+
+        private float pitch;
+        private float bobPhase;
+
+        private void Awake()
+        {
+            if (config == null || cameraPivot == null)
+            {
+                Debug.LogError($"[Player] {name} is missing its look config or camera pivot.");
+                enabled = false;
+                return;
+            }
+
+            if (playerCamera != null) playerCamera.fieldOfView = config.FieldOfView;
+        }
+
+        // LateUpdate so the camera follows the position produced by movement this frame.
+        // Running it in Update would show the camera one frame behind the body.
+        private void LateUpdate()
+        {
+            if (!IsOwner || input == null) return;
+
+            ApplyRotation();
+            ApplyEyePosition();
+        }
+
+        private void ApplyRotation()
+        {
+            var look = input.Look;
+
+            // A mouse reports an accumulated delta, a stick reports a rate. Only the stick is
+            // scaled by delta time; scaling both makes mouse aim frame-rate dependent.
+            var scale = input.LookIsPointerDelta
+                ? config.MouseSensitivity
+                : config.GamepadSensitivity * Time.deltaTime;
+
+            scale *= SensitivityScale;
+
+            var yawDelta = look.x * scale;
+            var pitchDelta = look.y * scale * (config.InvertY ? 1f : -1f);
+
+            if (!Mathf.Approximately(yawDelta, 0f))
+                transform.Rotate(0f, yawDelta, 0f, Space.Self);
+
+            pitch = Mathf.Clamp(pitch + pitchDelta, config.MinPitch, config.MaxPitch);
+            cameraPivot.localRotation = Quaternion.Euler(pitch, 0f, 0f);
+        }
+
+        private void ApplyEyePosition()
+        {
+            var crouchBlend = movement != null ? movement.CrouchBlend : 0f;
+            var eyeHeight = Mathf.Lerp(config.StandEyeHeight, config.CrouchEyeHeight, crouchBlend);
+
+            var bobOffset = 0f;
+
+            if (config.BobEnabled && movement != null)
+            {
+                var speed = movement.NormalizedSpeed;
+
+                if (movement.IsGrounded && speed > 0.05f)
+                {
+                    bobPhase += Time.deltaTime * config.BobFrequency * speed;
+                    bobOffset = Mathf.Sin(bobPhase) * config.BobAmplitude * speed;
+                }
+                else
+                {
+                    // Settle back to centre instead of freezing mid-bob.
+                    bobPhase = 0f;
+                }
+            }
+
+            cameraPivot.localPosition = new Vector3(0f, eyeHeight + bobOffset, 0f);
+        }
+    }
+}

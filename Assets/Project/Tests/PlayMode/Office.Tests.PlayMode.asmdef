@@ -1,0 +1,32 @@
+{
+    "name": "Office.Tests.PlayMode",
+    "rootNamespace": "Office.Tests.PlayMode",
+    "references": [
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner",
+        "Office.Data",
+        "Office.Core",
+        "Office.Network",
+        "Office.Gameplay",
+        "Office.Enemies",
+        "Office.LevelGen",
+        "Office.Anomalies",
+        "Office.UI",
+        "Office.Audio",
+        "Office.Rendering",
+        "Unity.Netcode.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

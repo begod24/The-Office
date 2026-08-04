@@ -1,0 +1,20 @@
+{
+    "name": "Office.Gameplay",
+    "rootNamespace": "Office.Gameplay",
+    "references": [
+        "Office.Data",
+        "Office.Core",
+        "Office.Network",
+        "Unity.Netcode.Runtime",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -1,0 +1,17 @@
+{
+    "name": "Office.Audio",
+    "rootNamespace": "Office.Audio",
+    "references": [
+        "Office.Data",
+        "Office.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

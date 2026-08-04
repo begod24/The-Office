@@ -1,0 +1,21 @@
+{
+    "name": "Office.Enemies",
+    "rootNamespace": "Office.Enemies",
+    "references": [
+        "Office.Data",
+        "Office.Core",
+        "Office.Network",
+        "Office.Gameplay",
+        "Unity.Netcode.Runtime",
+        "Unity.AI.Navigation"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

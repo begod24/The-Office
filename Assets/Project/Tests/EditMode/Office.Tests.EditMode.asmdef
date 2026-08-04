@@ -1,0 +1,33 @@
+{
+    "name": "Office.Tests.EditMode",
+    "rootNamespace": "Office.Tests.EditMode",
+    "references": [
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner",
+        "Office.Data",
+        "Office.Core",
+        "Office.Network",
+        "Office.Gameplay",
+        "Office.Enemies",
+        "Office.LevelGen",
+        "Office.Anomalies",
+        "Office.UI",
+        "Office.Audio",
+        "Office.Rendering"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

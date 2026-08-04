@@ -1,0 +1,31 @@
+{
+    "name": "Office.Editor",
+    "rootNamespace": "Office.Editor",
+    "references": [
+        "Office.Data",
+        "Office.Core",
+        "Office.Network",
+        "Office.Gameplay",
+        "Office.Enemies",
+        "Office.LevelGen",
+        "Office.Anomalies",
+        "Office.UI",
+        "Office.Audio",
+        "Office.Rendering",
+        "Unity.Netcode.Runtime",
+        "Unity.InputSystem",
+        "UnityEditor.TestRunner",
+        "UnityEngine.TestRunner"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
