@@ -184,6 +184,7 @@ namespace Office.Editor
             camera.nearClipPlane = 0.04f;
             camera.farClipPlane = 120f;
             camera.fieldOfView = 68f;
+            PostProcessBuilder.EnablePostProcessing(camera);
 
             var listener = cameraObject.AddComponent<AudioListener>();
 
@@ -263,6 +264,8 @@ namespace Office.Editor
             GreyboxSandbox.Build();
             BuildSpawnPoints();
             BuildFallbackCamera(new Vector3(0f, 9f, -11f), new Vector3(32f, 0f, 0f));
+            PostProcessBuilder.BuildVolume();
+            HudBuilder.Build();
 
             SaveScene(scene, SandboxScenePath);
             Debug.Log($"[Setup] {SandboxScenePath} built.");
@@ -484,6 +487,7 @@ namespace Office.Editor
             var camera = cameraObject.AddComponent<Camera>();
             camera.fieldOfView = 60f;
             camera.farClipPlane = 200f;
+            PostProcessBuilder.EnablePostProcessing(camera);
 
             var listener = cameraObject.AddComponent<AudioListener>();
             var fallback = cameraObject.AddComponent<FallbackCamera>();
