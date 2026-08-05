@@ -11,6 +11,7 @@ namespace Office.Editor
     internal static class LobbyUIBuilder
     {
         private const string RowPrefabPath = "Assets/Project/Prefab/UI/PF_LobbyRow.prefab";
+        private const string FontPath = "Assets/Project/Fonts/blockblueprint.asset";
 
         private static readonly Color Backdrop = new(0.06f, 0.06f, 0.07f, 1f);
         private static readonly Color Panel = new(0.11f, 0.115f, 0.13f, 0.96f);
@@ -21,8 +22,15 @@ namespace Office.Editor
 
         private static readonly Color RowRemote = new(0.135f, 0.14f, 0.16f, 1f);
 
+        private static TMP_FontAsset font;
+
+        private static void LoadFont() =>
+            font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontPath);
+
         public static void BuildRowPrefab()
         {
+            LoadFont();
+
             var root = new GameObject("PF_LobbyRow", typeof(RectTransform));
             var rect = (RectTransform)root.transform;
             rect.sizeDelta = new Vector2(0f, 46f);
@@ -80,6 +88,8 @@ namespace Office.Editor
 
         public static void Build(LobbyPlayerRow rowPrefab)
         {
+            LoadFont();
+
             BuildCamera();
             BuildEventSystem();
 
@@ -247,7 +257,9 @@ namespace Office.Editor
             var scaler = canvasObject.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
-            scaler.matchWidthOrHeight = 0.5f;
+
+            // Match height so the 760px panel always fits vertically, on any aspect ratio.
+            scaler.matchWidthOrHeight = 1f;
 
             canvasObject.AddComponent<GraphicRaycaster>();
             return canvas;
@@ -295,6 +307,8 @@ namespace Office.Editor
             var rect = CreateRect(name, parent);
 
             var label = rect.gameObject.AddComponent<TextMeshProUGUI>();
+            if (font != null) label.font = font;
+
             label.text = text;
             label.fontSize = size;
             label.alignment = alignment;
@@ -314,6 +328,8 @@ namespace Office.Editor
             created.GetComponent<Image>().color = face;
 
             var label = created.GetComponentInChildren<TMP_Text>();
+            if (font != null) label.font = font;
+
             label.text = text;
             label.fontSize = 19f;
             label.characterSpacing = 4f;
@@ -338,6 +354,7 @@ namespace Office.Editor
 
             if (input.textComponent != null)
             {
+                if (font != null) input.textComponent.font = font;
                 input.textComponent.fontSize = 24f;
                 input.textComponent.color = TextPrimary;
                 input.textComponent.characterSpacing = 8f;
@@ -345,6 +362,7 @@ namespace Office.Editor
 
             if (input.placeholder is TMP_Text placeholderText)
             {
+                if (font != null) placeholderText.font = font;
                 placeholderText.text = placeholder;
                 placeholderText.fontSize = 20f;
                 placeholderText.color = TextDim;

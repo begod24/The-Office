@@ -71,7 +71,10 @@ namespace Office.Editor
             var scaler = root.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
-            scaler.matchWidthOrHeight = 0.5f;
+
+            // Match height so corner panels keep the same size relative to the screen
+            // on every aspect ratio; ultrawide monitors only gain horizontal space.
+            scaler.matchWidthOrHeight = 1f;
 
             var group = root.AddComponent<CanvasGroup>();
             group.interactable = false;

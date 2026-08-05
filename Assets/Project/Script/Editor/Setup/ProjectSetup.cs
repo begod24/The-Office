@@ -29,6 +29,7 @@ namespace Office.Editor
         private static string BootScenePath => $"{ScenesFolder}/{SceneNames.Boot}.unity";
         private static string SandboxScenePath => $"{ScenesFolder}/{SceneNames.Sandbox}.unity";
         private static string LobbyScenePath => $"{ScenesFolder}/{SceneNames.Lobby}.unity";
+        private static string MainMenuScenePath => $"{ScenesFolder}/{SceneNames.MainMenu}.unity";
 
         [MenuItem("Office/Setup/Run All (physics, configs, prefab, scenes)", priority = 0)]
         public static void RunAll()
@@ -41,6 +42,7 @@ namespace Office.Editor
             BuildSessionPrefab();
             BuildSandboxScene();
             BuildLobbyScene();
+            BuildMainMenuScene();
             BuildBootScene();
             ConfigureBuildSettings();
 
@@ -271,6 +273,25 @@ namespace Office.Editor
             Debug.Log($"[Setup] {LobbyScenePath} built.");
         }
 
+        [MenuItem("Office/Setup/Build Main Menu Scene", priority = 44)]
+        public static void BuildMainMenuScene()
+        {
+            if (!EnsureNoUnsavedScene()) return;
+
+            if (!AssetDatabase.IsValidFolder("Assets/TextMesh Pro"))
+            {
+                Debug.LogError("[Setup] Run 'Office/Setup/Import TextMeshPro Essentials' first.");
+                return;
+            }
+
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+            MainMenuBuilder.Build();
+
+            SaveScene(scene, MainMenuScenePath);
+            Debug.Log($"[Setup] {MainMenuScenePath} built.");
+        }
+
         [MenuItem("Office/Setup/Build Boot Scene", priority = 41)]
         public static void BuildBootScene()
         {
@@ -300,7 +321,7 @@ namespace Office.Editor
             var networkInstaller = bootstrapObject.AddComponent<NetworkServiceInstaller>();
 
             var serialized = new SerializedObject(bootstrap);
-            serialized.FindProperty("firstScene").stringValue = SceneNames.Lobby;
+            serialized.FindProperty("firstScene").stringValue = SceneNames.MainMenu;
             serialized.ApplyModifiedPropertiesWithoutUndo();
 
             WireArray(bootstrap, "installers", networkInstaller);
@@ -442,6 +463,7 @@ namespace Office.Editor
             var paths = new[]
             {
                 BootScenePath,
+                MainMenuScenePath,
                 LobbyScenePath,
                 SandboxScenePath
             };
@@ -471,7 +493,8 @@ namespace Office.Editor
         }
 
         private static bool IsGeneratedScene(string path) =>
-            path == BootScenePath || path == LobbyScenePath || path == SandboxScenePath;
+            path == BootScenePath || path == LobbyScenePath || path == SandboxScenePath ||
+            path == MainMenuScenePath;
 
         private static void SaveScene(Scene scene, string path)
         {
