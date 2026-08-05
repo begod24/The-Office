@@ -112,11 +112,19 @@ namespace Office.Editor
                 TextAlignmentOptions.MidlineLeft, TextDim);
             AddLayoutElement(hintLabel.gameObject, preferredHeight: 30f);
 
+            var settings = SettingsPanelBuilder.Build(panel, out var settingsBack);
+            settings.gameObject.SetActive(false);
+
             panel.gameObject.SetActive(false);
 
             var screen = root.AddComponent<PauseScreen>();
 
-            Wire(screen, ("hintLabel", hintLabel), ("panelRoot", panel.gameObject));
+            Wire(screen,
+                ("hintLabel", hintLabel),
+                ("panelRoot", panel.gameObject),
+                ("menuGroup", column.gameObject),
+                ("settingsGroup", settings.gameObject),
+                ("settingsBackButton", settingsBack));
             WireArray(screen, "items", items);
         }
 

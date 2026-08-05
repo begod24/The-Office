@@ -1,4 +1,5 @@
 using Office.Core;
+using Office.Data;
 using Office.Network;
 using UnityEngine;
 
@@ -17,6 +18,8 @@ namespace Office.UI
         [SerializeField] private bool showPlaceholdersWhenOffline = true;
 
         private ILobbyService lobby;
+        private IEventBus bus;
+        private CanvasGroup group;
 
         public HudObjectivesPanel Objectives => objectives;
 
@@ -26,7 +29,12 @@ namespace Office.UI
 
         private void Start()
         {
+            group = GetComponent<CanvasGroup>();
+
             if (ServiceLocator.TryGet(out lobby)) lobby.Changed += Refresh;
+
+            // The pause overlay replaces the HUD for the local player.
+            if (ServiceLocator.TryGet(out bus)) bus.Subscribe<LocalPauseChanged>(OnPauseChanged);
 
             if (objectives != null) objectives.ShowPlaceholders();
 
@@ -36,6 +44,12 @@ namespace Office.UI
         private void OnDestroy()
         {
             if (lobby != null) lobby.Changed -= Refresh;
+            bus?.Unsubscribe<LocalPauseChanged>(OnPauseChanged);
+        }
+
+        private void OnPauseChanged(LocalPauseChanged evt)
+        {
+            if (group != null) group.alpha = evt.IsPaused ? 0f : 1f;
         }
 
         public void SetCrosshairVisible(bool visible)
@@ -47,6 +61,10 @@ namespace Office.UI
         {
             if (squad != null) squad.SetHealth(clientId, normalized);
         }
+
+        // Health systems report raw points; players cap at MaxPlayerHealth (100).
+        public void SetHealthPoints(ulong clientId, float healthPoints) =>
+            SetHealth(clientId, healthPoints / GameplayConstants.MaxPlayerHealth);
 
         public void SetDowned(ulong clientId, bool downed)
         {

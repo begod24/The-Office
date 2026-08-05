@@ -70,7 +70,10 @@ namespace Office.Editor
 
             var scaler = root.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920f, 1080f);
+
+            // Smaller reference than the menus (1920x1080) renders the whole HUD
+            // ~20% larger on screen without touching individual element sizes.
+            scaler.referenceResolution = new Vector2(1600f, 900f);
 
             // Match height so corner panels keep the same size relative to the screen
             // on every aspect ratio; ultrawide monitors only gain horizontal space.
@@ -86,6 +89,7 @@ namespace Office.Editor
             var squad = BuildSquad(root.transform);
             var hotbar = BuildHotbar(root.transform);
             var crosshair = BuildCrosshair(root.transform);
+            BuildStamina(root.transform);
 
             Wire(screen,
                 ("objectives", objectives),
@@ -249,9 +253,10 @@ namespace Office.Editor
             layout.spacing = 2f;
             layout.childAlignment = TextAnchor.MiddleLeft;
 
-            layout.childControlWidth = false;
-            layout.childControlHeight = false;
-            layout.childForceExpandWidth = false;
+            // Segments share the full row width instead of a fixed 5px each.
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = true;
             layout.childForceExpandHeight = false;
 
             var segments = new Object[HealthSegments];
@@ -259,7 +264,12 @@ namespace Office.Editor
             for (var i = 0; i < HealthSegments; i++)
             {
                 var segment = CreateRect($"Tick_{i + 1}", bar);
-                segment.sizeDelta = new Vector2(5f, 13f);
+
+                var element = segment.gameObject.AddComponent<LayoutElement>();
+                element.flexibleWidth = 1f;
+                element.preferredHeight = 14f;
+                element.minHeight = 14f;
+
                 segments[i] = CreateImage(segment, SegmentFilled);
             }
 
@@ -334,6 +344,35 @@ namespace Office.Editor
             WireArray(component, "frameEdges", slot.Edges);
 
             return component;
+        }
+
+        // Thin white line just below the crosshair. HudStaminaBar keeps it invisible
+        // until stamina is actually being spent.
+        private static void BuildStamina(Transform parent)
+        {
+            var root = CreateRect("Stamina", parent);
+            root.anchorMin = new Vector2(0.5f, 0.5f);
+            root.anchorMax = new Vector2(0.5f, 0.5f);
+            root.pivot = new Vector2(0.5f, 0.5f);
+            root.anchoredPosition = new Vector2(0f, -34f);
+            root.sizeDelta = new Vector2(120f, 3f);
+
+            var group = root.gameObject.AddComponent<CanvasGroup>();
+            group.alpha = 0f;
+            group.interactable = false;
+            group.blocksRaycasts = false;
+
+            var track = CreateRect("Track", root);
+            Stretch(track);
+            CreateImage(track, new Color(1f, 1f, 1f, 0.10f));
+
+            var fillRect = CreateRect("Fill", root);
+            Stretch(fillRect);
+            fillRect.pivot = new Vector2(0f, 0.5f);
+            CreateImage(fillRect, new Color(0.90f, 0.90f, 0.88f, 0.85f));
+
+            var component = root.gameObject.AddComponent<HudStaminaBar>();
+            Wire(component, ("group", group), ("fill", fillRect));
         }
 
         private static GameObject BuildCrosshair(Transform parent)

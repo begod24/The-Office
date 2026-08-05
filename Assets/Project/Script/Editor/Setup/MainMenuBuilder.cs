@@ -56,6 +56,9 @@ namespace Office.Editor
             var credits = BuildCreditsColumn(canvas.transform, out var creditsBack);
             credits.gameObject.SetActive(false);
 
+            var settings = SettingsPanelBuilder.Build(canvas.transform, out var settingsBack);
+            settings.gameObject.SetActive(false);
+
             var screenObject = new GameObject("[MainMenuScreen]");
             var screen = screenObject.AddComponent<MainMenuScreen>();
 
@@ -64,7 +67,9 @@ namespace Office.Editor
                 ("hintLabel", hintLabel),
                 ("menuGroup", menu.gameObject),
                 ("creditsGroup", credits.gameObject),
-                ("creditsBackButton", creditsBack));
+                ("creditsBackButton", creditsBack),
+                ("settingsGroup", settings.gameObject),
+                ("settingsBackButton", settingsBack));
             WireArray(screen, "items", items);
         }
 

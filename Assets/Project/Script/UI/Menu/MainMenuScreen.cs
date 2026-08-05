@@ -13,10 +13,12 @@ namespace Office.UI
         [Header("Header")]
         [SerializeField] private TMP_Text buildLabel;
 
-        [Header("Credits")]
+        [Header("Panels")]
         [SerializeField] private GameObject menuGroup;
         [SerializeField] private GameObject creditsGroup;
         [SerializeField] private Button creditsBackButton;
+        [SerializeField] private GameObject settingsGroup;
+        [SerializeField] private Button settingsBackButton;
 
         private ISceneLoader sceneLoader;
         private IGameStateService gameState;
@@ -32,6 +34,8 @@ namespace Office.UI
             if (buildLabel != null) buildLabel.text = $"Build {Application.version}";
             if (creditsGroup != null) creditsGroup.SetActive(false);
             if (creditsBackButton != null) creditsBackButton.onClick.AddListener(CloseCredits);
+            if (settingsGroup != null) settingsGroup.SetActive(false);
+            if (settingsBackButton != null) settingsBackButton.onClick.AddListener(CloseSettings);
 
             Focus(FirstItem);
         }
@@ -49,7 +53,8 @@ namespace Office.UI
             var keyboard = Keyboard.current;
             if (keyboard == null || !keyboard.escapeKey.wasPressedThisFrame) return;
 
-            if (creditsGroup != null && creditsGroup.activeSelf) CloseCredits();
+            if (settingsGroup != null && settingsGroup.activeSelf) CloseSettings();
+            else if (creditsGroup != null && creditsGroup.activeSelf) CloseCredits();
         }
 
         protected override void OnItemClicked(MainMenuItem item)
@@ -62,6 +67,9 @@ namespace Office.UI
                 case MainMenuAction.JoinFriends:
                 case MainMenuAction.HostLobby:
                     GoToLobby();
+                    break;
+                case MainMenuAction.Settings:
+                    OpenSettings();
                     break;
                 case MainMenuAction.Credits:
                     OpenCredits();
@@ -92,6 +100,32 @@ namespace Office.UI
             if (menuGroup == null || creditsGroup == null) return;
 
             creditsGroup.SetActive(false);
+            menuGroup.SetActive(true);
+
+            Focus(FirstItem);
+        }
+
+        private void OpenSettings()
+        {
+            if (menuGroup == null || settingsGroup == null)
+            {
+                ShowHint("// NOT AVAILABLE IN THIS BUILD");
+                return;
+            }
+
+            menuGroup.SetActive(false);
+            settingsGroup.SetActive(true);
+
+            var eventSystem = EventSystem.current;
+            if (eventSystem != null && settingsBackButton != null)
+                eventSystem.SetSelectedGameObject(settingsBackButton.gameObject);
+        }
+
+        private void CloseSettings()
+        {
+            if (menuGroup == null || settingsGroup == null) return;
+
+            settingsGroup.SetActive(false);
             menuGroup.SetActive(true);
 
             Focus(FirstItem);

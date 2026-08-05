@@ -2,8 +2,10 @@ using Office.Core;
 using Office.Data;
 using Office.Network;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 namespace Office.UI
 {
@@ -14,6 +16,9 @@ namespace Office.UI
     {
         [Header("Panel")]
         [SerializeField] private GameObject panelRoot;
+        [SerializeField] private GameObject menuGroup;
+        [SerializeField] private GameObject settingsGroup;
+        [SerializeField] private Button settingsBackButton;
 
         private IEventBus bus;
         private ISessionService session;
@@ -33,6 +38,8 @@ namespace Office.UI
             InitialiseItems();
 
             if (panelRoot != null) panelRoot.SetActive(false);
+            if (settingsGroup != null) settingsGroup.SetActive(false);
+            if (settingsBackButton != null) settingsBackButton.onClick.AddListener(CloseSettings);
         }
 
         private void OnDestroy()
@@ -47,7 +54,10 @@ namespace Office.UI
             if (busy) return;
 
             var keyboard = Keyboard.current;
-            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) SetPaused(!paused);
+            if (keyboard == null || !keyboard.escapeKey.wasPressedThisFrame) return;
+
+            if (paused && settingsGroup != null && settingsGroup.activeSelf) CloseSettings();
+            else SetPaused(!paused);
         }
 
         protected override void OnItemClicked(MainMenuItem item)
@@ -58,6 +68,9 @@ namespace Office.UI
             {
                 case MainMenuAction.Resume:
                     SetPaused(false);
+                    break;
+                case MainMenuAction.Settings:
+                    OpenSettings();
                     break;
                 case MainMenuAction.MainMenu:
                     LeaveToMainMenu();
@@ -75,12 +88,41 @@ namespace Office.UI
             paused = value;
             if (panelRoot != null) panelRoot.SetActive(value);
 
+            if (settingsGroup != null) settingsGroup.SetActive(false);
+            if (menuGroup != null) menuGroup.SetActive(true);
+
             bus?.Publish(new LocalPauseChanged(value));
 
             if (!value) return;
 
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
+            Focus(FirstItem);
+        }
+
+        private void OpenSettings()
+        {
+            if (menuGroup == null || settingsGroup == null)
+            {
+                ShowHint("// NOT AVAILABLE IN THIS BUILD");
+                return;
+            }
+
+            menuGroup.SetActive(false);
+            settingsGroup.SetActive(true);
+
+            var eventSystem = EventSystem.current;
+            if (eventSystem != null && settingsBackButton != null)
+                eventSystem.SetSelectedGameObject(settingsBackButton.gameObject);
+        }
+
+        private void CloseSettings()
+        {
+            if (menuGroup == null || settingsGroup == null) return;
+
+            settingsGroup.SetActive(false);
+            menuGroup.SetActive(true);
+
             Focus(FirstItem);
         }
 
