@@ -57,7 +57,6 @@ namespace Office.Tests.EditMode
         {
             ServiceLocator.Register<IThing>(new Thing(1));
 
-            // A test may substitute a fake precisely because registration is by interface.
             Assert.IsTrue(ServiceLocator.IsRegistered<IThing>());
             Assert.IsFalse(ServiceLocator.IsRegistered<Thing>());
         }
@@ -76,7 +75,6 @@ namespace Office.Tests.EditMode
         {
             ServiceLocator.Register<IThing>(new Thing(1));
 
-            // The locator warns about this; the warning must not fail the test.
             UnityEngine.TestTools.LogAssert.ignoreFailingMessages = true;
             ServiceLocator.Register<IThing>(new Thing(2));
             UnityEngine.TestTools.LogAssert.ignoreFailingMessages = false;

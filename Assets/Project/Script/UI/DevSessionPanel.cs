@@ -6,19 +6,8 @@ using UnityEngine.InputSystem;
 
 namespace Office.UI
 {
-    /// <summary>
-    /// Debug overlay, toggled with F1 and hidden by default. IMGUI on purpose: it needs no
-    /// canvas, no prefab wiring and no art, and it lives in the Boot scene so it is reachable
-    /// from any phase.
-    ///
-    /// Host and join now belong to <see cref="LobbyScreen"/>. What remains here is the one
-    /// thing the game cannot yet do through real UI — ending a run — plus the session readout
-    /// that makes a desync obvious at a glance. A pause menu replaces the End Run button; the
-    /// readout can stay.
-    /// </summary>
     public sealed class DevSessionPanel : MonoBehaviour
     {
-        // The project runs with the new Input System only, so UnityEngine.Input is unavailable.
         [SerializeField] private Key toggleKey = Key.F1;
         [SerializeField] private bool visibleOnStart;
 

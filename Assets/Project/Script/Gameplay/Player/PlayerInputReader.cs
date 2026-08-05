@@ -3,14 +3,6 @@ using UnityEngine.InputSystem;
 
 namespace Office.Gameplay
 {
-    /// <summary>
-    /// The only place in the project that talks to the Input System. Everything else reads
-    /// these properties, which means rebinding, gamepad support and the push-to-talk key all
-    /// change in one file.
-    ///
-    /// This component is enabled only on the locally owned player — see <see cref="PlayerRig"/>.
-    /// A remote player's input is never read; their transform arrives replicated.
-    /// </summary>
     public sealed class PlayerInputReader : MonoBehaviour
     {
         private const string MapName = "Player";
@@ -34,11 +26,6 @@ namespace Office.Gameplay
         public bool JumpPressedThisFrame { get; private set; }
         public bool InteractPressedThisFrame { get; private set; }
 
-        /// <summary>
-        /// True when the look value is a mouse delta (already frame-rate independent) rather
-        /// than a stick deflection (a rate that must be multiplied by delta time).
-        /// Applying the wrong one makes the mouse feel weightless at high frame rates.
-        /// </summary>
         public bool LookIsPointerDelta { get; private set; } = true;
 
         private void Awake()

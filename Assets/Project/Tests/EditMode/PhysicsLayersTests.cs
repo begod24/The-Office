@@ -4,11 +4,6 @@ using UnityEngine;
 
 namespace Office.Tests.EditMode
 {
-    /// <summary>
-    /// <see cref="PhysicsLayers"/> duplicates what lives in TagManager.asset. That duplication is
-    /// worth it — code should not carry magic layer indices — but it has to be checked, because
-    /// the failure mode is silent: a renamed layer makes raycasts miss with no error anywhere.
-    /// </summary>
     public sealed class PhysicsLayersTests
     {
         [Test]
@@ -35,8 +30,6 @@ namespace Office.Tests.EditMode
         [Test]
         public void WalkableMaskExcludesPlayersAndEnemies()
         {
-            // If players were walkable the crouch headroom probe would refuse to stand up
-            // whenever a teammate walked past.
             Assert.IsFalse(Contains(PhysicsLayers.WalkableMask, PhysicsLayers.Player));
             Assert.IsFalse(Contains(PhysicsLayers.WalkableMask, PhysicsLayers.Enemy));
         }

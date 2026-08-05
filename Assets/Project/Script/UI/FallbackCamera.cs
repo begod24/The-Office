@@ -3,13 +3,6 @@ using UnityEngine;
 
 namespace Office.UI
 {
-    /// <summary>
-    /// Renders the scene before a local player exists, then gets out of the way.
-    ///
-    /// Without it the game shows a black screen and Unity's "no cameras rendering" warning
-    /// while the player is still at the connection panel. It steps aside the moment the owned
-    /// player spawns so two cameras never render the same frame.
-    /// </summary>
     [RequireComponent(typeof(Camera))]
     public sealed class FallbackCamera : MonoBehaviour
     {

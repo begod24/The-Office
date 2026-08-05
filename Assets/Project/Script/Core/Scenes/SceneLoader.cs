@@ -4,7 +4,6 @@ using UnityEngine.SceneManagement;
 
 namespace Office.Core
 {
-    /// <inheritdoc cref="ISceneLoader"/>
     public sealed class SceneLoader : ISceneLoader
     {
         private readonly HashSet<string> inFlight = new(4);
@@ -47,8 +46,6 @@ namespace Office.Core
 
             while (!op.isDone) await Awaitable.NextFrameAsync();
 
-            // Additive loads leave orphaned assets behind; without this the memory budget
-            // from Technical Plan §8.2 drifts upward across a play session.
             var unload = Resources.UnloadUnusedAssets();
             while (!unload.isDone) await Awaitable.NextFrameAsync();
         }

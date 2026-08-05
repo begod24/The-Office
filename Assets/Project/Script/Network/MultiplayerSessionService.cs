@@ -8,18 +8,6 @@ using UnityEngine;
 
 namespace Office.Network
 {
-    /// <summary>
-    /// <see cref="ISessionService"/> on top of the Unity Multiplayer Services SDK.
-    ///
-    /// The Sessions API wraps Relay (NAT traversal), Lobby (the room and its join code) and the
-    /// NGO handshake behind one call, which is why this class is short. <c>WithRelayNetwork()</c>
-    /// allocates the Relay server and starts NetworkManager as host or client for us — do not
-    /// also call <c>NetworkManager.StartHost()</c>, that is a double start.
-    ///
-    /// Every public method swallows exceptions into <see cref="Phase"/> and
-    /// <see cref="LastError"/>. A failed session must leave the player at a menu with a readable
-    /// message, never at a broken game.
-    /// </summary>
     public sealed class MultiplayerSessionService : ISessionService
     {
         private const string PlayerNameProperty = "playerName";
@@ -134,7 +122,6 @@ namespace Office.Network
             }
             catch (Exception e)
             {
-                // Leaving must never throw at the caller: the session is gone either way.
                 Debug.LogWarning($"[Session] Leave reported an error, continuing: {e.Message}");
             }
             finally
@@ -170,12 +157,6 @@ namespace Office.Network
             }
         }
 
-        /// <summary>
-        /// Each editor instance needs its own authentication profile. Multiplayer Play Mode
-        /// virtual players are separate processes sharing one project folder, so without this
-        /// they all sign in as the same anonymous player and the second one evicts the first.
-        /// Process id is unique per virtual player and needs no dependency on the MPPM package.
-        /// </summary>
         private static string ResolveProfileName()
         {
 #if UNITY_EDITOR
@@ -204,10 +185,6 @@ namespace Office.Network
             ClearSession();
         }
 
-        /// <summary>
-        /// The host left. In v1 this ends the run for everyone (GDD §15); host migration is
-        /// deferred to M4, which is why <see cref="RunState"/> discipline starts now.
-        /// </summary>
         private void OnSessionDeleted()
         {
             LastError = "The host closed the session.";

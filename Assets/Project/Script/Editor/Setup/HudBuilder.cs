@@ -9,28 +9,10 @@ using UnityEngine.UI;
 
 namespace Office.Editor
 {
-    /// <summary>
-    /// Builds the in-run HUD from code, for the same reason as the lobby screen: a canvas
-    /// hierarchy is a large YAML blob that two people cannot merge, and regenerating it from a
-    /// menu item is cheaper than resolving a conflict inside it.
-    ///
-    /// The layout is the one from the reference frame — objectives top-left, squad and health
-    /// bottom-left, item bar bottom-centre, a small crosshair in the middle. The look is a
-    /// placeholder: thin one-pixel frames over dark translucent fills, no art. GDD §14 wants a
-    /// retro terminal HUD, and that pass belongs with the PS1 render work, not here.
-    ///
-    /// Nothing in the HUD is interactive, so the canvas carries no GraphicRaycaster and no
-    /// element is a raycast target. An overlay that quietly eats clicks is a bug that only shows
-    /// up once there is something behind it worth clicking.
-    /// </summary>
     internal static class HudBuilder
     {
         private const string RootName = "[HUD]";
 
-        /// <summary>
-        /// Optional. When this font asset is missing the HUD falls back to the TextMeshPro
-        /// default, which is legible but wrong for the terminal look.
-        /// </summary>
         private const string FontPath = "Assets/Project/Fonts/blockblueprint.asset";
 
         private const int SquadRows = 4;
@@ -68,7 +50,6 @@ namespace Office.Editor
             Debug.Log($"[Setup] HUD rebuilt in '{scene.name}'. Save the scene to keep it.");
         }
 
-        /// <summary>Returns false when the HUD could not be built, so callers can report it.</summary>
         public static bool Build()
         {
             font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontPath);
@@ -85,8 +66,6 @@ namespace Office.Editor
             var canvas = root.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
 
-            // Above any world-space or debug canvas that appears later. The HUD is the layer the
-            // player reads while something is chasing them; nothing draws over it by accident.
             canvas.sortingOrder = 10;
 
             var scaler = root.AddComponent<CanvasScaler>();
@@ -113,8 +92,6 @@ namespace Office.Editor
 
             return true;
         }
-
-        // ------------------------------------------------------------------ objectives
 
         private static HudObjectivesPanel BuildObjectives(Transform parent)
         {
@@ -166,9 +143,6 @@ namespace Office.Editor
             layout.childForceExpandWidth = false;
             layout.childForceExpandHeight = true;
 
-            // The square is centred inside a fixed-width holder rather than being a layout child
-            // itself: a layout group forces its children to the row height, which would stretch
-            // a 14 px box into a 24 px rectangle.
             var holder = CreateRect("Box", row);
             AddLayoutElement(holder.gameObject, preferredWidth: 16f, flexibleWidth: 0f);
 
@@ -189,8 +163,6 @@ namespace Office.Editor
 
             return component;
         }
-
-        // ------------------------------------------------------------------ squad
 
         private static HudSquadPanel BuildSquad(Transform parent)
         {
@@ -246,8 +218,6 @@ namespace Office.Editor
             var portraitFrame = CreateFrame("Frame", portraitHolder);
             Centre(portraitFrame.Root, new Vector2(24f, 24f));
 
-            // The frame's own fill doubles as the portrait: an empty slot is a flat dark square
-            // until character art exists, and that is exactly what the fill already draws.
             var portrait = portraitFrame.Fill;
             portrait.color = Portrait;
 
@@ -276,8 +246,6 @@ namespace Office.Editor
             layout.spacing = 2f;
             layout.childAlignment = TextAnchor.MiddleLeft;
 
-            // The ticks carry their own size. Letting the group control it would divide the row
-            // width between twelve children and produce a solid bar with hairline gaps.
             layout.childControlWidth = false;
             layout.childControlHeight = false;
             layout.childForceExpandWidth = false;
@@ -297,8 +265,6 @@ namespace Office.Editor
 
             return component;
         }
-
-        // ------------------------------------------------------------------ hotbar
 
         private static HudHotbar BuildHotbar(Transform parent)
         {
@@ -367,8 +333,6 @@ namespace Office.Editor
             return component;
         }
 
-        // ------------------------------------------------------------------ crosshair
-
         private static GameObject BuildCrosshair(Transform parent)
         {
             var root = CreateRect("Crosshair", parent);
@@ -385,20 +349,14 @@ namespace Office.Editor
             return root.gameObject;
         }
 
-        // ------------------------------------------------------------------ helpers
-
-        /// <summary>A dark panel with a one-pixel border. See <see cref="CreateFrame"/>.</summary>
         private readonly struct Panel
         {
             public readonly RectTransform Root;
 
-            /// <summary>Where children go. Inset by the border, carries no graphic of its own.</summary>
             public readonly RectTransform Content;
 
-            /// <summary>The interior. Also the portrait slot, where a frame is used as one.</summary>
             public readonly Image Fill;
 
-            /// <summary>The four border lines, in order: top, bottom, left, right.</summary>
             public readonly Image[] Edges;
 
             public Panel(RectTransform root, RectTransform content, Image fill, Image[] edges)
@@ -410,16 +368,6 @@ namespace Office.Editor
             }
         }
 
-        /// <summary>
-        /// A translucent panel with a one-pixel border, drawn as four edge lines rather than as a
-        /// border-coloured rectangle behind the fill.
-        ///
-        /// The rectangle version is one image fewer and looks identical on paper. It is not: the
-        /// fill is translucent by design, so 45% of the border colour bleeds through the whole
-        /// panel and every box on the HUD reads as a light grey card instead of a dark pane. An
-        /// Outline component has the same problem plus a vertex cost, and no built-in sprite is
-        /// hollow.
-        /// </summary>
         private static Panel CreateFrame(string name, Transform parent)
         {
             var root = CreateRect(name, parent);
@@ -446,10 +394,6 @@ namespace Office.Editor
             return new Panel(root, content, fill, edges);
         }
 
-        /// <summary>
-        /// One border line. <paramref name="size"/> is the fixed thickness on the axis the line
-        /// does not stretch along; the other component stays zero so the anchors drive it.
-        /// </summary>
         private static Image CreateEdge(string name, Transform parent, Vector2 anchorMin,
             Vector2 anchorMax, Vector2 size)
         {
@@ -457,8 +401,6 @@ namespace Office.Editor
             rect.anchorMin = anchorMin;
             rect.anchorMax = anchorMax;
 
-            // Pivoted onto the edge it sits on, so the line is drawn inside the panel instead of
-            // straddling its boundary by half a pixel.
             rect.pivot = Mathf.Approximately(anchorMin.x, anchorMax.x)
                 ? new Vector2(anchorMin.x, 0.5f)
                 : new Vector2(0.5f, anchorMin.y);
@@ -481,8 +423,6 @@ namespace Office.Editor
             var image = rect.gameObject.AddComponent<Image>();
             image.color = colour;
 
-            // Nothing in the HUD is clickable, and a raycast target that is not clicked still
-            // costs a rectangle test per pointer event per frame.
             image.raycastTarget = false;
 
             return image;
@@ -557,8 +497,6 @@ namespace Office.Editor
                     continue;
                 }
 
-                // A null here writes a silent null reference that only shows up as a missing
-                // element at runtime, so it is reported at build time instead.
                 if (value == null)
                     Debug.LogError($"[Setup] '{target.GetType().Name}.{field}' was given null.");
 

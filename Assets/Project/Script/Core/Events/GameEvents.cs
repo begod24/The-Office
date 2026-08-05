@@ -2,7 +2,6 @@ using Office.Data;
 
 namespace Office.Core
 {
-    /// <summary>Session phase changed. Raised locally on every client after replication.</summary>
     public readonly struct GameStateChanged
     {
         public readonly GameState Previous;
@@ -15,7 +14,6 @@ namespace Office.Core
         }
     }
 
-    /// <summary>A power zone was switched. Lights, doors and electrical enemies listen. GDD §10.2.</summary>
     public readonly struct PowerStateChanged
     {
         public readonly int ZoneId;
@@ -28,7 +26,6 @@ namespace Office.Core
         }
     }
 
-    /// <summary>The locally owned player finished spawning. UI and camera systems listen.</summary>
     public readonly struct LocalPlayerSpawned
     {
         public readonly ulong ClientId;
@@ -36,7 +33,6 @@ namespace Office.Core
         public LocalPlayerSpawned(ulong clientId) => ClientId = clientId;
     }
 
-    /// <summary>Any player joined or left the networked session.</summary>
     public readonly struct PlayerConnectionChanged
     {
         public readonly ulong ClientId;

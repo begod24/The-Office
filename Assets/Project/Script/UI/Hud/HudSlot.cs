@@ -4,13 +4,6 @@ using UnityEngine.UI;
 
 namespace Office.UI
 {
-    /// <summary>
-    /// One hotbar cell: number, item icon and a stack count.
-    ///
-    /// Empty for now — there is no inventory. The cell exists early because its size decides how
-    /// much of the lower screen the HUD eats, and that is a composition question worth answering
-    /// before item art is drawn to fit it.
-    /// </summary>
     public sealed class HudSlot : MonoBehaviour
     {
         private static readonly Color FrameIdle = new(0.75f, 0.76f, 0.78f, 0.45f);
@@ -29,7 +22,6 @@ namespace Office.UI
 
         private void Awake() => Clear();
 
-        /// <summary>A stack count of one or less hides the number: "1" on every item is noise.</summary>
         public void SetItem(Sprite sprite, int count = 1)
         {
             IsEmpty = false;

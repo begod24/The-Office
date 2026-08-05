@@ -5,14 +5,6 @@ using UnityEngine;
 
 namespace Office.Network
 {
-    /// <summary>
-    /// Creates and destroys player objects around a run. Server only.
-    ///
-    /// NetworkManager's automatic player spawning is deliberately switched off
-    /// (<c>NetworkConfig.PlayerPrefab</c> is null): it fires the instant a client connects,
-    /// which in this game means spawning a capsule into the lobby, where there is no floor to
-    /// stand on and nothing for it to do. Players exist only during a run.
-    /// </summary>
     public sealed class PlayerSpawner : NetworkBehaviour
     {
         [SerializeField] private SessionDirector director;
@@ -82,9 +74,6 @@ namespace Office.Network
 
         private void SpawnFor(ulong clientId)
         {
-            // The spawn pose is chosen by PlayerSpawnAnchor on the object itself, because the
-            // owner has to apply it — movement is owner-authoritative and a server-side
-            // transform write would be overwritten on the next frame.
             var instance = Instantiate(playerPrefab);
             var networkObject = instance.GetComponent<NetworkObject>();
 
@@ -124,8 +113,6 @@ namespace Office.Network
 
                 if (networkObject.OwnerClientId != clientId) continue;
 
-                // NGO despawns a disconnected client's player object itself; this only keeps
-                // the local bookkeeping from holding a destroyed reference.
                 spawned.RemoveAt(i);
             }
         }

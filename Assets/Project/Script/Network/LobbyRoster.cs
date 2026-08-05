@@ -5,18 +5,10 @@ using UnityEngine;
 
 namespace Office.Network
 {
-    /// <summary>
-    /// Who is in the lobby and who has pressed ready. Server-authoritative.
-    ///
-    /// Lives on the in-scene <c>[Session]</c> NetworkObject in SCN_Boot rather than on a spawned
-    /// prefab: the Boot scene is loaded on every client and never unloads, so the roster cannot
-    /// be destroyed by a scene transition halfway through a run.
-    /// </summary>
     public sealed class LobbyRoster : NetworkBehaviour
     {
         private readonly NetworkList<PlayerSlot> slots = new();
 
-        /// <summary>Raised on every client whenever any slot is added, removed or edited.</summary>
         public event Action Changed;
 
         public int Count => slots.Count;
@@ -49,9 +41,6 @@ namespace Office.Network
                 NetworkManager.OnClientConnectedCallback += OnClientConnected;
                 NetworkManager.OnClientDisconnectCallback += OnClientDisconnected;
 
-                // The host connects before this in-scene object spawns, so seeding from the
-                // current connection list is not an optimisation — without it the host is
-                // missing from its own lobby.
                 foreach (var clientId in NetworkManager.ConnectedClientsIds) AddSlot(clientId);
             }
 
@@ -71,7 +60,6 @@ namespace Office.Network
             Changed?.Invoke();
         }
 
-        /// <summary>Client asks to flip its own ready flag. The server owns the decision.</summary>
         [Rpc(SendTo.Server)]
         public void SetReadyRpc(bool ready, RpcParams rpcParams = default)
         {
@@ -86,7 +74,6 @@ namespace Office.Network
             slots[index] = slot;
         }
 
-        /// <summary>Server-side. Clears every ready flag, used when a run ends and players return.</summary>
         public void ClearReadyFlags()
         {
             if (!IsServer) return;
@@ -117,10 +104,6 @@ namespace Office.Network
             slots.Add(new PlayerSlot(clientId, BuildDisplayName(slots.Count + 1)));
         }
 
-        /// <summary>
-        /// Numbered by join order rather than by client id: NGO ids are not contiguous, and
-        /// "EMPLOYEE 07" in a four-player lobby reads as a bug.
-        /// </summary>
         private static FixedString32Bytes BuildDisplayName(int ordinal)
         {
             FixedString32Bytes name = default;
@@ -148,10 +131,6 @@ namespace Office.Network
 
         public override void OnDestroy()
         {
-            // NetworkList holds native memory. Leaking it survives play mode and shows up as a
-            // native leak warning on the next domain reload. NetworkBehaviour.OnDestroy is
-            // virtual and does its own cleanup, so hiding it instead of overriding would break
-            // NGO in a way that only appears after a few play sessions.
             slots?.Dispose();
             base.OnDestroy();
         }

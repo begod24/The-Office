@@ -3,7 +3,6 @@ using Office.Data;
 
 namespace Office.Network
 {
-    /// <inheritdoc cref="ILobbyService"/>
     public sealed class LobbyService : ILobbyService
     {
         private SessionDirector director;
@@ -59,7 +58,6 @@ namespace Office.Network
             director.RequestEndRunRpc();
         }
 
-        /// <summary>Called by <see cref="SessionDirector"/> when the session object spawns.</summary>
         internal void Bind(SessionDirector newDirector, LobbyRoster newRoster)
         {
             Unbind();

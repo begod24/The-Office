@@ -4,11 +4,6 @@ using UnityEngine;
 
 namespace Office.Tests.EditMode
 {
-    /// <summary>
-    /// Technical Plan §2.7.2. This test is the reason host migration in M4 is a feature rather
-    /// than a rewrite: it fails the moment someone adds run state that cannot survive a
-    /// snapshot. Run it every milestone and never delete it.
-    /// </summary>
     public sealed class RunStateSerializationTests
     {
         private static RunState BuildPopulatedState()

@@ -4,24 +4,12 @@ using UnityEngine;
 
 namespace Office.Gameplay
 {
-    /// <summary>
-    /// Walk, sprint, crouch and stamina. Technical Plan §7.2.
-    ///
-    /// Authority: client-authoritative (§2.3). The owner simulates its own movement and a
-    /// NetworkTransform in Owner mode replicates the result. This is a friends-only co-op game,
-    /// so cheating is not a threat, and it saves implementing prediction and reconciliation —
-    /// weeks of work for no benefit here.
-    ///
-    /// Non-owners run no logic at all: <see cref="PlayerRig"/> disables their CharacterController
-    /// so it cannot fight the replicated transform.
-    /// </summary>
     [RequireComponent(typeof(CharacterController))]
     public sealed class PlayerMovement : NetworkBehaviour
     {
         [SerializeField] private PlayerMovementConfig config;
         [SerializeField] private PlayerInputReader input;
 
-        /// <summary>Replicated so teammate HUDs and breathing audio can react. Owner writes.</summary>
         private readonly NetworkVariable<float> replicatedStamina = new(
             100f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
@@ -35,14 +23,12 @@ namespace Office.Gameplay
         private bool isCrouching;
         private float currentHeight;
 
-        /// <summary>0 when standing, 1 when fully crouched. Drives the camera eye height.</summary>
         public float CrouchBlend { get; private set; }
 
         public bool IsCrouching => isCrouching;
         public bool IsSprinting { get; private set; }
         public bool IsGrounded => controller != null && controller.isGrounded;
 
-        /// <summary>Horizontal speed as a fraction of sprint speed. Used by view bob and audio.</summary>
         public float NormalizedSpeed =>
             config == null ? 0f : Mathf.Clamp01(horizontalVelocity.magnitude / config.SprintSpeed);
 
@@ -67,7 +53,6 @@ namespace Office.Gameplay
 
         public override void OnNetworkSpawn()
         {
-            // Non-owners keep this component for its replicated properties but simulate nothing.
             if (!IsOwner) return;
 
             stamina = config.MaxStamina;
@@ -94,7 +79,6 @@ namespace Office.Gameplay
         {
             var wantsCrouch = input.CrouchHeld;
 
-            // Refusing to stand under a desk is better than clipping through it.
             if (!wantsCrouch && isCrouching && !HasHeadroomToStand()) wantsCrouch = true;
 
             isCrouching = wantsCrouch;
@@ -113,7 +97,6 @@ namespace Office.Gameplay
         {
             controller.radius = config.Radius;
             controller.height = currentHeight;
-            // The prefab pivot sits at the feet, so the capsule centre is half its height up.
             controller.center = new Vector3(0f, currentHeight * 0.5f, 0f);
         }
 
@@ -136,7 +119,6 @@ namespace Office.Gameplay
                 if (stamina <= 0f)
                 {
                     stamina = 0f;
-                    // Latched: you cannot stutter-sprint at zero. Recover past the threshold first.
                     sprintLocked = true;
                 }
             }
@@ -147,8 +129,6 @@ namespace Office.Gameplay
                 if (sprintLocked && stamina >= config.SprintUnlockThreshold) sprintLocked = false;
             }
 
-            // Replicate on meaningful change only. Writing a float every frame would burn
-            // bandwidth for a value nobody reads at that resolution.
             if (Mathf.Abs(replicatedStamina.Value - stamina) >= 1f ||
                 (stamina <= 0f && replicatedStamina.Value > 0f) ||
                 (Mathf.Approximately(stamina, config.MaxStamina) &&
@@ -186,8 +166,6 @@ namespace Office.Gameplay
         {
             if (controller.isGrounded && verticalVelocity < 0f)
             {
-                // A small constant downward force keeps the controller glued to stairs and
-                // slopes; zero would make it hop down every step.
                 verticalVelocity = config.GroundedStickForce;
 
                 if (config.CanJump && !isCrouching && input.JumpPressedThisFrame)

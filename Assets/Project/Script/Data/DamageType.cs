@@ -2,11 +2,6 @@ using System;
 
 namespace Office.Data
 {
-    /// <summary>
-    /// Elemental damage channels from GDD §8.3. Flags so a weapon can carry several
-    /// and an enemy can declare vulnerabilities and immunities as masks.
-    /// The damage resolver reads these; nothing in the codebase branches on a concrete enemy type.
-    /// </summary>
     [Flags]
     public enum DamageType
     {

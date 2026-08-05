@@ -4,17 +4,6 @@ using UnityEngine;
 
 namespace Office.Data
 {
-    /// <summary>
-    /// The single serialisable home for all authoritative run state. Technical Plan §2.7.2.
-    ///
-    /// Discipline enforced from the first commit: components read from and write to this
-    /// structure, they do not own authoritative data. Every new system adds its own block
-    /// here as part of being written, never later. This is what turns host migration (M4)
-    /// from a rewrite into a feature.
-    ///
-    /// Serialised with <see cref="JsonUtility"/>, so every field must be a Unity-serialisable
-    /// type: public fields only, no properties, no dictionaries, no interfaces, no nulls.
-    /// </summary>
     [Serializable]
     public sealed class RunState
     {
@@ -33,7 +22,6 @@ namespace Office.Data
 
         public static RunState FromJson(string json) => JsonUtility.FromJson<RunState>(json);
 
-        /// <summary>Wipes the structure for reuse without allocating new lists.</summary>
         public void Reset()
         {
             FloorSeed = 0;
@@ -51,8 +39,6 @@ namespace Office.Data
     [Serializable]
     public struct PlayerState
     {
-        // NGO client ids are ulong, but Unity's serializer has no unsigned 64-bit support,
-        // so it is stored as long and converted at the boundary. Do not change this to ulong.
         public long ClientId;
         public Vector3 Position;
         public float Yaw;

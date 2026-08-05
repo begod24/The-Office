@@ -8,15 +8,6 @@ using UnityEngine.UI;
 
 namespace Office.Editor
 {
-    /// <summary>
-    /// Builds the lobby screen from code. Same reasoning as the rest of
-    /// <see cref="ProjectSetup"/>: a canvas hierarchy is a large YAML blob that two people
-    /// cannot merge, and regenerating it from a menu item is cheaper than resolving a conflict
-    /// in it.
-    ///
-    /// The look is placeholder — flat dark panels, no art. GDD §14 calls for a retro terminal
-    /// HUD, and that pass belongs with the PS1 render pipeline in Sprint 9, not here.
-    /// </summary>
     internal static class LobbyUIBuilder
     {
         private const string RowPrefabPath = "Assets/Project/Prefab/UI/PF_LobbyRow.prefab";
@@ -28,20 +19,8 @@ namespace Office.Editor
         private static readonly Color TextPrimary = new(0.86f, 0.85f, 0.83f, 1f);
         private static readonly Color TextDim = new(0.55f, 0.55f, 0.54f, 1f);
 
-        // Opaque rather than white-with-low-alpha. The project renders in linear colour space,
-        // where a 10% white overlay on a dark panel resolves to a mid grey, not the barely
-        // visible tint the number suggests.
         private static readonly Color RowRemote = new(0.135f, 0.14f, 0.16f, 1f);
 
-        // ------------------------------------------------------------------ row prefab
-
-        /// <summary>
-        /// Creates the row prefab asset. Deliberately returns nothing: a reference to an asset
-        /// created moments earlier goes stale as soon as the AssetDatabase reimports it, and
-        /// assigning that stale wrapper to a SerializedProperty silently writes a null reference.
-        /// Callers must reload it through <see cref="LoadRowPrefab"/> after any operation that
-        /// can trigger a refresh — creating a scene, for instance.
-        /// </summary>
         public static void BuildRowPrefab()
         {
             var root = new GameObject("PF_LobbyRow", typeof(RectTransform));
@@ -63,10 +42,6 @@ namespace Office.Editor
             element.minHeight = 46f;
             element.preferredHeight = 46f;
 
-            // Without this the row stretches to fill the whole list. A LayoutElement only
-            // overrides the properties it defines, and it leaves flexibleHeight unset (-1); the
-            // row's own HorizontalLayoutGroup then supplies flexibleHeight = 1 because it force
-            // expands its children vertically, and the parent honours that.
             element.flexibleHeight = 0f;
 
             var nameLabel = CreateLabel("Name", rect, "EMPLOYEE 01", 20f,
@@ -102,8 +77,6 @@ namespace Office.Editor
 
             return asset.GetComponent<LobbyPlayerRow>();
         }
-
-        // ------------------------------------------------------------------ scene
 
         public static void Build(LobbyPlayerRow rowPrefab)
         {
@@ -247,8 +220,6 @@ namespace Office.Editor
             return group.gameObject;
         }
 
-        // ------------------------------------------------------------------ scene furniture
-
         private static void BuildCamera()
         {
             var cameraObject = new GameObject("LobbyCamera") { tag = "MainCamera" };
@@ -257,8 +228,6 @@ namespace Office.Editor
             camera.backgroundColor = Backdrop;
             camera.cullingMask = 0;
 
-            // No AudioListener here on purpose: the sandbox has one, and during the crossfade
-            // both scenes are briefly loaded. Two listeners is a warning every transition.
         }
 
         private static void BuildEventSystem()
@@ -266,8 +235,6 @@ namespace Office.Editor
             var eventSystem = new GameObject("EventSystem");
             eventSystem.AddComponent<EventSystem>();
 
-            // The project runs with the new Input System only, so the legacy StandaloneInputModule
-            // would throw and leave every button dead.
             eventSystem.AddComponent<InputSystemUIInputModule>();
         }
 
@@ -285,8 +252,6 @@ namespace Office.Editor
             canvasObject.AddComponent<GraphicRaycaster>();
             return canvas;
         }
-
-        // ------------------------------------------------------------------ helpers
 
         private static TMP_DefaultControls.Resources ControlResources() => new()
         {
@@ -392,8 +357,6 @@ namespace Office.Editor
         private static void AddLayoutElement(GameObject target, float preferredHeight = -1f,
             float preferredWidth = -1f, float flexibleWidth = -1f)
         {
-            // Not `??`: a missing Unity component compares equal to null through an overloaded
-            // operator, and the null-coalescing operator does not honour that overload.
             var element = target.GetComponent<LayoutElement>();
             if (element == null) element = target.AddComponent<LayoutElement>();
 
@@ -436,8 +399,6 @@ namespace Office.Editor
                     continue;
                 }
 
-                // A null here writes a silent null reference that only shows up as a missing
-                // element at runtime, so it is reported at build time instead.
                 if (value == null)
                     Debug.LogError($"[Setup] '{target.GetType().Name}.{field}' was given null.");
 

@@ -2,18 +2,10 @@ using UnityEngine;
 
 namespace Office.UI
 {
-    /// <summary>
-    /// The bottom-centre item bar. Display only: it never decides what is selected, it is told.
-    ///
-    /// Selection lives with the inventory, which will be server-authoritative like everything
-    /// else — a hotbar that tracked its own index would drift out of sync with the hands the
-    /// player is actually holding an item in.
-    /// </summary>
     public sealed class HudHotbar : MonoBehaviour
     {
         [SerializeField] private HudSlot[] slots;
 
-        /// <summary>-1 while nothing is selected, which is also the state an empty hand is in.</summary>
         public int SelectedIndex { get; private set; } = -1;
 
         public int Count => slots == null ? 0 : slots.Length;
@@ -56,7 +48,6 @@ namespace Office.UI
             SetSelected(-1);
         }
 
-        /// <summary>Pass an out-of-range index (or -1) to deselect everything.</summary>
         public void SetSelected(int index)
         {
             SelectedIndex = InRange(index) ? index : -1;

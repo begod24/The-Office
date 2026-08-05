@@ -4,20 +4,8 @@ using UnityEngine;
 
 namespace Office.Network
 {
-    /// <summary>
-    /// Registers the networking services with the composition root and republishes NGO's
-    /// connection callbacks onto the local event bus, so gameplay never subscribes to
-    /// <see cref="NetworkManager"/> directly.
-    /// </summary>
     public sealed class NetworkServiceInstaller : ServiceInstaller
     {
-        /// <summary>
-        /// Assigned in the Boot scene. NetworkManager.Singleton is still null here: the
-        /// composition root runs at execution order -10000, which is deliberately earlier than
-        /// NetworkManager's own Awake. An explicit same-scene reference is deterministic, and
-        /// unlike a cross-scene reference it does not break the scene-ownership rule in
-        /// Technical Plan §3.3.
-        /// </summary>
         [SerializeField] private NetworkManager networkManager;
 
         [Tooltip("Spawned by the server once it starts. Must be registered in the network " +
@@ -39,9 +27,6 @@ namespace Office.Network
             sessionService = new MultiplayerSessionService();
             ServiceLocator.Register<ISessionService>(sessionService);
 
-            // Registered while offline and left registered for the whole session. The networked
-            // roster binds itself into it on spawn, so the UI never holds a reference to an
-            // object that can be despawned out from under it.
             lobbyService = new LobbyService();
             ServiceLocator.Register<ILobbyService>(lobbyService);
 
@@ -61,11 +46,6 @@ namespace Office.Network
             manager.OnServerStopped += OnServerStopped;
         }
 
-        /// <summary>
-        /// The session object is spawned rather than placed in the Boot scene. In-scene placed
-        /// NetworkObjects are only resolvable by clients when NGO owns scene management, and it
-        /// does not here — see <see cref="SessionRoot"/>.
-        /// </summary>
         private void OnServerStarted()
         {
             if (sessionPrefab == null)
@@ -112,8 +92,6 @@ namespace Office.Network
                 manager.OnServerStopped -= OnServerStopped;
             }
 
-            // Fire and forget: the application is tearing down and nothing can await this.
-            // The service itself never throws out of LeaveAsync.
             _ = sessionService?.LeaveAsync();
 
             lobbyService?.Unbind();

@@ -5,13 +5,6 @@ using UnityEngine.InputSystem;
 
 namespace Office.Gameplay
 {
-    /// <summary>
-    /// Splits the player prefab into what the owner runs and what everyone else only sees.
-    ///
-    /// Every player prefab instance exists on every client. Without this, four cameras and four
-    /// audio listeners would be active at once, remote input readers would fight for the mouse,
-    /// and each remote CharacterController would argue with the replicated transform.
-    /// </summary>
     public sealed class PlayerRig : NetworkBehaviour
     {
         [Header("Owner only")]
@@ -61,8 +54,6 @@ namespace Office.Gameplay
         {
             if (!IsOwner || !manageCursor) return;
 
-            // Escape releases the mouse so the editor and the session UI stay usable.
-            // A real pause menu replaces this in M1.
             var keyboard = Keyboard.current;
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) SetCursorLocked(false);
 

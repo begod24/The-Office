@@ -82,9 +82,6 @@ namespace Office.Tests.EditMode
         [Test]
         public void SetFromAuthority_AppliesATransitionThatWouldBeIllegalToRequest()
         {
-            // A client that joins mid-run is sitting in MainMenu while the server is InRun.
-            // Requesting that jump is correctly refused; accepting it from the server is the
-            // whole reason SetFromAuthority exists.
             machine.TryChange(GameState.MainMenu);
 
             machine.SetFromAuthority(GameState.InRun);

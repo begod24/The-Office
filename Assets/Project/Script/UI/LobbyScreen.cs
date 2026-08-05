@@ -8,17 +8,6 @@ using UnityEngine.UI;
 
 namespace Office.UI
 {
-    /// <summary>
-    /// The pre-run room. MVP plan task A-11: player list, ready state, start run.
-    ///
-    /// It reads <see cref="ISessionService"/> for the connection and <see cref="ILobbyService"/>
-    /// for the roster, and it holds no reference to any networked object — both of those live in
-    /// the Boot scene while this screen lives in SCN_Lobby, and the lobby scene is unloaded the
-    /// moment a run starts.
-    ///
-    /// Every button is a request, never a decision. The server refuses a start that should not
-    /// happen, so a disabled button here is a courtesy rather than a security measure.
-    /// </summary>
     public sealed class LobbyScreen : MonoBehaviour
     {
         private const int MaxPlayers = 4;
@@ -81,8 +70,6 @@ namespace Office.UI
 
         private void OnEnable()
         {
-            // A run leaves the cursor locked. Returning to the lobby with an invisible cursor
-            // makes the screen look frozen.
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
         }
@@ -104,8 +91,6 @@ namespace Office.UI
                 rows.Add(row);
             }
         }
-
-        // ------------------------------------------------------------------ presentation
 
         private void Refresh()
         {
@@ -180,8 +165,6 @@ namespace Office.UI
         }
 
         private void OnSessionPhaseChanged(SessionPhase phase) => Refresh();
-
-        // ------------------------------------------------------------------ input
 
         private async void OnHostClicked()
         {

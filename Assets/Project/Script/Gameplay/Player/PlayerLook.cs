@@ -4,14 +4,6 @@ using UnityEngine;
 
 namespace Office.Gameplay
 {
-    /// <summary>
-    /// Camera aiming and eye height. Technical Plan §7.2.
-    ///
-    /// Yaw is applied to the body transform, so it replicates through NetworkTransform and
-    /// remote players visibly turn. Pitch stays on a local camera pivot: nothing on a remote
-    /// client needs it yet, and replicating it would cost bandwidth for an invisible value.
-    /// It becomes a replicated head bone the moment third-person bodies exist.
-    /// </summary>
     public sealed class PlayerLook : NetworkBehaviour
     {
         [SerializeField] private PlayerLookConfig config;
@@ -23,7 +15,6 @@ namespace Office.Gameplay
 
         [SerializeField] private Camera playerCamera;
 
-        /// <summary>Runtime sensitivity multiplier from the settings menu. 1 = as configured.</summary>
         public float SensitivityScale { get; set; } = 1f;
 
         private float pitch;
@@ -41,8 +32,6 @@ namespace Office.Gameplay
             if (playerCamera != null) playerCamera.fieldOfView = config.FieldOfView;
         }
 
-        // LateUpdate so the camera follows the position produced by movement this frame.
-        // Running it in Update would show the camera one frame behind the body.
         private void LateUpdate()
         {
             if (!IsOwner || input == null) return;
@@ -55,8 +44,6 @@ namespace Office.Gameplay
         {
             var look = input.Look;
 
-            // A mouse reports an accumulated delta, a stick reports a rate. Only the stick is
-            // scaled by delta time; scaling both makes mouse aim frame-rate dependent.
             var scale = input.LookIsPointerDelta
                 ? config.MouseSensitivity
                 : config.GamepadSensitivity * Time.deltaTime;
@@ -91,7 +78,6 @@ namespace Office.Gameplay
                 }
                 else
                 {
-                    // Settle back to centre instead of freezing mid-bob.
                     bobPhase = 0f;
                 }
             }

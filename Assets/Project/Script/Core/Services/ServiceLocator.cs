@@ -4,18 +4,6 @@ using UnityEngine;
 
 namespace Office.Core
 {
-    /// <summary>
-    /// Access point for services constructed by the composition root. Technical Plan §4.2.
-    ///
-    /// This deliberately replaces the classic <c>public static T Instance</c> singleton:
-    /// interfaces are registered rather than concrete types, lifetime is explicit, and a
-    /// test can substitute a fake. Registration happens in exactly one place —
-    /// <see cref="GameBootstrap"/> — so access order is declared, not implicit.
-    ///
-    /// The static table is cleared on subsystem registration because the project runs with
-    /// domain reload disabled and with Multiplayer Play Mode virtual players; without this,
-    /// stale references survive between play sessions and bleed between virtual players.
-    /// </summary>
     public static class ServiceLocator
     {
         private static readonly Dictionary<Type, object> Services = new(16);

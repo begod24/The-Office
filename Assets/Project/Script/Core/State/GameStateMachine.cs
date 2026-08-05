@@ -4,14 +4,6 @@ using UnityEngine;
 
 namespace Office.Core
 {
-    /// <summary>
-    /// Local, non-networked phase machine used for Boot, MainMenu and Lobby.
-    /// Replaced by the server-authoritative implementation once a session is running.
-    ///
-    /// Transitions are validated against an explicit table. An illegal transition is a bug in
-    /// the caller, and it is far cheaper to catch it here than to debug a run that silently
-    /// entered <see cref="GameState.InRun"/> without generating a floor.
-    /// </summary>
     public sealed class GameStateMachine : IGameStateService
     {
         private readonly IEventBus bus;
@@ -36,7 +28,6 @@ namespace Office.Core
             return true;
         }
 
-        /// <inheritdoc />
         public void SetFromAuthority(GameState next)
         {
             if (next == Current) return;
@@ -53,11 +44,6 @@ namespace Office.Core
             bus?.Publish(new GameStateChanged(previous, next));
         }
 
-        /// <summary>
-        /// Transition table for Technical Plan §7.1:
-        /// Boot -> MainMenu -> Lobby -> Generating -> InRun -> FloorTransition
-        ///      -> RunComplete / RunFailed -> Lobby
-        /// </summary>
         public static bool IsLegal(GameState from, GameState to) => from switch
         {
             GameState.Boot => to is GameState.MainMenu,

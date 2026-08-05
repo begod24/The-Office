@@ -50,3 +50,9 @@ The Office-*/
 ignore.conf
 *.slnx
 *.slnf
+
+# Planning docs are kept outside the repository.
+CONTRIBUTING.md
+MVP_PLAN.md
+TECHNICAL_PLAN.md
+Docs/KitContract.md

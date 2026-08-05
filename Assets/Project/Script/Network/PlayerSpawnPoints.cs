@@ -2,15 +2,6 @@ using UnityEngine;
 
 namespace Office.Network
 {
-    /// <summary>
-    /// Spawn points authored in a gameplay scene. NetworkManager lives in the Boot scene and
-    /// spawns players at the origin by default, so the currently loaded gameplay scene has to
-    /// publish where players belong.
-    ///
-    /// Round-robin rather than random: with four players and four points, everyone gets a
-    /// distinct one, and the result does not depend on a random sequence that would differ
-    /// between host and clients.
-    /// </summary>
     public sealed class PlayerSpawnPoints : MonoBehaviour
     {
         [Tooltip("Ordered spawn points. Assign at least one; the transform's own position is " +
@@ -38,7 +29,6 @@ namespace Office.Network
             if (ReferenceEquals(active, this)) active = null;
         }
 
-        /// <summary>Server-side. Returns the next spawn pose, or the world origin if none exist.</summary>
         public static void Next(out Vector3 position, out float yaw)
         {
             if (active == null || active.points == null || active.points.Length == 0)

@@ -101,8 +101,6 @@ namespace Office.Tests.EditMode
             bus.Subscribe<Ping>(_ => throw new System.InvalidOperationException("expected"));
             bus.Subscribe<Ping>(_ => reached = true);
 
-            // The bus logs the exception rather than propagating it; the test only asserts
-            // that delivery continued.
             UnityEngine.TestTools.LogAssert.ignoreFailingMessages = true;
             bus.Publish(new Ping(1));
             UnityEngine.TestTools.LogAssert.ignoreFailingMessages = false;

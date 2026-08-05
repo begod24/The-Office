@@ -5,16 +5,6 @@ using UnityEngine;
 
 namespace Office.Core
 {
-    /// <summary>
-    /// The composition root. Technical Plan §4.2. Lives on exactly one object in
-    /// <c>SCN_Boot</c>, which is build index 0 and never unloads.
-    ///
-    /// This is the only place in the project where a service is constructed. Nothing else may
-    /// call <c>new</c> on a service, and nothing may reach across scenes through an inspector
-    /// reference — systems find each other through <see cref="ServiceLocator"/> and
-    /// <see cref="IEventBus"/>. Violating that is what causes "B edited the level and A's
-    /// scene broke" (Technical Plan §3.3).
-    /// </summary>
     [DefaultExecutionOrder(-10000)]
     public sealed class GameBootstrap : MonoBehaviour
     {
@@ -40,8 +30,6 @@ namespace Office.Core
 
         private void Awake()
         {
-            // Entering play mode directly from a gameplay scene that also contains a Boot object
-            // would otherwise register every service twice.
             if (hasBooted)
             {
                 Destroy(gameObject);

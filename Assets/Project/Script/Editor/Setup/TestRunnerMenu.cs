@@ -5,14 +5,6 @@ using UnityEngine;
 
 namespace Office.Editor
 {
-    /// <summary>
-    /// Runs the EditMode suite and prints a one-line summary plus every failure.
-    ///
-    /// The Test Runner window works, but the working rhythm in the MVP plan calls for running
-    /// the suite every sprint, and a menu item that logs its result is scriptable and shows up
-    /// in CI later. The determinism test for the level generator will be the most important
-    /// thing this ever runs.
-    /// </summary>
     public static class TestRunnerMenu
     {
         [MenuItem("Office/Tests/Run EditMode Tests", priority = 100)]

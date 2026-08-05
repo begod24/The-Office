@@ -2,10 +2,6 @@ using UnityEngine;
 
 namespace Office.Data
 {
-    /// <summary>
-    /// Every tunable movement number lives here, never in a prefab. Technical Plan §5.8.
-    /// Keeps balancing diffs readable and stops art changes from conflicting with tuning changes.
-    /// </summary>
     [CreateAssetMenu(menuName = "Office/Config/Player Movement", fileName = "CFG_PlayerMovement")]
     public sealed class PlayerMovementConfig : ScriptableObject
     {

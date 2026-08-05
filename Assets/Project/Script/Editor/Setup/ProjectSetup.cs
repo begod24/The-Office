@@ -14,18 +14,6 @@ using UnityEngine.SceneManagement;
 
 namespace Office.Editor
 {
-    /// <summary>
-    /// Builds the parts of the project that would otherwise be hand-authored in the editor:
-    /// the collision matrix, the config assets, the player prefab and the Boot and Sandbox
-    /// scenes.
-    ///
-    /// Why this exists instead of a set of manual steps in a README: prefab and scene files are
-    /// YAML blobs that two people cannot merge. Anything that can be regenerated from code
-    /// should be, so a broken prefab is fixed by re-running a menu item rather than by
-    /// resolving a conflict nobody can read.
-    ///
-    /// Everything here is idempotent — running it twice produces the same result.
-    /// </summary>
     public static class ProjectSetup
     {
         private const string ConfigFolder = "Assets/Project/ScriptableObject/Config";
@@ -62,8 +50,6 @@ namespace Office.Editor
             Debug.Log("[Setup] Done. Open SCN_Boot and press Play, then Host in the F1 panel.");
         }
 
-        // ------------------------------------------------------------------ physics
-
         [MenuItem("Office/Setup/Configure Collision Matrix", priority = 20)]
         public static void ConfigureCollisionMatrix()
         {
@@ -78,19 +64,12 @@ namespace Office.Editor
             var masks = new uint[32];
             for (var i = 0; i < masks.Length; i++) masks[i] = uint.MaxValue;
 
-            // Purely visual — first-person hands and held items must never touch the world.
             DisableAll(masks, PhysicsLayers.ViewModel);
 
-            // Emitters for the equipment voice channel (GDD §7.3.1) are trigger volumes and
-            // audio sources, never physical obstacles.
             DisableAll(masks, PhysicsLayers.VoiceEmitter);
 
-            // Staples do not deflect other staples.
             Disable(masks, PhysicsLayers.Projectile, PhysicsLayers.Projectile);
 
-            // Players pass through each other. In a game about fleeing down corridors, a
-            // teammate blocking a doorway is a bug report, not tension. Reversible decision:
-            // flip this line if playtests want body blocking.
             Disable(masks, PhysicsLayers.Player, PhysicsLayers.Player);
 
             var serialized = new SerializedObject(assets[0]);
@@ -122,16 +101,11 @@ namespace Office.Editor
             for (var other = 0; other < masks.Length; other++) Disable(masks, layer, other);
         }
 
-        // ------------------------------------------------------------------ configs
-
         [MenuItem("Office/Setup/Create Config Assets", priority = 21)]
         public static void CreateConfigAssets()
         {
             var movement = CreateOrLoad<PlayerMovementConfig>(MovementConfigPath);
 
-            // Jump is off by design (GDD §7.1 lists walk, sprint, crouch, vault). It is enabled
-            // here only so the greybox sandbox can be probed for geometry problems; the shipping
-            // config must set it back to false.
             var serialized = new SerializedObject(movement);
             serialized.FindProperty("canJump").boolValue = true;
             serialized.ApplyModifiedPropertiesWithoutUndo();
@@ -141,8 +115,6 @@ namespace Office.Editor
             AssetDatabase.SaveAssets();
             Debug.Log("[Setup] Config assets ready.");
         }
-
-        // ------------------------------------------------------------------ player prefab
 
         [MenuItem("Office/Setup/Build Player Prefab", priority = 22)]
         public static void BuildPlayerPrefab()
@@ -166,8 +138,6 @@ namespace Office.Editor
             var networkTransform = root.AddComponent<NetworkTransform>();
             networkTransform.AuthorityMode = NetworkTransform.AuthorityModes.Owner;
             networkTransform.Interpolate = true;
-            // Nothing scales a player, and three unused floats per update is bandwidth
-            // the NetworkObject budget in Technical Plan §2.5 does not need to spend.
             networkTransform.SyncScaleX = false;
             networkTransform.SyncScaleY = false;
             networkTransform.SyncScaleZ = false;
@@ -189,7 +159,7 @@ namespace Office.Editor
             var listener = cameraObject.AddComponent<AudioListener>();
 
             var input = root.AddComponent<PlayerInputReader>();
-            input.enabled = false; // PlayerRig enables it for the owner only.
+            input.enabled = false;
 
             var movement = root.AddComponent<PlayerMovement>();
             var look = root.AddComponent<PlayerLook>();
@@ -234,8 +204,6 @@ namespace Office.Editor
             capsule.transform.localScale = new Vector3(0.64f, 0.9f, 0.64f);
             capsule.GetComponent<MeshRenderer>().sharedMaterial = bodyMaterial;
 
-            // Without a facing marker, a capsule gives no way to read which way a teammate is
-            // looking, which makes the very first co-op test useless.
             var nose = GameObject.CreatePrimitive(PrimitiveType.Cube);
             nose.name = "FacingMarker";
             nose.layer = PhysicsLayers.Player;
@@ -250,8 +218,6 @@ namespace Office.Editor
                 capsule.GetComponent<MeshRenderer>(), nose.GetComponent<MeshRenderer>()
             };
         }
-
-        // ------------------------------------------------------------------ scenes
 
         [MenuItem("Office/Setup/Build Sandbox Scene", priority = 40)]
         public static void BuildSandboxScene()
@@ -280,8 +246,6 @@ namespace Office.Editor
                 return;
             }
 
-            // The lobby UI cannot be built before this runs: TMP components with no default font
-            // asset log an error per object and render nothing.
             TMPro.TMP_PackageResourceImporter.ImportResources(true, false, false);
             Debug.Log("[Setup] TextMeshPro essentials imported.");
         }
@@ -301,8 +265,6 @@ namespace Office.Editor
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
-            // Reloaded after the scene is created: the reference returned before NewScene would
-            // point at a reimported, and therefore destroyed, wrapper.
             LobbyUIBuilder.Build(LobbyUIBuilder.LoadRowPrefab());
 
             SaveScene(scene, LobbyScenePath);
@@ -329,14 +291,8 @@ namespace Office.Editor
             networkManager.NetworkConfig ??= new NetworkConfig();
             networkManager.NetworkConfig.NetworkTransport = transport;
 
-            // Automatic player spawning is off. It fires the moment a client connects, which
-            // would drop a capsule into the lobby where there is no floor. PlayerSpawner
-            // creates player objects when the run actually begins.
             networkManager.NetworkConfig.PlayerPrefab = null;
 
-            // Off for now. Every client loads SCN_Sandbox itself at boot, so letting NGO also
-            // synchronise scenes would load the same geometry twice on a joining client.
-            // This flips back on in Sprint 6, when the floor generator owns scene flow.
             networkManager.NetworkConfig.EnableSceneManagement = false;
 
             var bootstrapObject = new GameObject("[Bootstrap]");
@@ -365,15 +321,6 @@ namespace Office.Editor
             Debug.Log($"[Setup] {BootScenePath} built.");
         }
 
-        /// <summary>
-        /// The session is a spawned prefab, not an object placed in SCN_Boot.
-        ///
-        /// The in-scene version worked for the host and failed for every client: with
-        /// <c>EnableSceneManagement = false</c> NGO cannot resolve in-scene placed NetworkObjects
-        /// remotely, so it sends them as ordinary spawns and the client reports
-        /// "NetworkPrefab could not be found". <see cref="SessionRoot"/> keeps the spawned copy
-        /// alive across scene transitions instead.
-        /// </summary>
         [MenuItem("Office/Setup/Build Session Prefab", priority = 23)]
         public static void BuildSessionPrefab()
         {
@@ -410,12 +357,6 @@ namespace Office.Editor
             Debug.Log($"[Setup] Session prefab written to {SessionPrefabPath}.");
         }
 
-        /// <summary>
-        /// A prefab a client has to spawn must be in the network prefab list on both machines.
-        /// Unity usually adds new NetworkObject prefabs automatically, but relying on an editor
-        /// preference for something that only fails on a remote client is how the in-scene
-        /// session object shipped broken in the first place.
-        /// </summary>
         private static void RegisterNetworkPrefab(GameObject prefab)
         {
             if (prefab == null) return;
@@ -495,8 +436,6 @@ namespace Office.Editor
             Wire(fallback, ("fallbackListener", listener));
         }
 
-        // ------------------------------------------------------------------ build settings
-
         [MenuItem("Office/Setup/Configure Build Settings", priority = 60)]
         public static void ConfigureBuildSettings()
         {
@@ -519,13 +458,6 @@ namespace Office.Editor
             Debug.Log($"[Setup] Build settings: {scenes.Count} scenes, SCN_Boot at index 0.");
         }
 
-        // ------------------------------------------------------------------ helpers
-
-        /// <summary>
-        /// Guards against clobbering work the setup does not own. A generated scene is always
-        /// safe to replace even when dirty — TextMeshPro re-marks a scene dirty right after
-        /// saving it, so a plain isDirty check would refuse to chain the build steps.
-        /// </summary>
         private static bool EnsureNoUnsavedScene()
         {
             var active = SceneManager.GetActiveScene();
@@ -548,10 +480,6 @@ namespace Office.Editor
             EditorSceneManager.SaveScene(scene, path);
         }
 
-        /// <summary>
-        /// Scene files inherited from the old Plastic SCM workspace are marked read-only on
-        /// disk, which makes SaveScene fail with an opaque IO error.
-        /// </summary>
         private static void ClearReadOnly(string path)
         {
             if (!File.Exists(path)) return;
@@ -620,8 +548,6 @@ namespace Office.Editor
                     continue;
                 }
 
-                // A null here writes a silent null reference that only shows up as a missing
-                // element at runtime, so it is reported at build time instead.
                 if (value == null)
                     Debug.LogError($"[Setup] '{target.GetType().Name}.{field}' was given null.");
 

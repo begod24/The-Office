@@ -1,9 +1,5 @@
 namespace Office.Data
 {
-    /// <summary>
-    /// Authoritative phase of the session. Technical Plan §7.1.
-    /// Replicated by the server; no system may infer the current phase from anything else.
-    /// </summary>
     public enum GameState : byte
     {
         Boot = 0,

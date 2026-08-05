@@ -4,26 +4,15 @@ using UnityEngine.UI;
 
 namespace Office.UI
 {
-    /// <summary>How far along a single objective line is.</summary>
     public enum HudObjectiveState
     {
-        /// <summary>Known but not started — an empty box.</summary>
         Pending,
 
-        /// <summary>Currently being worked on — a filled box in the accent colour.</summary>
         Active,
 
-        /// <summary>Done — a filled box, dimmed text.</summary>
         Complete
     }
 
-    /// <summary>
-    /// One objective line: a state box and a label.
-    ///
-    /// The box is two nested Images rather than a glyph. A checkbox character would depend on the
-    /// font asset containing it, and the HUD font is a placeholder that will be swapped — a
-    /// missing glyph would silently turn the whole objective list into fallback squares.
-    /// </summary>
     public sealed class HudObjectiveRow : MonoBehaviour
     {
         private static readonly Color TextActive = new(0.90f, 0.90f, 0.88f, 1f);
@@ -52,7 +41,6 @@ namespace Office.UI
                     _ => TextPending
                 };
 
-                // Reads as struck through without needing a second label or a strikethrough glyph.
                 label.fontStyle = state == HudObjectiveState.Complete
                     ? FontStyles.Strikethrough
                     : FontStyles.Normal;

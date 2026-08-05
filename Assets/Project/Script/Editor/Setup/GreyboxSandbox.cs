@@ -4,14 +4,6 @@ using UnityEngine;
 
 namespace Office.Editor
 {
-    /// <summary>
-    /// The throwaway test space. Everything sits on the 2 m module and 0.25 m sub-grid from the
-    /// locked kit contract (GDD §12.3), so walking it answers real questions: does a 1 m doorway
-    /// feel wide enough at 0.32 m player radius, does a 3 m ceiling read as an office, is
-    /// 3.2 m/s the right walk speed for a 2 m corridor.
-    ///
-    /// This is deleted the moment B's modular kit lands. Nothing here is art.
-    /// </summary>
     internal static class GreyboxSandbox
     {
         private const float Module = 2f;
@@ -67,11 +59,6 @@ namespace Office.Editor
                 new Vector3(WallThickness, WallHeight, size), wallMaterial);
         }
 
-        /// <summary>
-        /// A wall across the room with a single 1 m doorway. The one measurement worth testing
-        /// before twenty rooms are built: whether a doorway that narrow is passable at speed
-        /// with a teammate coming the other way.
-        /// </summary>
         private static void BuildInteriorPartition(Transform parent)
         {
             var group = new GameObject("Partition").transform;
@@ -90,7 +77,6 @@ namespace Office.Editor
                 new Vector3(sideOffset, WallHeight * 0.5f, z),
                 new Vector3(sideLength, WallHeight, WallThickness), wallMaterial);
 
-            // Header above the doorway, so the opening reads as a door rather than a gap.
             Box(group, "Partition_Header",
                 new Vector3(0f, 2.5f, z),
                 new Vector3(DoorWidth, 1f, WallThickness), wallMaterial);
@@ -100,7 +86,6 @@ namespace Office.Editor
                 new Vector3(DoorWidth, 0.04f, WallThickness), accentMaterial);
         }
 
-        /// <summary>A 2 m wide dead-end corridor — the width the whole kit is built around.</summary>
         private static void BuildCorridor(Transform parent)
         {
             var group = new GameObject("Corridor").transform;
@@ -123,11 +108,6 @@ namespace Office.Editor
                 new Vector3(Module, 0.2f, length), wallMaterial);
         }
 
-        /// <summary>
-        /// Obstacles at the heights that decide the controller's step offset and crouch height:
-        /// a desk to crouch under, a 0.3 m step to walk over, a 0.6 m crate to be blocked by,
-        /// and a ramp to check slope limit.
-        /// </summary>
         private static void BuildScaleReferences(Transform parent)
         {
             var group = new GameObject("ScaleReferences").transform;
@@ -139,7 +119,6 @@ namespace Office.Editor
             Box(group, "Crate_060", new Vector3(8f, 0.3f, -4f),
                 new Vector3(1f, 0.6f, 1f), wallMaterial);
 
-            // Underside at 1.2 m: too low to walk under, high enough to crouch under.
             Box(group, "DeskUnderpass_Top", new Vector3(4f, 1.3f, 2f),
                 new Vector3(4f, 0.2f, 2f), wallMaterial);
 
