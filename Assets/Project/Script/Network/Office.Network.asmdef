@@ -5,6 +5,7 @@
         "Office.Data",
         "Office.Core",
         "Unity.Netcode.Runtime",
+        "Unity.Collections",
         "Unity.Services.Core",
         "Unity.Services.Authentication",
         "Unity.Services.Multiplayer"

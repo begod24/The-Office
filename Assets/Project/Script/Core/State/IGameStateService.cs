@@ -23,5 +23,15 @@ namespace Office.Core
         /// rather than silently corrupting the phase.
         /// </summary>
         bool TryChange(GameState next);
+
+        /// <summary>
+        /// Applies a phase the server has already decided, skipping validation.
+        ///
+        /// **Only the replication layer may call this.** It exists because a late joiner's
+        /// local machine sits at <see cref="GameState.MainMenu"/> while the session is already
+        /// InRun, and that jump is correctly illegal for anyone else to request. Calling it from
+        /// gameplay defeats the entire point of the transition table.
+        /// </summary>
+        void SetFromAuthority(GameState next);
     }
 }

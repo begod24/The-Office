@@ -38,6 +38,7 @@ namespace Office.Editor
 
         private static string BootScenePath => $"{ScenesFolder}/{SceneNames.Boot}.unity";
         private static string SandboxScenePath => $"{ScenesFolder}/{SceneNames.Sandbox}.unity";
+        private static string LobbyScenePath => $"{ScenesFolder}/{SceneNames.Lobby}.unity";
 
         [MenuItem("Office/Setup/Run All (physics, configs, prefab, scenes)", priority = 0)]
         public static void RunAll()
@@ -48,6 +49,7 @@ namespace Office.Editor
             CreateConfigAssets();
             BuildPlayerPrefab();
             BuildSandboxScene();
+            BuildLobbyScene();
             BuildBootScene();
             ConfigureBuildSettings();
 
@@ -263,14 +265,50 @@ namespace Office.Editor
             Debug.Log($"[Setup] {SandboxScenePath} built.");
         }
 
+        [MenuItem("Office/Setup/Import TextMeshPro Essentials", priority = 10)]
+        public static void ImportTextMeshProEssentials()
+        {
+            if (AssetDatabase.IsValidFolder("Assets/TextMesh Pro"))
+            {
+                Debug.Log("[Setup] TextMeshPro essentials are already imported.");
+                return;
+            }
+
+            // The lobby UI cannot be built before this runs: TMP components with no default font
+            // asset log an error per object and render nothing.
+            TMPro.TMP_PackageResourceImporter.ImportResources(true, false, false);
+            Debug.Log("[Setup] TextMeshPro essentials imported.");
+        }
+
+        [MenuItem("Office/Setup/Build Lobby Scene", priority = 42)]
+        public static void BuildLobbyScene()
+        {
+            if (!EnsureNoUnsavedScene()) return;
+
+            if (!AssetDatabase.IsValidFolder("Assets/TextMesh Pro"))
+            {
+                Debug.LogError("[Setup] Run 'Office/Setup/Import TextMeshPro Essentials' first.");
+                return;
+            }
+
+            LobbyUIBuilder.BuildRowPrefab();
+
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+            // Reloaded after the scene is created: the reference returned before NewScene would
+            // point at a reimported, and therefore destroyed, wrapper.
+            LobbyUIBuilder.Build(LobbyUIBuilder.LoadRowPrefab());
+
+            SaveScene(scene, LobbyScenePath);
+            Debug.Log($"[Setup] {LobbyScenePath} built.");
+        }
+
         [MenuItem("Office/Setup/Build Boot Scene", priority = 41)]
         public static void BuildBootScene()
         {
             if (!EnsureNoUnsavedScene()) return;
 
-            var playerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath);
-
-            if (playerPrefab == null)
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath) == null)
             {
                 Debug.LogError("[Setup] Build the player prefab before the Boot scene.");
                 return;
@@ -278,13 +316,21 @@ namespace Office.Editor
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
+            // Loaded after the scene swap, for the same reason as the lobby row prefab: a
+            // reference taken beforehand can be invalidated by the reimport NewScene triggers.
+            var playerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath);
+
             var networkObject = new GameObject("NetworkManager");
             var networkManager = networkObject.AddComponent<NetworkManager>();
             var transport = networkObject.AddComponent<UnityTransport>();
 
             networkManager.NetworkConfig ??= new NetworkConfig();
             networkManager.NetworkConfig.NetworkTransport = transport;
-            networkManager.NetworkConfig.PlayerPrefab = playerPrefab;
+
+            // Automatic player spawning is off. It fires the moment a client connects, which
+            // would drop a capsule into the lobby where there is no floor. PlayerSpawner
+            // creates player objects when the run actually begins.
+            networkManager.NetworkConfig.PlayerPrefab = null;
 
             // Off for now. Every client loads SCN_Sandbox itself at boot, so letting NGO also
             // synchronise scenes would load the same geometry twice on a joining client.
@@ -296,17 +342,40 @@ namespace Office.Editor
             var networkInstaller = bootstrapObject.AddComponent<NetworkServiceInstaller>();
 
             var serialized = new SerializedObject(bootstrap);
-            serialized.FindProperty("firstScene").stringValue = SceneNames.Sandbox;
+            serialized.FindProperty("firstScene").stringValue = SceneNames.Lobby;
             serialized.ApplyModifiedPropertiesWithoutUndo();
 
             WireArray(bootstrap, "installers", networkInstaller);
             Wire(networkInstaller, ("networkManager", networkManager));
+
+            BuildSessionObject(playerPrefab);
 
             var uiObject = new GameObject("[DevUI]");
             uiObject.AddComponent<DevSessionPanel>();
 
             SaveScene(scene, BootScenePath);
             Debug.Log($"[Setup] {BootScenePath} built.");
+        }
+
+        /// <summary>
+        /// The session lives on an in-scene placed NetworkObject in SCN_Boot rather than on a
+        /// spawned prefab. Boot is loaded on every client and never unloads, so the roster and
+        /// the phase survive the scene transition into a run — a spawned object would be
+        /// destroyed the moment the lobby scene unloaded under it.
+        /// </summary>
+        private static void BuildSessionObject(GameObject playerPrefab)
+        {
+            var sessionObject = new GameObject("[Session]");
+            sessionObject.AddComponent<NetworkObject>();
+
+            var roster = sessionObject.AddComponent<LobbyRoster>();
+            var director = sessionObject.AddComponent<SessionDirector>();
+            var spawner = sessionObject.AddComponent<PlayerSpawner>();
+            var sceneFlow = sessionObject.AddComponent<RunSceneFlow>();
+
+            Wire(director, ("roster", roster));
+            Wire(spawner, ("director", director), ("playerPrefab", playerPrefab));
+            Wire(sceneFlow, ("director", director));
         }
 
         private static void BuildLighting()
@@ -374,8 +443,8 @@ namespace Office.Editor
             var paths = new[]
             {
                 BootScenePath,
-                SandboxScenePath,
-                $"{ScenesFolder}/{SceneNames.Lobby}.unity"
+                LobbyScenePath,
+                SandboxScenePath
             };
 
             var scenes = new System.Collections.Generic.List<EditorBuildSettingsScene>();
@@ -392,16 +461,25 @@ namespace Office.Editor
 
         // ------------------------------------------------------------------ helpers
 
+        /// <summary>
+        /// Guards against clobbering work the setup does not own. A generated scene is always
+        /// safe to replace even when dirty — TextMeshPro re-marks a scene dirty right after
+        /// saving it, so a plain isDirty check would refuse to chain the build steps.
+        /// </summary>
         private static bool EnsureNoUnsavedScene()
         {
             var active = SceneManager.GetActiveScene();
 
             if (!active.isDirty) return true;
+            if (IsGeneratedScene(active.path)) return true;
 
             Debug.LogError($"[Setup] '{active.name}' has unsaved changes. Save or discard it " +
                            "first — this command replaces the open scene.");
             return false;
         }
+
+        private static bool IsGeneratedScene(string path) =>
+            path == BootScenePath || path == LobbyScenePath || path == SandboxScenePath;
 
         private static void SaveScene(Scene scene, string path)
         {
@@ -481,6 +559,11 @@ namespace Office.Editor
                                    "The setup script and the component have drifted apart.");
                     continue;
                 }
+
+                // A null here writes a silent null reference that only shows up as a missing
+                // element at runtime, so it is reported at build time instead.
+                if (value == null)
+                    Debug.LogError($"[Setup] '{target.GetType().Name}.{field}' was given null.");
 
                 property.objectReferenceValue = value;
             }

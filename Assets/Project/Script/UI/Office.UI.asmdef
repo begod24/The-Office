@@ -6,6 +6,8 @@
         "Office.Core",
         "Office.Network",
         "Office.Gameplay",
+        "Unity.Netcode.Runtime",
+        "Unity.Collections",
         "Unity.InputSystem",
         "Unity.TextMeshPro",
         "UnityEngine.UI"

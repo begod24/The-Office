@@ -24,6 +24,7 @@ namespace Office.Network
 
         private IEventBus bus;
         private MultiplayerSessionService sessionService;
+        private LobbyService lobbyService;
 
         private NetworkManager Manager =>
             networkManager != null ? networkManager : NetworkManager.Singleton;
@@ -32,6 +33,12 @@ namespace Office.Network
         {
             sessionService = new MultiplayerSessionService();
             ServiceLocator.Register<ISessionService>(sessionService);
+
+            // Registered while offline and left registered for the whole session. The networked
+            // roster binds itself into it on spawn, so the UI never holds a reference to an
+            // object that can be despawned out from under it.
+            lobbyService = new LobbyService();
+            ServiceLocator.Register<ILobbyService>(lobbyService);
 
             bus = ServiceLocator.Get<IEventBus>();
 
@@ -60,6 +67,9 @@ namespace Office.Network
             // The service itself never throws out of LeaveAsync.
             _ = sessionService?.LeaveAsync();
 
+            lobbyService?.Unbind();
+
+            ServiceLocator.Unregister<ILobbyService>();
             ServiceLocator.Unregister<ISessionService>();
         }
 

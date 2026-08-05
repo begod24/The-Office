@@ -50,7 +50,8 @@ Every asmdef sets `autoReferenced: false` — no project code may live outside a
 |---|---|
 | `NetworkManager` | `NetworkManager`, `UnityTransport` |
 | `[Bootstrap]` | `GameBootstrap`, `NetworkServiceInstaller` |
-| `[DevUI]` | `DevSessionPanel` |
+| `[Session]` | `NetworkObject`, `LobbyRoster`, `SessionDirector`, `PlayerSpawner`, `RunSceneFlow` |
+| `[DevUI]` | `DevSessionPanel` (hidden, F1) |
 
 `GameBootstrap` runs at `[DefaultExecutionOrder(-10000)]`, registers the core services, then runs
 every `ServiceInstaller` in ascending `Order`. Teardown runs installers in reverse.
@@ -64,6 +65,7 @@ Services registered today:
 | `IGameStateService` | `GameStateMachine` | `GameBootstrap` |
 | `RunState` | `RunState` | `GameBootstrap` |
 | `ISessionService` | `MultiplayerSessionService` | `NetworkServiceInstaller` |
+| `ILobbyService` | `LobbyService` | `NetworkServiceInstaller` |
 
 **The installer pattern is why this works.** `Office.Core` may not reference `Office.Network`,
 so the composition root cannot construct a session service directly. Instead it knows only the
@@ -81,9 +83,9 @@ therefore holds a serialized same-scene reference to the NetworkManager. Do not 
 
 | Scene | Role | Loaded |
 |---|---|---|
-| `SCN_Boot` | Composition root, NetworkManager | Build index 0, never unloads |
-| `SCN_Sandbox` | Greybox test space | Additively by `GameBootstrap.firstScene` |
-| `SCN_Lobby` | Placeholder, empty | Not yet used |
+| `SCN_Boot` | Composition root, NetworkManager, session | Build index 0, never unloads |
+| `SCN_Lobby` | Pre-run room: roster, ready, start | Additively at boot, and on return from a run |
+| `SCN_Sandbox` | Greybox test space | Additively when the run starts |
 | `SCN_Main` | Legacy template scene | To be deleted |
 
 `NetworkConfig.EnableSceneManagement` is **off**. Every client loads `SCN_Sandbox` itself at
@@ -118,7 +120,36 @@ profiles they all authenticate as the same anonymous player and the second one e
 |---|---|
 | Player movement and look | Owner (client-authoritative) |
 | Spawn position | Server picks, owner applies |
+| Session phase, lobby roster, ready flags | Server |
+| Player object creation | Server |
 | Everything else | Not implemented yet |
+
+### 4.1 Session phase and the run loop
+
+`SessionDirector` owns a `NetworkVariable<GameState>`. The server is the only thing that decides
+a transition; it validates against `GameStateMachine.IsLegal` — the same table the local machine
+uses — and writes the variable. Every client, host included, applies what arrives through
+`IGameStateService.SetFromAuthority`. One decision point, one code path, and the local machine
+stays a mirror rather than a second source of truth.
+
+```
+Lobby ──(host presses Start, everyone ready)──▶ Generating
+                                                    │
+              every client loads SCN_Sandbox, unloads SCN_Lobby,
+                    then calls ReportRunSceneReadyRpc
+                                                    │
+                        all clients reported ───────▶ InRun
+                                                    │       (server spawns player objects)
+              host presses End Run ──▶ RunFailed ──▶ Lobby
+                                                    │
+                    clients reload SCN_Lobby, players despawn, ready flags cleared
+```
+
+The scene-ready handshake is not optional: without it a fast machine spawns players into a scene
+a slow machine has not finished loading.
+
+`GameState` has no direct `InRun → Lobby` edge, so aborting a run passes through `RunFailed`.
+Adding a shortcut would let a run end without ever reaching a terminal state.
 
 `NetworkTransform` runs in `AuthorityModes.Owner` with scale sync disabled. Non-owner instances
 have their `CharacterController` disabled by `PlayerRig` so it cannot fight the replicated
@@ -147,6 +178,10 @@ PF_Player                    layer: Player
 ```
 
 Every tunable number lives in `CFG_PlayerMovement` and `CFG_PlayerLook`, never in the prefab.
+
+`NetworkConfig.PlayerPrefab` is **null** on purpose. NGO's automatic player spawning fires the
+instant a client connects, which would drop a capsule into the lobby where there is no floor.
+`PlayerSpawner` creates player objects when the run begins and despawns them when it ends.
 
 `canJump` is **true** in the current config for probing greybox geometry. GDD §7.1 lists walk,
 sprint, crouch and vault — not jump. Set it back to false before the vertical slice.
@@ -186,7 +221,9 @@ Collision matrix, configured by `Office/Setup/Configure Collision Matrix`:
 | `Office/Setup/Configure Collision Matrix` | Writes the matrix into DynamicsManager.asset |
 | `Office/Setup/Create Config Assets` | Creates the player config ScriptableObjects |
 | `Office/Setup/Build Player Prefab` | Regenerates `PF_Player` from code |
+| `Office/Setup/Import TextMeshPro Essentials` | One-time TMP resource import, needed before the lobby |
 | `Office/Setup/Build Sandbox Scene` | Regenerates `SCN_Sandbox` |
+| `Office/Setup/Build Lobby Scene` | Regenerates `PF_LobbyRow` and `SCN_Lobby` |
 | `Office/Setup/Build Boot Scene` | Regenerates `SCN_Boot` |
 | `Office/Setup/Configure Build Settings` | Scene list, `SCN_Boot` at index 0 |
 | `Office/Tests/Run EditMode Tests` | Runs the suite, logs a one-line summary |
@@ -195,9 +232,27 @@ All of it is idempotent. Prefabs and scenes are YAML that two people cannot merg
 that can be regenerated from code is — a broken prefab is fixed by re-running a menu item rather
 than by resolving an unreadable conflict.
 
+**Trap worth knowing.** A reference to an asset created moments earlier goes stale as soon as
+the AssetDatabase reimports it, and `EditorSceneManager.NewScene` triggers exactly that reimport.
+Assigning the stale wrapper to a `SerializedProperty` writes a silent null. Always reload a
+freshly created prefab from its path after a scene swap. `Wire` now logs an error on a null
+value so this fails loudly instead of producing an empty player list at runtime.
+
 ---
 
 ## 8. What is deliberately not here yet
 
 Interaction, inventory, damage, enemies, level generation, power, voice, audio service, HUD,
 the PS1 render pipeline. Each has an empty assembly waiting for it.
+
+Known gaps in what does exist:
+
+- **Two-client behaviour is not machine-verified.** The single-client path is exercised end to
+  end, but a second client appearing in the roster and its ready flag replicating has only been
+  reasoned about, not tested. Multiplayer Play Mode has no scriptable API for activating a
+  virtual player, and NGO 2.13 does not ship its integration-test helpers. Verify by hand
+  (README) until there is a way to automate it.
+- **Late join during a run** spawns a player once that client reports its scene ready, but the
+  case is untested and the lobby does not lock.
+- **The lobby look is placeholder.** GDD §14 wants a retro terminal HUD; that pass belongs with
+  the PS1 render pipeline in Sprint 9.

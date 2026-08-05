@@ -14,6 +14,8 @@
         "Office.Rendering",
         "Unity.Netcode.Runtime",
         "Unity.InputSystem",
+        "Unity.TextMeshPro",
+        "UnityEngine.UI",
         "UnityEditor.TestRunner",
         "UnityEngine.TestRunner"
     ],

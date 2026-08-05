@@ -32,12 +32,25 @@ namespace Office.Core
                 return false;
             }
 
+            Apply(next);
+            return true;
+        }
+
+        /// <inheritdoc />
+        public void SetFromAuthority(GameState next)
+        {
+            if (next == Current) return;
+
+            Apply(next);
+        }
+
+        private void Apply(GameState next)
+        {
             var previous = Current;
             Current = next;
 
             Changed?.Invoke(previous, next);
             bus?.Publish(new GameStateChanged(previous, next));
-            return true;
         }
 
         /// <summary>

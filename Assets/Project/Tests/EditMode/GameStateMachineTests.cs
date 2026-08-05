@@ -80,6 +80,45 @@ namespace Office.Tests.EditMode
         }
 
         [Test]
+        public void SetFromAuthority_AppliesATransitionThatWouldBeIllegalToRequest()
+        {
+            // A client that joins mid-run is sitting in MainMenu while the server is InRun.
+            // Requesting that jump is correctly refused; accepting it from the server is the
+            // whole reason SetFromAuthority exists.
+            machine.TryChange(GameState.MainMenu);
+
+            machine.SetFromAuthority(GameState.InRun);
+
+            Assert.AreEqual(GameState.InRun, machine.Current);
+        }
+
+        [Test]
+        public void SetFromAuthority_RaisesTheSameEventsAsALocalTransition()
+        {
+            var raised = 0;
+            var published = 0;
+
+            machine.Changed += (_, _) => raised++;
+            bus.Subscribe<GameStateChanged>(_ => published++);
+
+            machine.SetFromAuthority(GameState.InRun);
+
+            Assert.AreEqual(1, raised, "Listeners must not care where the transition came from.");
+            Assert.AreEqual(1, published);
+        }
+
+        [Test]
+        public void SetFromAuthority_ToTheSameState_IsANoOp()
+        {
+            var raised = 0;
+            machine.Changed += (_, _) => raised++;
+
+            machine.SetFromAuthority(GameState.Boot);
+
+            Assert.AreEqual(0, raised);
+        }
+
+        [Test]
         public void FullHappyPath_IsLegalEndToEnd()
         {
             var path = new[]
