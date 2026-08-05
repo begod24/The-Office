@@ -30,6 +30,8 @@ namespace Office.Editor
     {
         private const string ConfigFolder = "Assets/Project/ScriptableObject/Config";
         private const string PlayerPrefabPath = "Assets/Project/Prefab/Player/PF_Player.prefab";
+        private const string SessionPrefabPath = "Assets/Project/Prefab/Systems/PF_Session.prefab";
+        private const string NetworkPrefabsListPath = "Assets/DefaultNetworkPrefabs.asset";
         private const string MaterialFolder = "Assets/Project/Art/Materials";
         private const string ScenesFolder = "Assets/Project/Scenes";
 
@@ -48,6 +50,7 @@ namespace Office.Editor
             ConfigureCollisionMatrix();
             CreateConfigAssets();
             BuildPlayerPrefab();
+            BuildSessionPrefab();
             BuildSandboxScene();
             BuildLobbyScene();
             BuildBootScene();
@@ -316,10 +319,6 @@ namespace Office.Editor
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
-            // Loaded after the scene swap, for the same reason as the lobby row prefab: a
-            // reference taken beforehand can be invalidated by the reimport NewScene triggers.
-            var playerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath);
-
             var networkObject = new GameObject("NetworkManager");
             var networkManager = networkObject.AddComponent<NetworkManager>();
             var transport = networkObject.AddComponent<UnityTransport>();
@@ -346,9 +345,15 @@ namespace Office.Editor
             serialized.ApplyModifiedPropertiesWithoutUndo();
 
             WireArray(bootstrap, "installers", networkInstaller);
-            Wire(networkInstaller, ("networkManager", networkManager));
 
-            BuildSessionObject(playerPrefab);
+            var sessionPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(SessionPrefabPath);
+
+            if (sessionPrefab == null)
+                Debug.LogError("[Setup] Build the session prefab before the Boot scene.");
+
+            Wire(networkInstaller,
+                ("networkManager", networkManager),
+                ("sessionPrefab", sessionPrefab));
 
             var uiObject = new GameObject("[DevUI]");
             uiObject.AddComponent<DevSessionPanel>();
@@ -358,24 +363,75 @@ namespace Office.Editor
         }
 
         /// <summary>
-        /// The session lives on an in-scene placed NetworkObject in SCN_Boot rather than on a
-        /// spawned prefab. Boot is loaded on every client and never unloads, so the roster and
-        /// the phase survive the scene transition into a run — a spawned object would be
-        /// destroyed the moment the lobby scene unloaded under it.
+        /// The session is a spawned prefab, not an object placed in SCN_Boot.
+        ///
+        /// The in-scene version worked for the host and failed for every client: with
+        /// <c>EnableSceneManagement = false</c> NGO cannot resolve in-scene placed NetworkObjects
+        /// remotely, so it sends them as ordinary spawns and the client reports
+        /// "NetworkPrefab could not be found". <see cref="SessionRoot"/> keeps the spawned copy
+        /// alive across scene transitions instead.
         /// </summary>
-        private static void BuildSessionObject(GameObject playerPrefab)
+        [MenuItem("Office/Setup/Build Session Prefab", priority = 23)]
+        public static void BuildSessionPrefab()
         {
-            var sessionObject = new GameObject("[Session]");
-            sessionObject.AddComponent<NetworkObject>();
+            var playerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath);
 
-            var roster = sessionObject.AddComponent<LobbyRoster>();
-            var director = sessionObject.AddComponent<SessionDirector>();
-            var spawner = sessionObject.AddComponent<PlayerSpawner>();
-            var sceneFlow = sessionObject.AddComponent<RunSceneFlow>();
+            if (playerPrefab == null)
+            {
+                Debug.LogError("[Setup] Build the player prefab before the session prefab.");
+                return;
+            }
+
+            var root = new GameObject("PF_Session");
+            root.AddComponent<NetworkObject>();
+            root.AddComponent<SessionRoot>();
+
+            var roster = root.AddComponent<LobbyRoster>();
+            var director = root.AddComponent<SessionDirector>();
+            var spawner = root.AddComponent<PlayerSpawner>();
+            var sceneFlow = root.AddComponent<RunSceneFlow>();
 
             Wire(director, ("roster", roster));
             Wire(spawner, ("director", director), ("playerPrefab", playerPrefab));
             Wire(sceneFlow, ("director", director));
+
+            EnsureFolder(Path.GetDirectoryName(SessionPrefabPath));
+            PrefabUtility.SaveAsPrefabAsset(root, SessionPrefabPath);
+            Object.DestroyImmediate(root);
+
+            AssetDatabase.SaveAssets();
+
+            RegisterNetworkPrefab(AssetDatabase.LoadAssetAtPath<GameObject>(SessionPrefabPath));
+            RegisterNetworkPrefab(playerPrefab);
+
+            Debug.Log($"[Setup] Session prefab written to {SessionPrefabPath}.");
+        }
+
+        /// <summary>
+        /// A prefab a client has to spawn must be in the network prefab list on both machines.
+        /// Unity usually adds new NetworkObject prefabs automatically, but relying on an editor
+        /// preference for something that only fails on a remote client is how the in-scene
+        /// session object shipped broken in the first place.
+        /// </summary>
+        private static void RegisterNetworkPrefab(GameObject prefab)
+        {
+            if (prefab == null) return;
+
+            var list = AssetDatabase.LoadAssetAtPath<NetworkPrefabsList>(NetworkPrefabsListPath);
+
+            if (list == null)
+            {
+                Debug.LogError($"[Setup] {NetworkPrefabsListPath} is missing.");
+                return;
+            }
+
+            if (list.Contains(prefab)) return;
+
+            list.Add(new NetworkPrefab { Prefab = prefab });
+            EditorUtility.SetDirty(list);
+            AssetDatabase.SaveAssets();
+
+            Debug.Log($"[Setup] Registered '{prefab.name}' as a network prefab.");
         }
 
         private static void BuildLighting()

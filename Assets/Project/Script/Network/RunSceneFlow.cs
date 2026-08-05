@@ -56,7 +56,11 @@ namespace Office.Network
             {
                 switch (phase)
                 {
+                    // InRun is included for the client that joins after the run has started:
+                    // it never sees Generating, so without this it would sit in the lobby scene
+                    // while its player spawns somewhere it cannot see.
                     case GameState.Generating:
+                    case GameState.InRun:
                         await EnterRunAsync();
                         break;
 

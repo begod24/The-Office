@@ -50,8 +50,11 @@ Every asmdef sets `autoReferenced: false` — no project code may live outside a
 |---|---|
 | `NetworkManager` | `NetworkManager`, `UnityTransport` |
 | `[Bootstrap]` | `GameBootstrap`, `NetworkServiceInstaller` |
-| `[Session]` | `NetworkObject`, `LobbyRoster`, `SessionDirector`, `PlayerSpawner`, `RunSceneFlow` |
 | `[DevUI]` | `DevSessionPanel` (hidden, F1) |
+
+The session itself is **not** in this scene. `NetworkServiceInstaller` spawns `PF_Session`
+(`SessionRoot`, `LobbyRoster`, `SessionDirector`, `PlayerSpawner`, `RunSceneFlow`) when the
+server starts, and every instance moves itself to `DontDestroyOnLoad`.
 
 `GameBootstrap` runs at `[DefaultExecutionOrder(-10000)]`, registers the core services, then runs
 every `ServiceInstaller` in ascending `Order`. Teardown runs installers in reverse.
@@ -88,10 +91,17 @@ therefore holds a serialized same-scene reference to the NetworkManager. Do not 
 | `SCN_Sandbox` | Greybox test space | Additively when the run starts |
 | `SCN_Main` | Legacy template scene | To be deleted |
 
-`NetworkConfig.EnableSceneManagement` is **off**. Every client loads `SCN_Sandbox` itself at
-boot, so letting NGO also synchronise scenes would load the same geometry twice on a joining
-client. This flips back on in Sprint 6, when the floor generator owns scene flow — that is a
-required change, not an optional one.
+`NetworkConfig.EnableSceneManagement` is **off**. Each client drives its own scene flow from the
+replicated phase, so letting NGO also push scenes would load the same geometry twice on a
+joining client. This flips back on in Sprint 6, when the floor generator owns scene flow — that
+is a required change, not an optional one.
+
+**This setting has a consequence that cost a debugging session.** With scene management off, NGO
+cannot resolve **in-scene placed NetworkObjects** on a remote client: it sends them as ordinary
+spawns, the client looks for a matching entry in its prefab registry, finds none, and logs
+`NetworkPrefab could not be found`. The host never sees it, because the host already has the
+object. Anything networked and persistent must therefore be a **registered prefab that the server
+spawns**, not an object sitting in a scene — until scene management is turned on.
 
 `SCN_Boot` holds no reference to level content. Systems find each other through the service
 locator and the event bus, never through inspector references across scenes.
@@ -123,6 +133,13 @@ profiles they all authenticate as the same anonymous player and the second one e
 | Session phase, lobby roster, ready flags | Server |
 | Player object creation | Server |
 | Everything else | Not implemented yet |
+
+**Network prefab registry.** `Assets/DefaultNetworkPrefabs.asset` holds `PF_Player` and
+`PF_Session`, and is referenced by the NetworkManager. `ForceSamePrefabs` is on, so client and
+server must carry identical lists — after adding any spawnable prefab, both machines need the
+updated asset. `Office/Setup/Build Session Prefab` registers entries explicitly rather than
+relying on Unity's auto-add editor preference, because a missing entry only fails on a remote
+client.
 
 ### 4.1 Session phase and the run loop
 
@@ -221,6 +238,7 @@ Collision matrix, configured by `Office/Setup/Configure Collision Matrix`:
 | `Office/Setup/Configure Collision Matrix` | Writes the matrix into DynamicsManager.asset |
 | `Office/Setup/Create Config Assets` | Creates the player config ScriptableObjects |
 | `Office/Setup/Build Player Prefab` | Regenerates `PF_Player` from code |
+| `Office/Setup/Build Session Prefab` | Regenerates `PF_Session` and registers both network prefabs |
 | `Office/Setup/Import TextMeshPro Essentials` | One-time TMP resource import, needed before the lobby |
 | `Office/Setup/Build Sandbox Scene` | Regenerates `SCN_Sandbox` |
 | `Office/Setup/Build Lobby Scene` | Regenerates `PF_LobbyRow` and `SCN_Lobby` |
@@ -252,6 +270,10 @@ Known gaps in what does exist:
   reasoned about, not tested. Multiplayer Play Mode has no scriptable API for activating a
   virtual player, and NGO 2.13 does not ship its integration-test helpers. Verify by hand
   (README) until there is a way to automate it.
+
+  This gap has already produced one shipped bug: the session object was originally placed in
+  the Boot scene, which works for a host and fails for every client. Treat anything that only
+  a remote client exercises as unverified until two machines have run it.
 - **Late join during a run** spawns a player once that client reports its scene ready, but the
   case is untested and the lobby does not lock.
 - **The lobby look is placeholder.** GDD §14 wants a retro terminal HUD; that pass belongs with
