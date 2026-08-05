@@ -20,6 +20,7 @@ namespace Office.UI
         [SerializeField] private Button hostButton;
         [SerializeField] private Button joinButton;
         [SerializeField] private TMP_InputField codeInput;
+        [SerializeField] private Button backButton;
 
         [Header("Session")]
         [SerializeField] private TMP_Text codeLabel;
@@ -41,6 +42,8 @@ namespace Office.UI
 
         private ISessionService session;
         private ILobbyService lobby;
+        private ISceneLoader sceneLoader;
+        private IGameStateService gameState;
         private bool busy;
 
         private void Start()
@@ -53,10 +56,14 @@ namespace Office.UI
                 return;
             }
 
+            ServiceLocator.TryGet(out sceneLoader);
+            ServiceLocator.TryGet(out gameState);
+
             BuildRows();
 
             hostButton.onClick.AddListener(OnHostClicked);
             joinButton.onClick.AddListener(OnJoinClicked);
+            if (backButton != null) backButton.onClick.AddListener(OnBackClicked);
             copyButton.onClick.AddListener(OnCopyClicked);
             readyButton.onClick.AddListener(OnReadyClicked);
             startButton.onClick.AddListener(OnStartClicked);
@@ -103,6 +110,7 @@ namespace Office.UI
 
             hostButton.interactable = !busy;
             joinButton.interactable = !busy;
+            if (backButton != null) backButton.interactable = !busy;
 
             if (inSession) RefreshSession();
 
@@ -197,6 +205,17 @@ namespace Office.UI
 
             busy = false;
             Refresh();
+        }
+
+        private async void OnBackClicked()
+        {
+            if (sceneLoader == null) return;
+
+            busy = true;
+            Refresh();
+
+            gameState?.TryChange(GameState.MainMenu);
+            await sceneLoader.SwapAsync(SceneNames.Lobby, SceneNames.MainMenu);
         }
 
         private void OnCopyClicked() => GUIUtility.systemCopyBuffer = session.JoinCode;

@@ -14,7 +14,9 @@ namespace Office.UI
         HostLobby = 3,
         Settings = 4,
         Credits = 5,
-        Exit = 6
+        Exit = 6,
+        Resume = 7,
+        MainMenu = 8
     }
 
     [RequireComponent(typeof(Button))]

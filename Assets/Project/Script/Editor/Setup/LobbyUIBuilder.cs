@@ -13,14 +13,13 @@ namespace Office.Editor
         private const string RowPrefabPath = "Assets/Project/Prefab/UI/PF_LobbyRow.prefab";
         private const string FontPath = "Assets/Project/Fonts/blockblueprint.asset";
 
-        private static readonly Color Backdrop = new(0.06f, 0.06f, 0.07f, 1f);
-        private static readonly Color Panel = new(0.11f, 0.115f, 0.13f, 0.96f);
-        private static readonly Color ButtonFace = new(0.20f, 0.21f, 0.24f, 1f);
-        private static readonly Color Accent = new(0.78f, 0.29f, 0.22f, 1f);
-        private static readonly Color TextPrimary = new(0.86f, 0.85f, 0.83f, 1f);
-        private static readonly Color TextDim = new(0.55f, 0.55f, 0.54f, 1f);
+        private static readonly Color Backdrop = new(0.015f, 0.015f, 0.02f, 1f);
+        private static readonly Color TextPrimary = new(0.95f, 0.95f, 0.93f, 1f);
+        private static readonly Color TextNormal = new(0.60f, 0.60f, 0.58f, 1f);
+        private static readonly Color TextDim = new(0.42f, 0.42f, 0.41f, 1f);
+        private static readonly Color Rule = new(1f, 1f, 1f, 0.08f);
 
-        private static readonly Color RowRemote = new(0.135f, 0.14f, 0.16f, 1f);
+        private static readonly Color RowRemote = new(0.05f, 0.05f, 0.06f, 1f);
 
         private static TMP_FontAsset font;
 
@@ -58,7 +57,7 @@ namespace Office.Editor
 
             var statusLabel = CreateLabel("Status", rect, "WAITING", 18f,
                 TextAlignmentOptions.MidlineRight, TextDim);
-            AddLayoutElement(statusLabel.gameObject, preferredWidth: 120f);
+            AddLayoutElement(statusLabel.gameObject, preferredWidth: 140f);
 
             var row = root.AddComponent<LobbyPlayerRow>();
             Wire(row,
@@ -99,33 +98,32 @@ namespace Office.Editor
             var backdropImage = backdrop.gameObject.AddComponent<Image>();
             backdropImage.color = Backdrop;
 
-            var panel = CreateRect("Panel", canvas.transform);
-            panel.anchorMin = new Vector2(0.5f, 0.5f);
-            panel.anchorMax = new Vector2(0.5f, 0.5f);
-            panel.pivot = new Vector2(0.5f, 0.5f);
-            panel.sizeDelta = new Vector2(620f, 760f);
+            var column = CreateRect("Column", canvas.transform);
+            column.anchorMin = new Vector2(0f, 0f);
+            column.anchorMax = new Vector2(0f, 1f);
+            column.pivot = new Vector2(0f, 0.5f);
+            column.offsetMin = new Vector2(110f, 84f);
+            column.offsetMax = new Vector2(750f, -84f);
 
-            var panelImage = panel.gameObject.AddComponent<Image>();
-            panelImage.color = Panel;
+            var columnLayout = column.gameObject.AddComponent<VerticalLayoutGroup>();
+            columnLayout.spacing = 12f;
+            columnLayout.childAlignment = TextAnchor.UpperLeft;
+            columnLayout.childControlWidth = true;
+            columnLayout.childControlHeight = true;
+            columnLayout.childForceExpandWidth = true;
+            columnLayout.childForceExpandHeight = false;
 
-            var panelLayout = panel.gameObject.AddComponent<VerticalLayoutGroup>();
-            panelLayout.padding = new RectOffset(36, 36, 32, 32);
-            panelLayout.spacing = 14f;
-            panelLayout.childControlWidth = true;
-            panelLayout.childControlHeight = true;
-            panelLayout.childForceExpandWidth = true;
-            panelLayout.childForceExpandHeight = false;
+            BuildHeader(column);
 
-            BuildHeader(panel);
+            var offlineGroup = BuildOfflineGroup(column, out var hostButton, out var codeInput,
+                out var joinButton, out var backButton);
 
-            var offlineGroup = BuildOfflineGroup(panel, out var hostButton, out var codeInput,
-                out var joinButton);
+            var sessionGroup = BuildSessionGroup(column, out var codeLabel, out var copyButton,
+                out var rowRoot, out var readyButton, out var readyLabel, out var startButton,
+                out var startLabel, out var leaveButton);
 
-            var sessionGroup = BuildSessionGroup(panel, out var codeLabel, out var copyButton,
-                out var rowRoot, out var readyButton, out var startButton, out var leaveButton);
-
-            var status = CreateLabel("Status", panel, string.Empty, 17f,
-                TextAlignmentOptions.Top, TextDim);
+            var status = CreateLabel("Status", column, string.Empty, 18f,
+                TextAlignmentOptions.TopLeft, TextDim);
             status.textWrappingMode = TextWrappingModes.Normal;
             AddLayoutElement(status.gameObject, preferredHeight: 60f);
 
@@ -138,12 +136,13 @@ namespace Office.Editor
                 ("hostButton", hostButton),
                 ("joinButton", joinButton),
                 ("codeInput", codeInput),
+                ("backButton", backButton),
                 ("codeLabel", codeLabel),
                 ("copyButton", copyButton),
                 ("readyButton", readyButton),
-                ("readyLabel", readyButton.GetComponentInChildren<TMP_Text>()),
+                ("readyLabel", readyLabel),
                 ("startButton", startButton),
-                ("startLabel", startButton.GetComponentInChildren<TMP_Text>()),
+                ("startLabel", startLabel),
                 ("leaveButton", leaveButton),
                 ("rowRoot", rowRoot),
                 ("rowPrefab", rowPrefab),
@@ -152,66 +151,79 @@ namespace Office.Editor
 
         private static void BuildHeader(RectTransform parent)
         {
-            var title = CreateLabel("Title", parent, "OFFICE", 46f,
-                TextAlignmentOptions.Center, TextPrimary);
-            title.characterSpacing = 18f;
-            AddLayoutElement(title.gameObject, preferredHeight: 58f);
+            var title = CreateLabel("Title", parent, "OFFICE", 84f,
+                TextAlignmentOptions.BottomLeft, TextPrimary);
+            title.characterSpacing = 4f;
+            AddLayoutElement(title.gameObject, preferredHeight: 92f);
 
-            var subtitle = CreateLabel("Subtitle", parent, "NIGHT SHIFT — RELEASE 08:00:00", 16f,
-                TextAlignmentOptions.Center, Accent);
+            var subtitle = CreateLabel("Subtitle", parent, "NIGHT SHIFT — LOBBY", 22f,
+                TextAlignmentOptions.MidlineLeft, TextDim);
             subtitle.characterSpacing = 6f;
-            AddLayoutElement(subtitle.gameObject, preferredHeight: 26f);
+            AddLayoutElement(subtitle.gameObject, preferredHeight: 28f);
 
             var rule = CreateRect("Rule", parent);
-            rule.gameObject.AddComponent<Image>().color = new Color(1f, 1f, 1f, 0.08f);
+            rule.gameObject.AddComponent<Image>().color = Rule;
             AddLayoutElement(rule.gameObject, preferredHeight: 2f);
+
+            var spacer = CreateRect("Spacer", parent);
+            AddLayoutElement(spacer.gameObject, preferredHeight: 24f);
         }
 
         private static GameObject BuildOfflineGroup(RectTransform parent, out Button hostButton,
-            out TMP_InputField codeInput, out Button joinButton)
+            out TMP_InputField codeInput, out Button joinButton, out Button backButton)
         {
-            var group = CreateGroup("OfflineGroup", parent, 12f);
+            var group = CreateGroup("OfflineGroup", parent, 10f);
 
-            hostButton = CreateButton("HostButton", group, "HOST A SHIFT", Accent, 52f);
+            hostButton = CreateTerminalButton("HostButton", group, "Host a Shift", out _, 48f, 30f);
 
-            var separator = CreateLabel("Or", group, "or join with a code", 15f,
-                TextAlignmentOptions.Center, TextDim);
-            AddLayoutElement(separator.gameObject, preferredHeight: 28f);
+            var separator = CreateLabel("Or", group, "or join with a code", 20f,
+                TextAlignmentOptions.MidlineLeft, TextDim);
+            AddLayoutElement(separator.gameObject, preferredHeight: 30f);
 
             codeInput = CreateInputField("CodeInput", group, "JOIN CODE");
-            joinButton = CreateButton("JoinButton", group, "JOIN", ButtonFace, 48f);
+            joinButton = CreateTerminalButton("JoinButton", group, "Join", out _, 48f, 30f);
 
-            AddLayoutElement(group.gameObject, preferredHeight: 230f);
+            var spacer = CreateRect("Spacer", group);
+            AddLayoutElement(spacer.gameObject, preferredHeight: 24f);
+
+            backButton = CreateTerminalButton("BackButton", group, "Back", out _, 44f, 26f);
+
             return group.gameObject;
         }
 
         private static GameObject BuildSessionGroup(RectTransform parent, out TMP_Text codeLabel,
             out Button copyButton, out RectTransform rowRoot, out Button readyButton,
-            out Button startButton, out Button leaveButton)
+            out TMP_Text readyLabel, out Button startButton, out TMP_Text startLabel,
+            out Button leaveButton)
         {
-            var group = CreateGroup("SessionGroup", parent, 12f);
+            var group = CreateGroup("SessionGroup", parent, 10f);
 
             var codeRow = CreateRect("CodeRow", group);
             var codeRowLayout = codeRow.gameObject.AddComponent<HorizontalLayoutGroup>();
             codeRowLayout.spacing = 10f;
+            codeRowLayout.childAlignment = TextAnchor.MiddleLeft;
             codeRowLayout.childControlWidth = true;
             codeRowLayout.childControlHeight = true;
             codeRowLayout.childForceExpandWidth = false;
             codeRowLayout.childForceExpandHeight = true;
             AddLayoutElement(codeRow.gameObject, preferredHeight: 56f);
 
-            codeLabel = CreateLabel("CodeLabel", codeRow, "------", 34f,
+            codeLabel = CreateLabel("CodeLabel", codeRow, "------", 40f,
                 TextAlignmentOptions.MidlineLeft, TextPrimary);
             codeLabel.characterSpacing = 12f;
             AddLayoutElement(codeLabel.gameObject, flexibleWidth: 1f);
 
-            copyButton = CreateButton("CopyButton", codeRow, "COPY", ButtonFace, 44f);
-            AddLayoutElement(copyButton.gameObject, preferredWidth: 110f);
+            copyButton = CreateTerminalButton("CopyButton", codeRow, "Copy", out _, 44f, 24f);
+            AddLayoutElement(copyButton.gameObject, preferredWidth: 140f);
 
-            var listLabel = CreateLabel("ListLabel", group, "ON SHIFT", 15f,
+            var listLabel = CreateLabel("ListLabel", group, "ON SHIFT", 20f,
                 TextAlignmentOptions.MidlineLeft, TextDim);
             listLabel.characterSpacing = 6f;
-            AddLayoutElement(listLabel.gameObject, preferredHeight: 24f);
+            AddLayoutElement(listLabel.gameObject, preferredHeight: 26f);
+
+            var rule = CreateRect("Rule", group);
+            rule.gameObject.AddComponent<Image>().color = Rule;
+            AddLayoutElement(rule.gameObject, preferredHeight: 1f);
 
             rowRoot = CreateRect("PlayerList", group);
             var listLayout = rowRoot.gameObject.AddComponent<VerticalLayoutGroup>();
@@ -222,11 +234,15 @@ namespace Office.Editor
             listLayout.childForceExpandHeight = false;
             AddLayoutElement(rowRoot.gameObject, preferredHeight: 200f);
 
-            readyButton = CreateButton("ReadyButton", group, "READY", ButtonFace, 52f);
-            startButton = CreateButton("StartButton", group, "START THE SHIFT", Accent, 52f);
-            leaveButton = CreateButton("LeaveButton", group, "LEAVE", ButtonFace, 44f);
+            var spacer = CreateRect("Spacer", group);
+            AddLayoutElement(spacer.gameObject, preferredHeight: 12f);
 
-            AddLayoutElement(group.gameObject, preferredHeight: 480f);
+            readyButton = CreateTerminalButton("ReadyButton", group, "Ready",
+                out readyLabel, 48f, 30f);
+            startButton = CreateTerminalButton("StartButton", group, "Start the Shift",
+                out startLabel, 48f, 30f);
+            leaveButton = CreateTerminalButton("LeaveButton", group, "Leave", out _, 44f, 26f);
+
             return group.gameObject;
         }
 
@@ -258,7 +274,7 @@ namespace Office.Editor
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
 
-            // Match height so the 760px panel always fits vertically, on any aspect ratio.
+            // Match height so the column always fits vertically, on any aspect ratio.
             scaler.matchWidthOrHeight = 1f;
 
             canvasObject.AddComponent<GraphicRaycaster>();
@@ -318,25 +334,48 @@ namespace Office.Editor
             return label;
         }
 
-        private static Button CreateButton(string name, Transform parent, string text,
-            Color face, float height)
+        // Terminal-styled button: "> Label" text only, no face. The content label is
+        // the tint target so runtime code can overwrite its text ("READY" and so on)
+        // while the "> " prefix stays put.
+        private static Button CreateTerminalButton(string name, Transform parent, string text,
+            out TMP_Text contentLabel, float height, float size)
         {
-            var created = TMP_DefaultControls.CreateButton(ControlResources());
-            created.name = name;
-            created.transform.SetParent(parent, false);
+            var row = CreateRect(name, parent);
+            AddLayoutElement(row.gameObject, preferredHeight: height);
 
-            created.GetComponent<Image>().color = face;
+            var hitArea = row.gameObject.AddComponent<Image>();
+            hitArea.color = Color.clear;
 
-            var label = created.GetComponentInChildren<TMP_Text>();
-            if (font != null) label.font = font;
+            var layout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
+            layout.spacing = 14f;
+            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = false;
 
-            label.text = text;
-            label.fontSize = 19f;
-            label.characterSpacing = 4f;
-            label.color = TextPrimary;
+            var prefix = CreateLabel("Prefix", row, ">", size, TextAlignmentOptions.MidlineLeft,
+                TextDim);
 
-            AddLayoutElement(created, preferredHeight: height);
-            return created.GetComponent<Button>();
+            contentLabel = CreateLabel("Label", row, text, size, TextAlignmentOptions.MidlineLeft,
+                Color.white);
+
+            var button = row.gameObject.AddComponent<Button>();
+            button.targetGraphic = contentLabel;
+            button.transition = Selectable.Transition.ColorTint;
+            button.colors = new ColorBlock
+            {
+                normalColor = TextNormal,
+                highlightedColor = TextPrimary,
+                pressedColor = Color.white,
+                selectedColor = TextPrimary,
+                disabledColor = new Color(0.30f, 0.30f, 0.29f, 1f),
+                colorMultiplier = 1f,
+                fadeDuration = 0.08f
+            };
+
+            _ = prefix;
+            return button;
         }
 
         private static TMP_InputField CreateInputField(string name, Transform parent,
@@ -346,7 +385,7 @@ namespace Office.Editor
             created.name = name;
             created.transform.SetParent(parent, false);
 
-            created.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.06f);
+            created.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.05f);
 
             var input = created.GetComponent<TMP_InputField>();
             input.characterLimit = 8;

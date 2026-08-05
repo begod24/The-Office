@@ -8,9 +8,9 @@ namespace Office.UI
     public sealed class LobbyPlayerRow : MonoBehaviour
     {
         private static readonly Color ReadyColour = new(0.42f, 0.78f, 0.45f);
-        private static readonly Color WaitingColour = new(0.72f, 0.70f, 0.66f);
-        private static readonly Color LocalBackground = new(0.19f, 0.20f, 0.23f);
-        private static readonly Color RemoteBackground = new(0.135f, 0.14f, 0.16f);
+        private static readonly Color WaitingColour = new(0.55f, 0.55f, 0.53f);
+        private static readonly Color LocalBackground = new(0.10f, 0.10f, 0.11f);
+        private static readonly Color RemoteBackground = new(0.05f, 0.05f, 0.06f);
 
         [SerializeField] private TMP_Text nameLabel;
         [SerializeField] private TMP_Text statusLabel;

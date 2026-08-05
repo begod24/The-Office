@@ -53,13 +53,124 @@ namespace Office.Editor
             var menu = BuildMenuColumn(canvas.transform, out var buildLabel, out var hintLabel,
                 out var items);
 
+            var credits = BuildCreditsColumn(canvas.transform, out var creditsBack);
+            credits.gameObject.SetActive(false);
+
             var screenObject = new GameObject("[MainMenuScreen]");
             var screen = screenObject.AddComponent<MainMenuScreen>();
 
-            Wire(screen, ("buildLabel", buildLabel), ("hintLabel", hintLabel));
+            Wire(screen,
+                ("buildLabel", buildLabel),
+                ("hintLabel", hintLabel),
+                ("menuGroup", menu.gameObject),
+                ("creditsGroup", credits.gameObject),
+                ("creditsBackButton", creditsBack));
             WireArray(screen, "items", items);
+        }
 
-            _ = menu;
+        private static RectTransform BuildCreditsColumn(Transform parent, out Button backButton)
+        {
+            var column = CreateColumn("CreditsColumn", parent);
+
+            var title = CreateLabel("Title", column, "CREDITS", 84f,
+                TextAlignmentOptions.BottomLeft, TextPrimary);
+            title.characterSpacing = 4f;
+            AddLayoutElement(title.gameObject, preferredHeight: 92f);
+
+            var rule = CreateRect("Rule", column);
+            var ruleImage = rule.gameObject.AddComponent<Image>();
+            ruleImage.color = new Color(1f, 1f, 1f, 0.08f);
+            ruleImage.raycastTarget = false;
+            AddLayoutElement(rule.gameObject, preferredHeight: 2f);
+
+            var spacer = CreateRect("Spacer", column);
+            AddLayoutElement(spacer.gameObject, preferredHeight: 40f);
+
+            BuildCreditRow(column, "GAME DESIGNER & DEVELOPER", "Bekbolat Aldiyarov");
+            BuildCreditRow(column, "3D MODELS & LEVEL DESIGN", "Sanzhar");
+            BuildCreditRow(column, "MUSIC ARTIST", "Nurezh");
+
+            var flexible = CreateRect("FlexibleSpacer", column);
+            var flexibleElement = flexible.gameObject.AddComponent<LayoutElement>();
+            flexibleElement.flexibleHeight = 1f;
+
+            backButton = CreateTerminalButton("BackButton", column, "Back", 44f, 30f);
+
+            return column;
+        }
+
+        private static void BuildCreditRow(RectTransform parent, string role, string person)
+        {
+            var roleLabel = CreateLabel($"Role_{person}", parent, role, 22f,
+                TextAlignmentOptions.MidlineLeft, TextDim);
+            roleLabel.characterSpacing = 6f;
+            AddLayoutElement(roleLabel.gameObject, preferredHeight: 28f);
+
+            var personLabel = CreateLabel($"Person_{person}", parent, person, 36f,
+                TextAlignmentOptions.MidlineLeft, TextPrimary);
+            AddLayoutElement(personLabel.gameObject, preferredHeight: 44f);
+
+            var spacer = CreateRect($"Spacer_{person}", parent);
+            AddLayoutElement(spacer.gameObject, preferredHeight: 18f);
+        }
+
+        private static RectTransform CreateColumn(string name, Transform parent)
+        {
+            var column = CreateRect(name, parent);
+            column.anchorMin = new Vector2(0f, 0f);
+            column.anchorMax = new Vector2(0f, 1f);
+            column.pivot = new Vector2(0f, 0.5f);
+            column.offsetMin = new Vector2(110f, 84f);
+            column.offsetMax = new Vector2(750f, -84f);
+
+            var layout = column.gameObject.AddComponent<VerticalLayoutGroup>();
+            layout.spacing = 10f;
+            layout.childAlignment = TextAnchor.UpperLeft;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = false;
+
+            return column;
+        }
+
+        private static Button CreateTerminalButton(string name, Transform parent, string text,
+            float height, float size)
+        {
+            var row = CreateRect(name, parent);
+            AddLayoutElement(row.gameObject, preferredHeight: height);
+
+            var hitArea = row.gameObject.AddComponent<Image>();
+            hitArea.color = Color.clear;
+
+            var layout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
+            layout.spacing = 14f;
+            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = false;
+
+            CreateLabel("Prefix", row, ">", size, TextAlignmentOptions.MidlineLeft, TextDim);
+
+            var label = CreateLabel("Label", row, text, size, TextAlignmentOptions.MidlineLeft,
+                Color.white);
+
+            var button = row.gameObject.AddComponent<Button>();
+            button.targetGraphic = label;
+            button.transition = Selectable.Transition.ColorTint;
+            button.colors = new ColorBlock
+            {
+                normalColor = TextNormal,
+                highlightedColor = TextPrimary,
+                pressedColor = Color.white,
+                selectedColor = TextPrimary,
+                disabledColor = new Color(0.30f, 0.30f, 0.29f, 1f),
+                colorMultiplier = 1f,
+                fadeDuration = 0.08f
+            };
+
+            return button;
         }
 
         private static RectTransform BuildMenuColumn(Transform parent, out TMP_Text buildLabel,

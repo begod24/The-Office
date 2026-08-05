@@ -33,6 +33,13 @@ namespace Office.Core
         public LocalPlayerSpawned(ulong clientId) => ClientId = clientId;
     }
 
+    public readonly struct LocalPauseChanged
+    {
+        public readonly bool IsPaused;
+
+        public LocalPauseChanged(bool isPaused) => IsPaused = isPaused;
+    }
+
     public readonly struct PlayerConnectionChanged
     {
         public readonly ulong ClientId;

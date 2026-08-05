@@ -3,33 +3,23 @@ using Office.Data;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
+using UnityEngine.UI;
 
 namespace Office.UI
 {
-    public sealed class MainMenuScreen : MonoBehaviour
+    public sealed class MainMenuScreen : TerminalMenuScreen
     {
-        [Header("Items")]
-        [SerializeField] private MainMenuItem[] items;
-
         [Header("Header")]
         [SerializeField] private TMP_Text buildLabel;
 
-        [Header("Feedback")]
-        [SerializeField] private TMP_Text hintLabel;
-
-        [Header("Look")]
-        [SerializeField] private Color focusedColour = new(0.95f, 0.95f, 0.93f, 1f);
-        [SerializeField] private Color normalColour = new(0.60f, 0.60f, 0.58f, 1f);
-        [SerializeField] private float cursorBlinkInterval = 0.5f;
-        [SerializeField] private float hintDuration = 2.5f;
+        [Header("Credits")]
+        [SerializeField] private GameObject menuGroup;
+        [SerializeField] private GameObject creditsGroup;
+        [SerializeField] private Button creditsBackButton;
 
         private ISceneLoader sceneLoader;
         private IGameStateService gameState;
-
-        private MainMenuItem current;
-        private float blinkTimer;
-        private bool cursorVisible;
-        private float hintTimer;
         private bool busy;
 
         private void Start()
@@ -37,20 +27,13 @@ namespace Office.UI
             ServiceLocator.TryGet(out sceneLoader);
             ServiceLocator.TryGet(out gameState);
 
-            foreach (var item in items)
-            {
-                if (item == null) continue;
+            InitialiseItems();
 
-                item.Focused += OnItemFocused;
-                item.Clicked += OnItemClicked;
-                item.SetColour(normalColour);
-                item.SetCursorVisible(false);
-            }
-
-            if (hintLabel != null) hintLabel.text = string.Empty;
             if (buildLabel != null) buildLabel.text = $"Build {Application.version}";
+            if (creditsGroup != null) creditsGroup.SetActive(false);
+            if (creditsBackButton != null) creditsBackButton.onClick.AddListener(CloseCredits);
 
-            if (items.Length > 0 && items[0] != null) Focus(items[0]);
+            Focus(FirstItem);
         }
 
         private void OnEnable()
@@ -59,73 +42,17 @@ namespace Office.UI
             Cursor.visible = true;
         }
 
-        private void Update()
+        protected override void Update()
         {
-            BlinkCursor();
-            TickHint();
-            KeepSelection();
+            base.Update();
+
+            var keyboard = Keyboard.current;
+            if (keyboard == null || !keyboard.escapeKey.wasPressedThisFrame) return;
+
+            if (creditsGroup != null && creditsGroup.activeSelf) CloseCredits();
         }
 
-        private void BlinkCursor()
-        {
-            if (current == null) return;
-
-            blinkTimer += Time.unscaledDeltaTime;
-            if (blinkTimer < cursorBlinkInterval) return;
-
-            blinkTimer = 0f;
-            cursorVisible = !cursorVisible;
-            current.SetCursorVisible(cursorVisible);
-        }
-
-        private void TickHint()
-        {
-            if (hintLabel == null || hintTimer <= 0f) return;
-
-            hintTimer -= Time.unscaledDeltaTime;
-            if (hintTimer <= 0f) hintLabel.text = string.Empty;
-        }
-
-        // Clicking empty space clears the EventSystem selection, which would kill
-        // keyboard navigation until the mouse hovers an item again.
-        private void KeepSelection()
-        {
-            var eventSystem = EventSystem.current;
-            if (eventSystem == null || current == null) return;
-            if (eventSystem.currentSelectedGameObject != null) return;
-
-            eventSystem.SetSelectedGameObject(current.gameObject);
-        }
-
-        private void Focus(MainMenuItem item)
-        {
-            var eventSystem = EventSystem.current;
-
-            if (eventSystem != null && eventSystem.currentSelectedGameObject != item.gameObject)
-                eventSystem.SetSelectedGameObject(item.gameObject);
-
-            OnItemFocused(item);
-        }
-
-        private void OnItemFocused(MainMenuItem item)
-        {
-            if (current == item) return;
-
-            if (current != null)
-            {
-                current.SetCursorVisible(false);
-                current.SetColour(normalColour);
-            }
-
-            current = item;
-            current.SetColour(focusedColour);
-
-            blinkTimer = 0f;
-            cursorVisible = true;
-            current.SetCursorVisible(true);
-        }
-
-        private void OnItemClicked(MainMenuItem item)
+        protected override void OnItemClicked(MainMenuItem item)
         {
             if (busy) return;
 
@@ -136,6 +63,9 @@ namespace Office.UI
                 case MainMenuAction.HostLobby:
                     GoToLobby();
                     break;
+                case MainMenuAction.Credits:
+                    OpenCredits();
+                    break;
                 case MainMenuAction.Exit:
                     Quit();
                     break;
@@ -143,6 +73,28 @@ namespace Office.UI
                     ShowHint("// NOT AVAILABLE IN THIS BUILD");
                     break;
             }
+        }
+
+        private void OpenCredits()
+        {
+            if (menuGroup == null || creditsGroup == null) return;
+
+            menuGroup.SetActive(false);
+            creditsGroup.SetActive(true);
+
+            var eventSystem = EventSystem.current;
+            if (eventSystem != null && creditsBackButton != null)
+                eventSystem.SetSelectedGameObject(creditsBackButton.gameObject);
+        }
+
+        private void CloseCredits()
+        {
+            if (menuGroup == null || creditsGroup == null) return;
+
+            creditsGroup.SetActive(false);
+            menuGroup.SetActive(true);
+
+            Focus(FirstItem);
         }
 
         private async void GoToLobby()
@@ -156,14 +108,6 @@ namespace Office.UI
             busy = true;
             gameState?.TryChange(GameState.Lobby);
             await sceneLoader.SwapAsync(SceneNames.MainMenu, SceneNames.Lobby);
-        }
-
-        private void ShowHint(string message)
-        {
-            if (hintLabel == null) return;
-
-            hintLabel.text = message;
-            hintTimer = hintDuration;
         }
 
         private static void Quit()

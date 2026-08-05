@@ -22,6 +22,9 @@ namespace Office.Gameplay
         [Header("Cursor")]
         [SerializeField] private bool manageCursor = true;
 
+        private IEventBus bus;
+        private bool paused;
+
         public override void OnNetworkSpawn()
         {
             var owner = IsOwner;
@@ -41,21 +44,35 @@ namespace Office.Gameplay
             gameObject.name = $"Player_{OwnerClientId}_Local";
             SetCursorLocked(true);
 
-            if (ServiceLocator.TryGet<IEventBus>(out var bus))
+            if (ServiceLocator.TryGet(out bus))
+            {
+                bus.Subscribe<LocalPauseChanged>(OnPauseChanged);
                 bus.Publish(new LocalPlayerSpawned(OwnerClientId));
+            }
         }
 
         public override void OnNetworkDespawn()
         {
-            if (IsOwner) SetCursorLocked(false);
+            if (!IsOwner) return;
+
+            bus?.Unsubscribe<LocalPauseChanged>(OnPauseChanged);
+            bus = null;
+            paused = false;
+
+            SetCursorLocked(false);
+        }
+
+        // The pause overlay owns the cursor and input while it is open. The game keeps
+        // running — co-op never freezes for the other players.
+        private void OnPauseChanged(LocalPauseChanged evt)
+        {
+            paused = evt.IsPaused;
+            SetCursorLocked(!paused);
         }
 
         private void Update()
         {
-            if (!IsOwner || !manageCursor) return;
-
-            var keyboard = Keyboard.current;
-            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) SetCursorLocked(false);
+            if (!IsOwner || !manageCursor || paused) return;
 
             var mouse = Mouse.current;
             if (mouse != null && mouse.leftButton.wasPressedThisFrame &&
