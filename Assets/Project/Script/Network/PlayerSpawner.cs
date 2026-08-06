@@ -2,13 +2,20 @@ using System.Collections.Generic;
 using Office.Data;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Office.Network
 {
     public sealed class PlayerSpawner : NetworkBehaviour
     {
         [SerializeField] private SessionDirector director;
-        [SerializeField] private GameObject playerPrefab;
+
+        [Tooltip("Prefab for the host (client id 0).")]
+        [FormerlySerializedAs("playerPrefab")]
+        [SerializeField] private GameObject manPrefab;
+
+        [Tooltip("Prefab for every joining client. Falls back to the man prefab when empty.")]
+        [SerializeField] private GameObject womanPrefab;
 
         private readonly List<NetworkObject> spawned = new(4);
 
@@ -56,7 +63,7 @@ namespace Office.Network
 
         private void SpawnMissingPlayers()
         {
-            if (playerPrefab == null)
+            if (manPrefab == null)
             {
                 Debug.LogError("[Spawn] PlayerSpawner has no player prefab assigned.");
                 return;
@@ -74,7 +81,11 @@ namespace Office.Network
 
         private void SpawnFor(ulong clientId)
         {
-            var instance = Instantiate(playerPrefab);
+            var prefab = clientId == NetworkManager.ServerClientId || womanPrefab == null
+                ? manPrefab
+                : womanPrefab;
+
+            var instance = Instantiate(prefab);
             var networkObject = instance.GetComponent<NetworkObject>();
 
             if (networkObject == null)

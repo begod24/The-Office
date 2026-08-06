@@ -117,7 +117,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Office.Network::Office.Network.PlayerSpawner
   ShowTopMostFoldoutHeaderGroup: 1
   director: {fileID: 7922052314943904713}
-  playerPrefab: {fileID: 7794667978143733364, guid: 857e5b9af3fa0ea4ba24e66c7100d897, type: 3}
+  manPrefab: {fileID: 4165940588400031626, guid: 81ba411cd1aa80643918b30c57800b3e, type: 3}
+  womanPrefab: {fileID: 4139286795937162516, guid: b26b7140cb1d94c42bdba8a3490d3a2a, type: 3}
 --- !u!114 &4996509580375172365
 MonoBehaviour:
   m_ObjectHideFlags: 0

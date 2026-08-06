@@ -32,6 +32,9 @@ namespace Office.Gameplay
         public float NormalizedSpeed =>
             config == null ? 0f : Mathf.Clamp01(horizontalVelocity.magnitude / config.SprintSpeed);
 
+        public Vector3 PlanarVelocity => horizontalVelocity;
+        public float MaxPlanarSpeed => config == null ? 1f : config.SprintSpeed;
+
         public float Stamina => IsOwner ? stamina : replicatedStamina.Value;
         public float NormalizedStamina => config == null ? 1f : Stamina / config.MaxStamina;
 
