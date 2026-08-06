@@ -36,12 +36,12 @@ namespace Office.Editor
             BuildController($"{AnimFolder}/Charachter_Woman.controller");
 
             var man = BuildVariant(
-                $"{ModelFolder}/Charachter_Man.fbx",
+                $"{ModelFolder}/Man.fbx",
                 $"{AnimFolder}/Charachter_Man.controller",
                 ManVariantPath);
 
             var woman = BuildVariant(
-                $"{ModelFolder}/Charachter_Woman.fbx",
+                $"{ModelFolder}/Woman.fbx",
                 $"{AnimFolder}/Charachter_Woman.controller",
                 WomanVariantPath);
 
@@ -164,6 +164,16 @@ namespace Office.Editor
                 return null;
             }
 
+            // The shared clips are humanoid muscle clips, so they only retarget onto a
+            // model imported with Rig > Animation Type = Humanoid.
+            var avatar = LoadAvatar(fbxPath);
+
+            if (avatar == null || !avatar.isHuman || !avatar.isValid)
+            {
+                Debug.LogError($"[Setup] {fbxPath} has no valid Humanoid avatar — set Rig > Animation Type to Humanoid.");
+                return null;
+            }
+
             var root = (GameObject)PrefabUtility.InstantiatePrefab(basePrefab);
 
             try
@@ -178,9 +188,7 @@ namespace Office.Editor
                 var animator = model.GetComponent<Animator>();
                 if (animator == null) animator = model.AddComponent<Animator>();
 
-                if (animator.avatar == null)
-                    animator.avatar = AssetDatabase.LoadAssetAtPath<Avatar>(fbxPath);
-
+                animator.avatar = avatar;
                 animator.runtimeAnimatorController = controller;
                 animator.applyRootMotion = false;
                 animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
@@ -217,6 +225,16 @@ namespace Office.Editor
             {
                 Object.DestroyImmediate(root);
             }
+        }
+
+        // The avatar is a sub-asset of the FBX, so it needs the full asset list.
+        private static Avatar LoadAvatar(string fbxPath)
+        {
+            foreach (var asset in AssetDatabase.LoadAllAssetsAtPath(fbxPath))
+                if (asset is Avatar avatar)
+                    return avatar;
+
+            return null;
         }
 
         private static void SetActive(GameObject root, string childName, bool active)

@@ -10,14 +10,17 @@ namespace Office.Network
     {
         [SerializeField] private SessionDirector director;
 
-        [Tooltip("Prefab for the host (client id 0).")]
+        [Tooltip("Prefab for the even seats — the host is always seat 0.")]
         [FormerlySerializedAs("playerPrefab")]
         [SerializeField] private GameObject manPrefab;
 
-        [Tooltip("Prefab for every joining client. Falls back to the man prefab when empty.")]
+        [Tooltip("Prefab for the odd seats. Falls back to the man prefab when empty.")]
         [SerializeField] private GameObject womanPrefab;
 
         private readonly List<NetworkObject> spawned = new(4);
+
+        // Seat per client, kept across runs so a player keeps their character.
+        private readonly Dictionary<ulong, int> seats = new(4);
 
         private GameState lastPhase = GameState.Lobby;
 
@@ -44,6 +47,7 @@ namespace Office.Network
             if (IsServer) NetworkManager.OnClientDisconnectCallback -= OnClientDisconnected;
 
             spawned.Clear();
+            seats.Clear();
         }
 
         private void OnPhaseChanged(GameState phase)
@@ -81,7 +85,7 @@ namespace Office.Network
 
         private void SpawnFor(ulong clientId)
         {
-            var prefab = clientId == NetworkManager.ServerClientId || womanPrefab == null
+            var prefab = TakeSeat(clientId) % 2 == 0 || womanPrefab == null
                 ? manPrefab
                 : womanPrefab;
 
@@ -99,6 +103,19 @@ namespace Office.Network
             spawned.Add(networkObject);
         }
 
+        // Seats alternate man / woman, so a four player session reads man, woman,
+        // man, woman. The host holds seat 0; a seat freed by a leaver is reused.
+        private int TakeSeat(ulong clientId)
+        {
+            if (seats.TryGetValue(clientId, out var seat)) return seat;
+
+            seat = clientId == NetworkManager.ServerClientId ? 0 : 1;
+            while (seats.ContainsValue(seat)) seat++;
+
+            seats[clientId] = seat;
+            return seat;
+        }
+
         private void DespawnAll()
         {
             for (var i = spawned.Count - 1; i >= 0; i--)
@@ -112,6 +129,8 @@ namespace Office.Network
 
         private void OnClientDisconnected(ulong clientId)
         {
+            seats.Remove(clientId);
+
             for (var i = spawned.Count - 1; i >= 0; i--)
             {
                 var networkObject = spawned[i];
