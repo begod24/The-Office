@@ -1,9 +1,12 @@
+using Office.Audio;
 using Office.UI;
 using TMPro;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace Office.Editor
@@ -11,6 +14,8 @@ namespace Office.Editor
     internal static class MainMenuBuilder
     {
         private const string FontPath = "Assets/Project/Fonts/blockblueprint.asset";
+        private const string MusicPath = "Assets/Project/Audio/SFX/SFX_BackMainMenu.mp3";
+        private const string MusicRootName = "[MenuMusic]";
 
         private static readonly Color Backdrop = new(0.015f, 0.015f, 0.02f, 1f);
         private static readonly Color TextPrimary = new(0.95f, 0.95f, 0.93f, 1f);
@@ -30,6 +35,42 @@ namespace Office.Editor
 
         private static TMP_FontAsset font;
 
+        // Adds the music to a menu scene that was generated before it existed, without
+        // regenerating the whole scene.
+        [MenuItem("Office/Setup/Rebuild Main Menu Audio In Open Scene", priority = 47)]
+        public static void RebuildAudioInOpenScene()
+        {
+            var scene = SceneManager.GetActiveScene();
+
+            foreach (var root in scene.GetRootGameObjects())
+                if (root.name == MusicRootName)
+                    Object.DestroyImmediate(root);
+
+            BuildMusic();
+            EnsureAudioListener(scene);
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            Debug.Log($"[Setup] Menu audio rebuilt in '{scene.name}'. Save the scene to keep it.");
+        }
+
+        private static void EnsureAudioListener(Scene scene)
+        {
+            foreach (var root in scene.GetRootGameObjects())
+                if (root.GetComponentInChildren<AudioListener>(true) != null)
+                    return;
+
+            var camera = Camera.main;
+
+            if (camera == null)
+            {
+                Debug.LogWarning("[Setup] No main camera to hold the AudioListener — " +
+                                 "the menu stays silent.");
+                return;
+            }
+
+            camera.gameObject.AddComponent<AudioListener>();
+        }
+
         public static void Build()
         {
             font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontPath);
@@ -40,6 +81,7 @@ namespace Office.Editor
 
             BuildCamera();
             BuildEventSystem();
+            BuildMusic();
 
             var canvas = BuildCanvas();
 
@@ -272,6 +314,34 @@ namespace Office.Editor
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = Backdrop;
             camera.cullingMask = 0;
+
+            // Nothing is audible without a listener somewhere in the scene.
+            cameraObject.AddComponent<AudioListener>();
+        }
+
+        private static void BuildMusic()
+        {
+            var clip = AssetDatabase.LoadAssetAtPath<AudioClip>(MusicPath);
+
+            if (clip == null)
+            {
+                Debug.LogWarning($"[Setup] {MusicPath} is missing — the menu builds silent.");
+                return;
+            }
+
+            var musicObject = new GameObject(MusicRootName);
+
+            var source = musicObject.AddComponent<AudioSource>();
+            source.clip = clip;
+            source.playOnAwake = true;
+            source.loop = true;
+            source.spatialBlend = 0f;
+
+            // MenuMusic fades this up from zero.
+            source.volume = 0f;
+
+            var music = musicObject.AddComponent<MenuMusic>();
+            Wire(music, ("source", source));
         }
 
         private static void BuildEventSystem()
