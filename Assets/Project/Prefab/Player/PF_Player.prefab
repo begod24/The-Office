@@ -66,7 +66,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 7627c765693836e469577c32c752e4f7, type: 2}
+  - {fileID: 2100000, guid: dbdae8f952ab344cbaa97c6a6904ada8, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -90,6 +90,37 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!1 &2828675626026020449
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 6983724745320466104}
+  m_Layer: 8
+  m_Name: Socket
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &6983724745320466104
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2828675626026020449}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.256, y: 1.251, z: 0.437}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8478204146477256475}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &4872739699574803270
 GameObject:
   m_ObjectHideFlags: 0
@@ -156,7 +187,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 1ea74847f9e019840b7902d935a2ed40, type: 2}
+  - {fileID: 2100000, guid: b195f9b0240b247a68230046daad78cd, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -366,6 +397,9 @@ GameObject:
   - component: {fileID: 834422399568484633}
   - component: {fileID: 1553073467314323565}
   - component: {fileID: 2436612259584864386}
+  - component: {fileID: 8926562458580785833}
+  - component: {fileID: 5204242490135982034}
+  - component: {fileID: 8114047689107679296}
   m_Layer: 8
   m_Name: PF_Player
   m_TagString: Untagged
@@ -388,6 +422,7 @@ Transform:
   m_Children:
   - {fileID: 4126407904293120874}
   - {fileID: 2581770683231656430}
+  - {fileID: 6983724745320466104}
   - {fileID: 8674777771903158022}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -428,7 +463,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 385527414
+  GlobalObjectIdHash: 237481343
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -568,3 +603,48 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Office.Gameplay::Office.Gameplay.PlayerSpawnAnchor
   ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &8926562458580785833
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7794667978143733364}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6c25254f56474436a824646bfb1b4f46, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Office.Gameplay::Office.Gameplay.PlayerInteractor
+  ShowTopMostFoldoutHeaderGroup: 1
+  config: {fileID: 11400000, guid: f5449c68a4bf84be6a1748618acfbae8, type: 2}
+  input: {fileID: 1978534859161905004}
+  playerCamera: {fileID: 8366318457784735011}
+--- !u!114 &5204242490135982034
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7794667978143733364}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4a3c276a72150439cb9b48f07bf1b0ee, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Office.Gameplay::Office.Gameplay.PlayerInventory
+  ShowTopMostFoldoutHeaderGroup: 1
+  config: {fileID: 11400000, guid: f5449c68a4bf84be6a1748618acfbae8, type: 2}
+  input: {fileID: 1978534859161905004}
+--- !u!114 &8114047689107679296
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7794667978143733364}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a0b413ad1a1634aaca52cd51a8d8fd10, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Office.Gameplay::Office.Gameplay.HeldItemView
+  inventory: {fileID: 5204242490135982034}
+  socket: {fileID: 6983724745320466104}

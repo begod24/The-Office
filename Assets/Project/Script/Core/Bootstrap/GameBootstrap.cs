@@ -13,6 +13,11 @@ namespace Office.Core
                  "torn down in reverse.")]
         [SerializeField] private ServiceInstaller[] installers = Array.Empty<ServiceInstaller>();
 
+        [Header("Content")]
+        [Tooltip("Turns network ids back into authored definitions. Without it no item or " +
+                 "prop can resolve on either machine.")]
+        [SerializeField] private DefinitionRegistry definitions;
+
         [Header("Startup")]
         [Tooltip("Scene loaded additively once services are registered. " +
                  "Set to the sandbox while prototyping, to SCN_MainMenu once menus exist.")]
@@ -45,6 +50,20 @@ namespace Office.Core
             ServiceLocator.Register<ISceneLoader>(new SceneLoader());
             ServiceLocator.Register<IGameStateService>(new GameStateMachine(eventBus));
             ServiceLocator.Register(new RunState());
+
+            if (definitions != null)
+            {
+                // A registry cached from a previous play session would still hold ids that
+                // were reassigned in between.
+                definitions.Invalidate();
+                ServiceLocator.Register(definitions);
+            }
+            else
+            {
+                Debug.LogError("[Bootstrap] No DefinitionRegistry assigned. Items and props " +
+                               "will not resolve — run 'Office/Content/Rebuild Definition " +
+                               "Registry', then 'Office/Setup/Build Boot Scene'.");
+            }
 
             ordered = installers.Where(i => i != null).OrderBy(i => i.Order).ToArray();
 

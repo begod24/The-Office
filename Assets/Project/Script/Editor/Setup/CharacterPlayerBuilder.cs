@@ -1,7 +1,5 @@
-using System.Collections.Generic;
 using Office.Gameplay;
 using Office.Network;
-using Unity.Netcode;
 using Unity.Netcode.Components;
 using UnityEditor;
 using UnityEditor.Animations;
@@ -23,7 +21,6 @@ namespace Office.Editor
         private const string ManVariantPath = "Assets/Project/Prefab/Player/PF_Player_Man.prefab";
         private const string WomanVariantPath = "Assets/Project/Prefab/Player/PF_Player_Woman.prefab";
         private const string SessionPrefabPath = "Assets/Project/Prefab/Systems/PF_Session.prefab";
-        private const string NetworkPrefabsPath = "Assets/DefaultNetworkPrefabs.asset";
 
         // Walk speed / sprint speed from CFG_PlayerMovement (3.2 / 5.6): the blend
         // position where the walk cycle sits on the normalized velocity axes.
@@ -45,11 +42,57 @@ namespace Office.Editor
                 $"{AnimFolder}/Charachter_Woman.controller",
                 WomanVariantPath);
 
-            WireSpawner(man, woman);
-            RegisterNetworkPrefabs(man, woman);
+            NetworkPrefabRegistry.Register(man, woman);
 
             AssetDatabase.SaveAssets();
-            Debug.Log("[Setup] Character players built: controllers, variants, spawner, network prefabs.");
+
+            // Building the variants no longer decides who spawns. That choice is one of
+            // the two menu items below, so re-running this cannot quietly swap the player
+            // out from under a session that is being tested with the greybox capsule.
+            Debug.Log("[Setup] Character players built. Use 'Office/Setup/Player Prefab/...' " +
+                      "to choose which prefab the spawner uses.");
+        }
+
+        [MenuItem("Office/Setup/Player Prefab/Use Greybox Capsule (PF_Player)", priority = 47)]
+        public static void UseGreyboxPlayer()
+        {
+            var greybox = AssetDatabase.LoadAssetAtPath<GameObject>(BasePlayerPath);
+
+            if (greybox == null)
+            {
+                Debug.LogError($"[Setup] {BasePlayerPath} is missing. Run 'Build Player Prefab' first.");
+                return;
+            }
+
+            // Both seats get the same prefab: the spawner falls back to the man prefab
+            // whenever the woman prefab is empty.
+            if (!WireSpawner(greybox, null)) return;
+
+            NetworkPrefabRegistry.Register(greybox);
+            AssetDatabase.SaveAssets();
+
+            Debug.Log("[Setup] Every player now spawns as PF_Player (greybox capsule).");
+        }
+
+        // No '/' in the leaf name — Unity reads it as another submenu level.
+        [MenuItem("Office/Setup/Player Prefab/Use Character Models", priority = 48)]
+        public static void UseCharacterPlayers()
+        {
+            var man = AssetDatabase.LoadAssetAtPath<GameObject>(ManVariantPath);
+            var woman = AssetDatabase.LoadAssetAtPath<GameObject>(WomanVariantPath);
+
+            if (man == null || woman == null)
+            {
+                Debug.LogError("[Setup] Character variants are missing. Run 'Build Character Players' first.");
+                return;
+            }
+
+            if (!WireSpawner(man, woman)) return;
+
+            NetworkPrefabRegistry.Register(man, woman);
+            AssetDatabase.SaveAssets();
+
+            Debug.Log("[Setup] Players now spawn as the animated character variants.");
         }
 
         // ----------------------------------------------------------------- animator
@@ -245,9 +288,15 @@ namespace Office.Editor
 
         // ----------------------------------------------------------------- wiring
 
-        private static void WireSpawner(GameObject man, GameObject woman)
+        // A null woman prefab is legal — the spawner then uses the man prefab for every
+        // seat. A null man prefab is not: nothing would spawn.
+        private static bool WireSpawner(GameObject man, GameObject woman)
         {
-            if (man == null || woman == null) return;
+            if (man == null)
+            {
+                Debug.LogError("[Setup] WireSpawner needs a prefab for the even seats.");
+                return false;
+            }
 
             using var scope = new PrefabUtility.EditPrefabContentsScope(SessionPrefabPath);
             var spawner = scope.prefabContentsRoot.GetComponentInChildren<PlayerSpawner>(true);
@@ -255,37 +304,16 @@ namespace Office.Editor
             if (spawner == null)
             {
                 Debug.LogError("[Setup] PF_Session has no PlayerSpawner.");
-                return;
+                return false;
             }
 
             var data = new SerializedObject(spawner);
             data.FindProperty("manPrefab").objectReferenceValue = man;
             data.FindProperty("womanPrefab").objectReferenceValue = woman;
             data.ApplyModifiedPropertiesWithoutUndo();
+
+            return true;
         }
 
-        private static void RegisterNetworkPrefabs(params GameObject[] prefabs)
-        {
-            var list = AssetDatabase.LoadAssetAtPath<NetworkPrefabsList>(NetworkPrefabsPath);
-
-            if (list == null)
-            {
-                Debug.LogError($"[Setup] Network prefabs list not found at {NetworkPrefabsPath}.");
-                return;
-            }
-
-            var known = new HashSet<GameObject>();
-            foreach (var entry in list.PrefabList)
-                if (entry.Prefab != null)
-                    known.Add(entry.Prefab);
-
-            foreach (var prefab in prefabs)
-            {
-                if (prefab == null || known.Contains(prefab)) continue;
-                list.Add(new NetworkPrefab { Prefab = prefab });
-            }
-
-            EditorUtility.SetDirty(list);
-        }
     }
 }

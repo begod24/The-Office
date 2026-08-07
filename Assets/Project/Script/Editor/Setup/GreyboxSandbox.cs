@@ -1,4 +1,5 @@
 using Office.Data;
+using Office.Gameplay;
 using UnityEditor;
 using UnityEngine;
 
@@ -6,6 +7,8 @@ namespace Office.Editor
 {
     internal static class GreyboxSandbox
     {
+        private const string ItemDefinitionFolder = "Assets/Project/ScriptableObject/Items";
+
         private const float Module = 2f;
         private const float WallHeight = 3f;
         private const float WallThickness = 0.25f;
@@ -28,6 +31,47 @@ namespace Office.Editor
             BuildInteriorPartition(root);
             BuildCorridor(root);
             BuildScaleReferences(root);
+            BuildItemPlacements(root);
+        }
+
+        // Markers only. They hold a definition reference and nothing networked — the server
+        // turns them into spawned carriers when the run starts, because with scene management
+        // off an in-scene NetworkObject cannot resolve on a remote client.
+        private static void BuildItemPlacements(Transform parent)
+        {
+            var group = new GameObject("ItemPlacements").transform;
+            group.SetParent(parent, false);
+
+            // On the desk, on the floor by the crates, and down the corridor: three reads of
+            // reach, height and lighting rather than three of the same test.
+            Place(group, "Place_Stapler", "ITM_Stapler", new Vector3(4f, 1.4f, 2f), 1);
+            Place(group, "Place_Keycards", "ITM_Keycard", new Vector3(8f, 0.6f, -4f), 3);
+            Place(group, "Place_Coffee", "ITM_CoffeeCup", new Vector3(-7f, 0f, -8f), 2);
+        }
+
+        private static void Place(Transform parent, string name, string definitionName,
+            Vector3 position, int count)
+        {
+            var definition = AssetDatabase.LoadAssetAtPath<ItemDefinition>(
+                $"{ItemDefinitionFolder}/{definitionName}.asset");
+
+            if (definition == null)
+            {
+                Debug.LogWarning($"[Setup] '{definitionName}' not found — run " +
+                                 "'Office/Content/Build Sample Items'. Marker skipped.");
+                return;
+            }
+
+            var marker = new GameObject(name);
+            marker.transform.SetParent(parent, false);
+            marker.transform.localPosition = position;
+
+            var placement = marker.AddComponent<ItemPlacement>();
+
+            var serialized = new SerializedObject(placement);
+            serialized.FindProperty("definition").objectReferenceValue = definition;
+            serialized.FindProperty("count").intValue = count;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
         private static void BuildFloor(Transform parent, float size)

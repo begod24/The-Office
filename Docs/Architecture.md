@@ -49,7 +49,7 @@ Every asmdef sets `autoReferenced: false` — no project code may live outside a
 | Object | Components |
 |---|---|
 | `NetworkManager` | `NetworkManager`, `UnityTransport` |
-| `[Bootstrap]` | `GameBootstrap`, `NetworkServiceInstaller` |
+| `[Bootstrap]` | `GameBootstrap`, `UIEventSystemInstaller`, `NetworkServiceInstaller` |
 | `[DevUI]` | `DevSessionPanel` (hidden, F1) |
 
 The session itself is **not** in this scene. `NetworkServiceInstaller` spawns `PF_Session`
@@ -67,8 +67,21 @@ Services registered today:
 | `ISceneLoader` | `SceneLoader` | `GameBootstrap` |
 | `IGameStateService` | `GameStateMachine` | `GameBootstrap` |
 | `RunState` | `RunState` | `GameBootstrap` |
+| `DefinitionRegistry` | `REG_Definitions` | `GameBootstrap` |
 | `ISessionService` | `MultiplayerSessionService` | `NetworkServiceInstaller` |
 | `ILobbyService` | `LobbyService` | `NetworkServiceInstaller` |
+
+`UIEventSystemInstaller` registers no service — it owns the one `EventSystem` the application
+uses. **No scene may ship its own.** Scene flow is additive and overlapping: the loader brings
+the next scene up before it drops the previous one, so a per-scene EventSystem means two are
+live for the whole length of every load. Unity warns about that once per frame, and the real
+cost is worse than the noise — both systems raise events, so the outgoing screen keeps taking
+clicks while the incoming one is already on screen. The installer destroys any stray it finds
+when a scene loads and says which scene needs regenerating.
+
+The consequence: entering play mode straight into a UI scene leaves it without an EventSystem,
+so mouse input is dead there. That is the same rule the rest of the composition root already
+enforces — start from `SCN_Boot`.
 
 **The installer pattern is why this works.** `Office.Core` may not reference `Office.Network`,
 so the composition root cannot construct a session service directly. Instead it knows only the
@@ -88,8 +101,8 @@ therefore holds a serialized same-scene reference to the NetworkManager. Do not 
 |---|---|---|
 | `SCN_Boot` | Composition root, NetworkManager, session | Build index 0, never unloads |
 | `SCN_Lobby` | Pre-run room: roster, ready, start | Additively at boot, and on return from a run |
+| `SCN_MainMenu` | Terminal main menu, first scene after boot | Additively at boot, and on leaving a session |
 | `SCN_Sandbox` | Greybox test space | Additively when the run starts |
-| `SCN_Main` | Legacy template scene | To be deleted |
 
 `NetworkConfig.EnableSceneManagement` is **off**. Each client drives its own scene flow from the
 replicated phase, so letting NGO also push scenes would load the same geometry twice on a
@@ -102,6 +115,10 @@ spawns, the client looks for a matching entry in its prefab registry, finds none
 `NetworkPrefab could not be found`. The host never sees it, because the host already has the
 object. Anything networked and persistent must therefore be a **registered prefab that the server
 spawns**, not an object sitting in a scene — until scene management is turned on.
+
+**This is also why nothing interactive is placed in a scene as a NetworkObject.** Level content
+is authored as plain marker components (`ItemPlacement`), and the server turns them into
+spawned, registered prefabs when the run starts. See §9.
 
 `SCN_Boot` holds no reference to level content. Systems find each other through the service
 locator and the event bus, never through inspector references across scenes.
@@ -188,13 +205,33 @@ PF_Player                    layer: Player
 ├── PlayerLook               yaw on body, pitch on pivot, view bob
 ├── PlayerRig                owner-vs-remote split, cursor lock
 ├── PlayerSpawnAnchor        server picks a spawn point, owner teleports
+├── PlayerInteractor         camera probe, server-validated interact request
+├── PlayerInventory          NetworkList of slots, owner-selected index
+├── HeldItemView             draws the selected item at the socket
 ├── Body (capsule)           hidden from the owner
 ├── FacingMarker (cube)      so facing is readable in greybox
+├── Socket                   (0.256, 1.251, 0.437) — where a carried item hangs
 └── CameraPivot              y 1.62 standing, 0.92 crouched
     └── PlayerCamera         Camera + AudioListener, owner only
 ```
 
+`Socket` hangs off the body, not the camera. A carried item therefore sits in one place for
+the holder and for everyone watching them, rather than swinging with the holder's pitch — the
+same object, seen from two angles, instead of a first-person view model plus a separate
+third-person prop that could disagree.
+
 Every tunable number lives in `CFG_PlayerMovement` and `CFG_PlayerLook`, never in the prefab.
+
+`Body` uses `MAT_Cylinder`; `Office/Setup/Build Player Prefab` reuses that material when it
+exists rather than creating a fresh grey one, so regenerating the prefab keeps the look.
+
+**Which prefab actually spawns.** `PlayerSpawner` holds two prefab slots and alternates them by
+seat, falling back to the first whenever the second is empty. Today both seats resolve to
+`PF_Player`: the second slot is deliberately null. `PF_Player_Man` and `PF_Player_Woman` — prefab
+variants carrying the rigged FBX models, humanoid animator controllers and `OwnerNetworkAnimator`
+— are built and registered as network prefabs, but nothing spawns them until someone runs
+`Office/Setup/Player Prefab/Use Character Models`. Switching is one menu item in either
+direction; `Build Character Players` no longer changes the choice as a side effect.
 
 `NetworkConfig.PlayerPrefab` is **null** on purpose. NGO's automatic player spawning fires the
 instant a client connects, which would drop a capsule into the lobby where there is no floor.
@@ -238,12 +275,19 @@ Collision matrix, configured by `Office/Setup/Configure Collision Matrix`:
 | `Office/Setup/Configure Collision Matrix` | Writes the matrix into DynamicsManager.asset |
 | `Office/Setup/Create Config Assets` | Creates the player config ScriptableObjects |
 | `Office/Setup/Build Player Prefab` | Regenerates `PF_Player` from code |
-| `Office/Setup/Build Session Prefab` | Regenerates `PF_Session` and registers both network prefabs |
+| `Office/Setup/Build Session Prefab` | Regenerates `PF_Session`, points the spawner at `PF_Player`, registers both network prefabs |
+| `Office/Setup/Build Character Players` | Builds the animator controllers and the Man / Woman prefab variants |
+| `Office/Setup/Player Prefab/Use Greybox Capsule (PF_Player)` | Every seat spawns the capsule — the current setting |
+| `Office/Setup/Player Prefab/Use Character Models` | Seats alternate between the Man and Woman variants |
 | `Office/Setup/Import TextMeshPro Essentials` | One-time TMP resource import, needed before the lobby |
 | `Office/Setup/Build Sandbox Scene` | Regenerates `SCN_Sandbox` |
 | `Office/Setup/Build Lobby Scene` | Regenerates `PF_LobbyRow` and `SCN_Lobby` |
 | `Office/Setup/Build Boot Scene` | Regenerates `SCN_Boot` |
 | `Office/Setup/Configure Build Settings` | Scene list, `SCN_Boot` at index 0 |
+| `Office/Content/Build All` | Everything below, in order |
+| `Office/Content/Build Sample Items` | Greybox item definitions, view prefabs and icons |
+| `Office/Content/Build World Item Prefab` | Regenerates `PF_WorldItem` and registers it |
+| `Office/Content/Rebuild Definition Registry` | Scans for definitions, hands out ids, writes `REG_Definitions` |
 | `Office/Tests/Run EditMode Tests` | Runs the suite, logs a one-line summary |
 
 All of it is idempotent. Prefabs and scenes are YAML that two people cannot merge, so anything
@@ -258,10 +302,105 @@ value so this fails loudly instead of producing an empty player list at runtime.
 
 ---
 
-## 8. What is deliberately not here yet
+## 8. Content, interaction, inventory
 
-Interaction, inventory, damage, enemies, level generation, power, voice, audio service, HUD,
-the PS1 render pipeline. Each has an empty assembly waiting for it.
+### 8.1 Definitions and ids
+
+Content is authored as ScriptableObjects deriving from `ContentDefinition`: `ItemDefinition`
+today, `PropDefinition` waiting for the first door. Each carries a display name, a **view
+prefab** — a plain mesh and collider, nothing networked — and an icon.
+
+**An asset reference means nothing on the other machine, so a definition never travels.** Its
+`Id` does, and both ends resolve it through `REG_Definitions`, registered as a service by
+`GameBootstrap`. Ids are handed out once by `Office/Content/Rebuild Definition Registry` and
+then left alone: renaming or moving an asset must not renumber it, or a connected client would
+be holding an id that now means something else. Id `0` is reserved for "nothing", which is why
+`default(ItemStack)` reads as an empty slot.
+
+`DefinitionRegistryTests` fails the build on a definition without an id, on two definitions
+sharing one, and on an item that exists but is missing from the registry — each of those would
+otherwise surface only on a remote client, at runtime.
+
+### 8.2 One prefab for every item
+
+`PF_WorldItem` is the only network prefab items will ever need. It carries a `NetworkObject`
+and a `WorldItem` holding a `NetworkVariable<ItemStack>`; every machine instantiates the
+definition's view prefab locally as an ordinary child and forces it onto the `Interactable`
+layer.
+
+This is the answer to `ForceSamePrefabs`. A per-item network prefab would mean a registry entry
+per item, and a forgotten entry fails only on the client that did not add it. With one carrier,
+**adding an item is an asset plus a mesh** — no netcode, no registry edit, no risk.
+
+It carries no `NetworkTransform`: NGO already ships position and rotation in the spawn payload
+while `SynchronizeTransform` is on, and a floor item never moves. Physics props will need one.
+
+### 8.3 Who decides what
+
+| Domain | Authority |
+|---|---|
+| What the player is looking at | Owner — it is the owner's aim, so only the owner can probe |
+| Whether an interaction happens | Server, after re-resolving the target and re-checking reach |
+| Inventory contents | Server |
+| Selected hotbar slot | Owner — it is cosmetic, and a round trip to move a highlight is not worth paying |
+
+`PlayerInteractor` sphere-casts from the owner's camera along `PhysicsLayers.InteractionMask`,
+which includes `LevelGeometry` on purpose: a wall between the player and an item has to win. It
+publishes prompt changes on the event bus — only on change, never per frame — and `HudScreen`
+draws them under the crosshair.
+
+`RequestInteractRpc` is untrusted by construction. It checks that the sender owns the
+interactor, re-resolves the target from its `NetworkObjectReference`, and measures reach from
+the **server's** copy of the body with `ServerRangeTolerance` applied, because owner-authoritative
+movement means the server's copy trails the owner by the interpolation window. Dropping works
+the same way: the position is computed server-side, never sent by the client.
+
+`Player × Interactable` collisions are off in the matrix. A stapler on the floor must not shove
+a running player, and physics queries take a layer mask rather than the matrix, so the probe
+still finds it. Anything that should physically block — a closed door — puts its blocking
+collider on `LevelGeometry` and keeps only its interaction collider on `Interactable`.
+
+### 8.4 Slots
+
+`PlayerInventory` holds a `NetworkList<ItemStack>` pre-filled to `GameplayConstants.InventorySlots`
+so indices stay stable, and `HudBuilder` generates exactly that many hotbar cells from the same
+constant. `ServerAdd` tops up matching stacks before opening a new slot, returns whatever did
+not fit, and writes back only the entries that actually moved — an unchanged element still
+costs a delta. A full inventory hands the whole stack back untouched, which is how `WorldItem`
+knows to leave the item on the floor instead of deleting it.
+
+The arithmetic lives in `ItemStacking`, free of NGO, so `ItemStackingTests` can exercise it
+without a running session.
+
+### 8.5 The item in your hand
+
+`HeldItemView` sends and receives nothing. Both facts it needs are already replicated — the
+slots as a server-written `NetworkList`, the selected index as an owner-written
+`NetworkVariable` — so every peer works out what every player is holding from state it already
+has, and runs identically on the owner and on remote instances. That is what makes the holder
+and everyone else see the same object. Replicating the held item separately would be a second
+source of truth for the same fact, and the two would disagree the first time a pickup and a
+slot change landed in the same tick.
+
+The held instance goes on the `ViewModel` layer with its colliders disabled. `ViewModel`
+collides with nothing and is absent from `InteractionMask`, so a carried item can neither shove
+its holder nor block their own interaction probe.
+
+Where each item sits in the hand is per-item, not per-rig: `ItemDefinition.heldOffset` and
+`heldEulerAngles` — a cup wants its base at the socket, a stapler its middle.
+
+`ItemViewFactory` is the one place a definition id becomes a mesh, for both the floor and the
+hand. The layer is the reason it is shared: getting it wrong makes an item silently unreachable
+rather than visibly broken.
+
+---
+
+## 9. What is deliberately not here yet
+
+Damage, enemies, level generation, power, voice, audio service, the PS1 render pipeline. Each
+has an empty assembly waiting for it. Props are defined but no prop behaviour exists yet — the
+first door will need `PropDefinition`, a `PropPlacement` marker and a component implementing
+`IInteractable`, all of which the item path already demonstrates.
 
 Known gaps in what does exist:
 

@@ -19,12 +19,19 @@ namespace Office.Editor
         private const string ConfigFolder = "Assets/Project/ScriptableObject/Config";
         private const string PlayerPrefabPath = "Assets/Project/Prefab/Player/PF_Player.prefab";
         private const string SessionPrefabPath = "Assets/Project/Prefab/Systems/PF_Session.prefab";
-        private const string NetworkPrefabsListPath = "Assets/DefaultNetworkPrefabs.asset";
         private const string MaterialFolder = "Assets/Project/Art/Materials";
+
+        private const string PlayerBodyMaterialPath =
+            MaterialFolder + "/Charachters/MAT_Cylinder.mat";
         private const string ScenesFolder = "Assets/Project/Scenes";
 
         private const string MovementConfigPath = ConfigFolder + "/CFG_PlayerMovement.asset";
         private const string LookConfigPath = ConfigFolder + "/CFG_PlayerLook.asset";
+        private const string InteractionConfigPath = ConfigFolder + "/CFG_Interaction.asset";
+
+        // Right hand height, slightly forward. Authored by hand in the prefab first; moving
+        // it means editing this line, not the asset, or the next rebuild reverts it.
+        private static readonly Vector3 SocketLocalPosition = new(0.256f, 1.251f, 0.437f);
 
         private static string BootScenePath => $"{ScenesFolder}/{SceneNames.Boot}.unity";
         private static string SandboxScenePath => $"{ScenesFolder}/{SceneNames.Sandbox}.unity";
@@ -38,6 +45,11 @@ namespace Office.Editor
 
             ConfigureCollisionMatrix();
             CreateConfigAssets();
+
+            // Content first: the session prefab needs the item carrier, and the boot scene
+            // needs the registry. Both are silent nulls if they are built afterwards.
+            ItemContentBuilder.BuildAll();
+
             BuildPlayerPrefab();
             BuildSessionPrefab();
             BuildSandboxScene();
@@ -73,6 +85,13 @@ namespace Office.Editor
             Disable(masks, PhysicsLayers.Projectile, PhysicsLayers.Projectile);
 
             Disable(masks, PhysicsLayers.Player, PhysicsLayers.Player);
+
+            // A stapler on the floor must not shove a running player off course. Queries take
+            // a layer mask and ignore this matrix entirely, so the interaction probe still
+            // finds these colliders. Anything that should physically block — a closed door —
+            // puts its blocking collider on LevelGeometry and keeps only its interaction
+            // collider here.
+            Disable(masks, PhysicsLayers.Player, PhysicsLayers.Interactable);
 
             var serialized = new SerializedObject(assets[0]);
             var matrix = serialized.FindProperty("m_LayerCollisionMatrix");
@@ -113,6 +132,7 @@ namespace Office.Editor
             serialized.ApplyModifiedPropertiesWithoutUndo();
 
             CreateOrLoad<PlayerLookConfig>(LookConfigPath);
+            CreateOrLoad<InteractionConfig>(InteractionConfigPath);
 
             AssetDatabase.SaveAssets();
             Debug.Log("[Setup] Config assets ready.");
@@ -123,6 +143,7 @@ namespace Office.Editor
         {
             var movementConfig = CreateOrLoad<PlayerMovementConfig>(MovementConfigPath);
             var lookConfig = CreateOrLoad<PlayerLookConfig>(LookConfigPath);
+            var interactionConfig = CreateOrLoad<InteractionConfig>(InteractionConfigPath);
 
             var root = new GameObject("PF_Player") { layer = PhysicsLayers.Player };
 
@@ -145,6 +166,15 @@ namespace Office.Editor
             networkTransform.SyncScaleZ = false;
 
             var body = BuildGreyboxBody(root.transform);
+
+            // Where a carried item hangs. Authored by hand first, kept here so regenerating
+            // the prefab no longer wipes it — a rig point is exactly the kind of thing that
+            // must survive a rebuild. Under the body rather than the camera: the item has to
+            // sit in one place for the holder and for everyone watching them.
+            var socket = new GameObject("Socket") { layer = PhysicsLayers.Player };
+            socket.transform.SetParent(root.transform, false);
+            socket.transform.localPosition = SocketLocalPosition;
+
             var pivot = new GameObject("CameraPivot");
             pivot.transform.SetParent(root.transform, false);
             pivot.transform.localPosition = new Vector3(0f, 1.62f, 0f);
@@ -168,7 +198,24 @@ namespace Office.Editor
             var rig = root.AddComponent<PlayerRig>();
             root.AddComponent<PlayerSpawnAnchor>();
 
+            var interactor = root.AddComponent<PlayerInteractor>();
+            var inventory = root.AddComponent<PlayerInventory>();
+            var heldItem = root.AddComponent<HeldItemView>();
+
             Wire(movement, ("config", movementConfig), ("input", input));
+
+            Wire(interactor,
+                ("config", interactionConfig),
+                ("input", input),
+                ("playerCamera", camera));
+
+            Wire(inventory,
+                ("config", interactionConfig),
+                ("input", input));
+
+            Wire(heldItem,
+                ("inventory", inventory),
+                ("socket", socket.transform));
 
             Wire(look,
                 ("config", lookConfig),
@@ -195,7 +242,12 @@ namespace Office.Editor
         private static Renderer[] BuildGreyboxBody(Transform parent)
         {
             var accent = CreateOrLoadMaterial("M_Greybox_Accent", new Color(0.78f, 0.29f, 0.22f));
-            var bodyMaterial = CreateOrLoadMaterial("M_Greybox_Player", new Color(0.62f, 0.66f, 0.72f));
+
+            // MAT_Cylinder is the look the player ships with today. Regenerating the prefab
+            // must not silently replace it with a fresh grey material.
+            var bodyMaterial = AssetDatabase.LoadAssetAtPath<Material>(PlayerBodyMaterialPath)
+                               ?? CreateOrLoadMaterial("M_Greybox_Player",
+                                   new Color(0.62f, 0.66f, 0.72f));
 
             var capsule = GameObject.CreatePrimitive(PrimitiveType.Capsule);
             capsule.name = "Body";
@@ -319,13 +371,23 @@ namespace Office.Editor
 
             var bootstrapObject = new GameObject("[Bootstrap]");
             var bootstrap = bootstrapObject.AddComponent<GameBootstrap>();
+            var uiInstaller = bootstrapObject.AddComponent<UIEventSystemInstaller>();
             var networkInstaller = bootstrapObject.AddComponent<NetworkServiceInstaller>();
 
             var serialized = new SerializedObject(bootstrap);
             serialized.FindProperty("firstScene").stringValue = SceneNames.MainMenu;
             serialized.ApplyModifiedPropertiesWithoutUndo();
 
-            WireArray(bootstrap, "installers", networkInstaller);
+            var registry = ItemContentBuilder.LoadRegistry();
+
+            if (registry == null)
+                Debug.LogError("[Setup] REG_Definitions is missing. Run " +
+                               "'Office/Content/Rebuild Definition Registry' first — without it " +
+                               "no item or prop resolves at runtime.");
+
+            Wire(bootstrap, ("definitions", registry));
+
+            WireArray(bootstrap, "installers", uiInstaller, networkInstaller);
 
             var sessionPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(SessionPrefabPath);
 
@@ -362,10 +424,25 @@ namespace Office.Editor
             var director = root.AddComponent<SessionDirector>();
             var spawner = root.AddComponent<PlayerSpawner>();
             var sceneFlow = root.AddComponent<RunSceneFlow>();
+            var itemSpawner = root.AddComponent<WorldItemSpawner>();
 
             Wire(director, ("roster", roster));
-            Wire(spawner, ("director", director), ("playerPrefab", playerPrefab));
+
+            // Every seat spawns the greybox capsule for now. The animated character
+            // variants exist but are opt-in through Office/Setup/Player Prefab.
+            Wire(spawner, ("director", director), ("manPrefab", playerPrefab));
+            ClearFields(spawner, "womanPrefab");
+
             Wire(sceneFlow, ("director", director));
+
+            var worldItemPrefab = ItemContentBuilder.LoadWorldItemPrefab();
+
+            if (worldItemPrefab == null)
+                Debug.LogError("[Setup] PF_WorldItem is missing. Run " +
+                               "'Office/Content/Build World Item Prefab' first — without it " +
+                               "nothing can be picked up or dropped.");
+
+            Wire(itemSpawner, ("director", director), ("worldItemPrefab", worldItemPrefab));
 
             EnsureFolder(Path.GetDirectoryName(SessionPrefabPath));
             PrefabUtility.SaveAsPrefabAsset(root, SessionPrefabPath);
@@ -373,31 +450,10 @@ namespace Office.Editor
 
             AssetDatabase.SaveAssets();
 
-            RegisterNetworkPrefab(AssetDatabase.LoadAssetAtPath<GameObject>(SessionPrefabPath));
-            RegisterNetworkPrefab(playerPrefab);
+            NetworkPrefabRegistry.Register(
+                AssetDatabase.LoadAssetAtPath<GameObject>(SessionPrefabPath), playerPrefab);
 
             Debug.Log($"[Setup] Session prefab written to {SessionPrefabPath}.");
-        }
-
-        private static void RegisterNetworkPrefab(GameObject prefab)
-        {
-            if (prefab == null) return;
-
-            var list = AssetDatabase.LoadAssetAtPath<NetworkPrefabsList>(NetworkPrefabsListPath);
-
-            if (list == null)
-            {
-                Debug.LogError($"[Setup] {NetworkPrefabsListPath} is missing.");
-                return;
-            }
-
-            if (list.Contains(prefab)) return;
-
-            list.Add(new NetworkPrefab { Prefab = prefab });
-            EditorUtility.SetDirty(list);
-            AssetDatabase.SaveAssets();
-
-            Debug.Log($"[Setup] Registered '{prefab.name}' as a network prefab.");
         }
 
         private static void BuildLighting()
@@ -576,6 +632,28 @@ namespace Office.Editor
                     Debug.LogError($"[Setup] '{target.GetType().Name}.{field}' was given null.");
 
                 property.objectReferenceValue = value;
+            }
+
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        // Deliberate nulls. Wire treats a null value as a mistake, which it almost always
+        // is — clearing a field has to say so out loud.
+        private static void ClearFields(Object target, params string[] fields)
+        {
+            var serialized = new SerializedObject(target);
+
+            foreach (var field in fields)
+            {
+                var property = serialized.FindProperty(field);
+
+                if (property == null)
+                {
+                    Debug.LogError($"[Setup] '{target.GetType().Name}' has no field '{field}'.");
+                    continue;
+                }
+
+                property.objectReferenceValue = null;
             }
 
             serialized.ApplyModifiedPropertiesWithoutUndo();

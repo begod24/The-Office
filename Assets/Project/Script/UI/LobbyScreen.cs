@@ -214,8 +214,18 @@ namespace Office.UI
             busy = true;
             Refresh();
 
-            gameState?.TryChange(GameState.MainMenu);
-            await sceneLoader.SwapAsync(SceneNames.Lobby, SceneNames.MainMenu);
+            try
+            {
+                gameState?.TryChange(GameState.MainMenu);
+                await sceneLoader.SwapAsync(SceneNames.Lobby, SceneNames.MainMenu);
+            }
+            finally
+            {
+                // This scene is usually gone by now, but a failed swap would otherwise leave
+                // every button in the lobby permanently disabled.
+                busy = false;
+                if (this != null) Refresh();
+            }
         }
 
         private void OnCopyClicked() => GUIUtility.systemCopyBuffer = session.JoinCode;

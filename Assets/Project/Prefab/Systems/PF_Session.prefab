@@ -15,6 +15,7 @@ GameObject:
   - component: {fileID: 7922052314943904713}
   - component: {fileID: 5141321947128826791}
   - component: {fileID: 4996509580375172365}
+  - component: {fileID: 7709979185626738789}
   m_Layer: 0
   m_Name: PF_Session
   m_TagString: Untagged
@@ -49,7 +50,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 1126512368
+  GlobalObjectIdHash: 3674431331
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -117,8 +118,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Office.Network::Office.Network.PlayerSpawner
   ShowTopMostFoldoutHeaderGroup: 1
   director: {fileID: 7922052314943904713}
-  manPrefab: {fileID: 4165940588400031626, guid: 81ba411cd1aa80643918b30c57800b3e, type: 3}
-  womanPrefab: {fileID: 4139286795937162516, guid: b26b7140cb1d94c42bdba8a3490d3a2a, type: 3}
+  manPrefab: {fileID: 7794667978143733364, guid: 857e5b9af3fa0ea4ba24e66c7100d897, type: 3}
+  womanPrefab: {fileID: 0}
 --- !u!114 &4996509580375172365
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -134,3 +135,18 @@ MonoBehaviour:
   director: {fileID: 7922052314943904713}
   lobbyScene: SCN_Lobby
   runScene: SCN_Sandbox
+--- !u!114 &7709979185626738789
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6216860476782636292}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 31b1a28cb622e40cba20375306216a6a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Office.Gameplay::Office.Gameplay.WorldItemSpawner
+  ShowTopMostFoldoutHeaderGroup: 1
+  director: {fileID: 7922052314943904713}
+  worldItemPrefab: {fileID: 8486401595416788269, guid: 52d67f3315d664041a85032988184c88, type: 3}

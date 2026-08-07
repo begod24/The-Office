@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5754251e58fe146e5b3267ff844cf534, type: 3}
+  m_Name: REG_Definitions
+  m_EditorClassIdentifier: Office.Data::Office.Data.DefinitionRegistry
+  items:
+  - {fileID: 11400000, guid: dc67d246aebb74d379153f7f40ec6608, type: 2}
+  - {fileID: 11400000, guid: e2347ad1cd1814b599728c379b90402a, type: 2}
+  - {fileID: 11400000, guid: d624d5ee51d4b4ed895089e8a8891d0a, type: 2}
+  props: []

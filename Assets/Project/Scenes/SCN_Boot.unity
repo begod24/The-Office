@@ -119,7 +119,7 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1 &436473265
+--- !u!1 &205771786
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -127,9 +127,9 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 436473268}
-  - component: {fileID: 436473266}
-  - component: {fileID: 436473267}
+  - component: {fileID: 205771789}
+  - component: {fileID: 205771787}
+  - component: {fileID: 205771788}
   m_Layer: 0
   m_Name: NetworkManager
   m_TagString: Untagged
@@ -137,13 +137,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &436473266
+--- !u!114 &205771787
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 436473265}
+  m_GameObject: {fileID: 205771786}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 593a2fe42fa9d37498c96f9a383b6521, type: 3}
@@ -152,7 +152,7 @@ MonoBehaviour:
   NetworkManagerExpanded: 0
   NetworkConfig:
     ProtocolVersion: 0
-    NetworkTransport: {fileID: 436473267}
+    NetworkTransport: {fileID: 205771788}
     PlayerPrefab: {fileID: 0}
     Prefabs:
       NetworkPrefabsLists:
@@ -179,13 +179,13 @@ MonoBehaviour:
     OldPrefabList: []
   RunInBackground: 1
   LogLevel: 1
---- !u!114 &436473267
+--- !u!114 &205771788
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 436473265}
+  m_GameObject: {fileID: 205771786}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6960e84d07fb87f47956e7a81d71c4e6, type: 3}
@@ -210,13 +210,13 @@ MonoBehaviour:
     PacketDelayMS: 0
     PacketJitterMS: 0
     PacketDropRate: 0
---- !u!4 &436473268
+--- !u!4 &205771789
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 436473265}
+  m_GameObject: {fileID: 205771786}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -225,7 +225,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &731103911
+--- !u!1 &1248037791
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -233,8 +233,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 731103913}
-  - component: {fileID: 731103912}
+  - component: {fileID: 1248037793}
+  - component: {fileID: 1248037792}
   m_Layer: 0
   m_Name: '[DevUI]'
   m_TagString: Untagged
@@ -242,13 +242,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &731103912
+--- !u!114 &1248037792
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 731103911}
+  m_GameObject: {fileID: 1248037791}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d5b69eb535c57c64294ad0de99b2b1bb, type: 3}
@@ -256,13 +256,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: Office.UI::Office.UI.DevSessionPanel
   toggleKey: 94
   visibleOnStart: 0
---- !u!4 &731103913
+--- !u!4 &1248037793
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 731103911}
+  m_GameObject: {fileID: 1248037791}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -271,7 +271,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1018432423
+--- !u!1 &1406320695
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -279,9 +279,10 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1018432426}
-  - component: {fileID: 1018432425}
-  - component: {fileID: 1018432424}
+  - component: {fileID: 1406320699}
+  - component: {fileID: 1406320698}
+  - component: {fileID: 1406320697}
+  - component: {fileID: 1406320696}
   m_Layer: 0
   m_Name: '[Bootstrap]'
   m_TagString: Untagged
@@ -289,43 +290,57 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1018432424
+--- !u!114 &1406320696
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1018432423}
+  m_GameObject: {fileID: 1406320695}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 776f4798db0b18b4289a09f7a0f12708, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Office.Network::Office.Network.NetworkServiceInstaller
-  networkManager: {fileID: 436473266}
+  networkManager: {fileID: 205771787}
   sessionPrefab: {fileID: 6216860476782636292, guid: 1965576fe0a6d0045a1aa4f5a9884f00, type: 3}
---- !u!114 &1018432425
+--- !u!114 &1406320697
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1018432423}
+  m_GameObject: {fileID: 1406320695}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5087a69aab2d4007bd76a7d63507c9c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Office.UI::Office.UI.UIEventSystemInstaller
+--- !u!114 &1406320698
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1406320695}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e9aa09ba396659040b8b54ecae9bb067, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Office.Core::Office.Core.GameBootstrap
   installers:
-  - {fileID: 1018432424}
+  - {fileID: 1406320697}
+  - {fileID: 1406320696}
+  definitions: {fileID: 11400000, guid: 1608ad3021e61434297664f952d35b09, type: 2}
   firstScene: SCN_MainMenu
   loadFirstSceneOnStart: 1
---- !u!4 &1018432426
+--- !u!4 &1406320699
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1018432423}
+  m_GameObject: {fileID: 1406320695}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -338,6 +353,6 @@ Transform:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
-  - {fileID: 436473268}
-  - {fileID: 1018432426}
-  - {fileID: 731103913}
+  - {fileID: 205771789}
+  - {fileID: 1406320699}
+  - {fileID: 1248037793}

@@ -1,6 +1,8 @@
 using Office.Core;
 using Office.Data;
+using Office.Gameplay;
 using Office.Network;
+using TMPro;
 using UnityEngine;
 
 namespace Office.UI
@@ -14,12 +16,18 @@ namespace Office.UI
         [SerializeField] private HudHotbar hotbar;
         [SerializeField] private GameObject crosshair;
 
+        [Tooltip("Line under the crosshair naming what the player is looking at.")]
+        [SerializeField] private TMP_Text interactPrompt;
+
         [Tooltip("Fills the panels with dummy rows when no session is running.")]
         [SerializeField] private bool showPlaceholdersWhenOffline = true;
 
         private ILobbyService lobby;
         private IEventBus bus;
         private CanvasGroup group;
+
+        private DefinitionRegistry definitions;
+        private PlayerInventory inventory;
 
         public HudObjectivesPanel Objectives => objectives;
 
@@ -34,7 +42,20 @@ namespace Office.UI
             if (ServiceLocator.TryGet(out lobby)) lobby.Changed += Refresh;
 
             // The pause overlay replaces the HUD for the local player.
-            if (ServiceLocator.TryGet(out bus)) bus.Subscribe<LocalPauseChanged>(OnPauseChanged);
+            if (ServiceLocator.TryGet(out bus))
+            {
+                bus.Subscribe<LocalPauseChanged>(OnPauseChanged);
+                bus.Subscribe<InteractionPromptChanged>(OnPromptChanged);
+            }
+
+            ServiceLocator.TryGet(out definitions);
+
+            // The player object outlives no run, so the HUD cannot hold a reference across
+            // one. It binds whenever the local inventory appears and lets go when it goes.
+            PlayerInventory.LocalChanged += BindInventory;
+            BindInventory(PlayerInventory.Local);
+
+            SetPrompt(string.Empty);
 
             if (objectives != null) objectives.ShowPlaceholders();
 
@@ -44,7 +65,78 @@ namespace Office.UI
         private void OnDestroy()
         {
             if (lobby != null) lobby.Changed -= Refresh;
+
             bus?.Unsubscribe<LocalPauseChanged>(OnPauseChanged);
+            bus?.Unsubscribe<InteractionPromptChanged>(OnPromptChanged);
+
+            PlayerInventory.LocalChanged -= BindInventory;
+            BindInventory(null);
+        }
+
+        // ------------------------------------------------------------------- interaction
+
+        private void OnPromptChanged(InteractionPromptChanged evt) => SetPrompt(evt.Prompt);
+
+        private void SetPrompt(string prompt)
+        {
+            if (interactPrompt == null) return;
+
+            interactPrompt.text = prompt;
+            interactPrompt.enabled = !string.IsNullOrEmpty(prompt);
+        }
+
+        // --------------------------------------------------------------------- inventory
+
+        private void BindInventory(PlayerInventory next)
+        {
+            if (ReferenceEquals(inventory, next)) return;
+
+            if (inventory != null) inventory.Changed -= RefreshHotbar;
+
+            inventory = next;
+
+            if (inventory != null) inventory.Changed += RefreshHotbar;
+
+            RefreshHotbar();
+        }
+
+        private void RefreshHotbar()
+        {
+            if (hotbar == null) return;
+
+            if (inventory == null || !inventory.IsSpawned)
+            {
+                hotbar.ClearAll();
+                return;
+            }
+
+            for (var i = 0; i < hotbar.Count; i++)
+            {
+                if (i >= inventory.Capacity)
+                {
+                    hotbar.ClearSlot(i);
+                    continue;
+                }
+
+                var stack = inventory[i];
+
+                if (stack.IsEmpty)
+                {
+                    hotbar.ClearSlot(i);
+                    continue;
+                }
+
+                // A missing definition is a content bug, not a reason to blank the slot:
+                // draw the count so the player can still see they are carrying something.
+                var icon = definitions != null &&
+                           definitions.TryGetItem(stack.DefinitionId, out var definition)
+                    ? definition.Icon
+                    : null;
+
+                hotbar.SetItem(i, icon, stack.Count);
+            }
+
+            hotbar.SetSelected(inventory.SelectedIndex);
         }
 
         private void OnPauseChanged(LocalPauseChanged evt)

@@ -4,8 +4,6 @@ using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
-using UnityEngine.EventSystems;
-using UnityEngine.InputSystem.UI;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -80,7 +78,6 @@ namespace Office.Editor
                                  "to the default TMP font.");
 
             BuildCamera();
-            BuildEventSystem();
             BuildMusic();
 
             var canvas = BuildCanvas();
@@ -342,13 +339,6 @@ namespace Office.Editor
 
             var music = musicObject.AddComponent<MenuMusic>();
             Wire(music, ("source", source));
-        }
-
-        private static void BuildEventSystem()
-        {
-            var eventSystem = new GameObject("EventSystem");
-            eventSystem.AddComponent<EventSystem>();
-            eventSystem.AddComponent<InputSystemUIInputModule>();
         }
 
         private static Canvas BuildCanvas()

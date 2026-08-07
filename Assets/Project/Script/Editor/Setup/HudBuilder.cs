@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Office.Data;
 using Office.UI;
 using TMPro;
 using UnityEditor;
@@ -17,12 +18,17 @@ namespace Office.Editor
 
         private const int SquadRows = 4;
         private const int HealthSegments = 12;
-        private const int HotbarSlots = 5;
         private const int ObjectiveRows = 3;
+
+        // One cell per inventory slot. Shared with PlayerInventory so the two cannot drift.
+        private const int HotbarSlots = GameplayConstants.InventorySlots;
 
         private const float SlotSize = 66f;
         private const float SlotSpacing = 8f;
         private const float ScreenMargin = 28f;
+
+        // Below the crosshair, clear of the stamina rule that sits just under it.
+        private const float PromptOffset = 54f;
 
         private static readonly Color Frame = new(0.75f, 0.76f, 0.78f, 0.45f);
         private static readonly Color Fill = new(0.02f, 0.02f, 0.03f, 0.55f);
@@ -89,13 +95,15 @@ namespace Office.Editor
             var squad = BuildSquad(root.transform);
             var hotbar = BuildHotbar(root.transform);
             var crosshair = BuildCrosshair(root.transform);
+            var prompt = BuildInteractPrompt(root.transform);
             BuildStamina(root.transform);
 
             Wire(screen,
                 ("objectives", objectives),
                 ("squad", squad),
                 ("hotbar", hotbar),
-                ("crosshair", crosshair));
+                ("crosshair", crosshair),
+                ("interactPrompt", prompt));
 
             return true;
         }
@@ -373,6 +381,21 @@ namespace Office.Editor
 
             var component = root.gameObject.AddComponent<HudStaminaBar>();
             Wire(component, ("group", group), ("fill", fillRect));
+        }
+
+        // Sits below the crosshair, where the eye already is. HudScreen disables the label
+        // when there is nothing to say, so an empty prompt costs no layout pass.
+        private static TMP_Text BuildInteractPrompt(Transform parent)
+        {
+            var label = CreateLabel("InteractPrompt", parent, string.Empty, 15f,
+                TextAlignmentOptions.Center, TextPrimary);
+
+            var rect = (RectTransform)label.transform;
+            Centre(rect, new Vector2(420f, 26f));
+            rect.anchoredPosition = new Vector2(0f, -PromptOffset);
+
+            label.enabled = false;
+            return label;
         }
 
         private static GameObject BuildCrosshair(Transform parent)
