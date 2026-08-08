@@ -227,7 +227,7 @@ namespace Office.Gameplay
             if (stack.IsEmpty) return unarmed;
 
             if (!ServiceLocator.TryGet<DefinitionRegistry>(out var registry) ||
-                !registry.TryGetItem(stack.DefinitionId, out var definition))
+                !registry.TryGet<ItemDefinition>(stack.DefinitionId, out var definition))
                 return unarmed;
 
             // No module means the item is simply not a weapon — a coffee cup swings like a

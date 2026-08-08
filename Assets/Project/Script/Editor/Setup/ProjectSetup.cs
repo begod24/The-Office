@@ -390,6 +390,10 @@ namespace Office.Editor
 
             networkManager.NetworkConfig.EnableSceneManagement = false;
 
+            // NetworkServiceInstaller supplies the callback and the payload at boot. Writing
+            // it here too keeps the inspector honest about what the scene actually does.
+            networkManager.NetworkConfig.ConnectionApproval = true;
+
             var bootstrapObject = new GameObject("[Bootstrap]");
             var bootstrap = bootstrapObject.AddComponent<GameBootstrap>();
             var uiInstaller = bootstrapObject.AddComponent<UIEventSystemInstaller>();

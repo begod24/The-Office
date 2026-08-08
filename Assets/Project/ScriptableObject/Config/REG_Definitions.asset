@@ -12,8 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5754251e58fe146e5b3267ff844cf534, type: 3}
   m_Name: REG_Definitions
   m_EditorClassIdentifier: Office.Data::Office.Data.DefinitionRegistry
-  items:
+  definitions:
   - {fileID: 11400000, guid: dc67d246aebb74d379153f7f40ec6608, type: 2}
   - {fileID: 11400000, guid: e2347ad1cd1814b599728c379b90402a, type: 2}
   - {fileID: 11400000, guid: d624d5ee51d4b4ed895089e8a8891d0a, type: 2}
-  props: []

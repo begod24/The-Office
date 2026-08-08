@@ -79,18 +79,16 @@ namespace Office.Editor
         [MenuItem("Office/Content/Rebuild Definition Registry", priority = 30)]
         public static void RebuildRegistry()
         {
-            var items = LoadAll<ItemDefinition>();
-            var props = LoadAll<PropDefinition>();
-
-            var all = items.Cast<ContentDefinition>().Concat(props).ToArray();
+            // Every subclass at once. A new kind of content therefore needs no edit here —
+            // that is the point of the registry holding one array.
+            var all = LoadAll<ContentDefinition>();
 
             AssignIds(all);
 
             var registry = CreateOrLoad<DefinitionRegistry>(RegistryPath);
             var serialized = new SerializedObject(registry);
 
-            WriteArray(serialized, "items", items);
-            WriteArray(serialized, "props", props);
+            WriteArray(serialized, "definitions", all);
 
             serialized.ApplyModifiedPropertiesWithoutUndo();
 
@@ -98,7 +96,13 @@ namespace Office.Editor
             EditorUtility.SetDirty(registry);
             AssetDatabase.SaveAssets();
 
-            Debug.Log($"[Content] Registry rebuilt: {items.Length} items, {props.Length} props.");
+            var breakdown = all
+                .GroupBy(definition => definition.GetType().Name)
+                .OrderBy(group => group.Key, System.StringComparer.Ordinal)
+                .Select(group => $"{group.Count()} {group.Key}");
+
+            Debug.Log($"[Content] Registry rebuilt: {all.Length} definitions " +
+                      $"({string.Join(", ", breakdown)}).");
         }
 
         public static DefinitionRegistry LoadRegistry() =>

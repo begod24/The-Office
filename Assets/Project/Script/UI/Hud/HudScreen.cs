@@ -129,7 +129,7 @@ namespace Office.UI
                 // A missing definition is a content bug, not a reason to blank the slot:
                 // draw the count so the player can still see they are carrying something.
                 var icon = definitions != null &&
-                           definitions.TryGetItem(stack.DefinitionId, out var definition)
+                           definitions.TryGet<ItemDefinition>(stack.DefinitionId, out var definition)
                     ? definition.Icon
                     : null;
 

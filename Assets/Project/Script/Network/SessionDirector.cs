@@ -29,6 +29,18 @@ namespace Office.Network
 
         public event Action<GameState> PhaseChanged;
 
+        /// <summary>
+        /// Server only. A client finished loading the run scene while the run was already
+        /// under way — it has no body and needs one.
+        /// </summary>
+        /// <remarks>
+        /// Separate from <see cref="PhaseChanged"/> because a late joiner produces no phase
+        /// transition at all: the run is already <see cref="GameState.InRun"/> and stays
+        /// there. Anything that spawns per-player has to listen here as well, or it only ever
+        /// serves the players who were present when the run started.
+        /// </remarks>
+        public event Action<ulong> ClientReadyDuringRun;
+
         public override void OnNetworkSpawn()
         {
             ServiceLocator.TryGet(out gameState);
@@ -91,7 +103,17 @@ namespace Office.Network
         [Rpc(SendTo.Server)]
         public void ReportRunSceneReadyRpc(RpcParams rpcParams = default)
         {
-            sceneReady.Add(rpcParams.Receive.SenderClientId);
+            var clientId = rpcParams.Receive.SenderClientId;
+
+            sceneReady.Add(clientId);
+
+            // Already running: this is a late joiner, not the last of the starting group.
+            // The phase does not move, so nobody would hear about them without this.
+            if (phase.Value == GameState.InRun)
+            {
+                ClientReadyDuringRun?.Invoke(clientId);
+                return;
+            }
 
             if (phase.Value != GameState.Generating) return;
             if (sceneReady.Count < NetworkManager.ConnectedClientsIds.Count) return;

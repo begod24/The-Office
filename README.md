@@ -53,6 +53,8 @@ debug session panel in any scene; it shows connection phase, roster, ready state
 | 9 | Both pick up and drop the same item several times | No hitch on later pickups — the carrier is pooled after the first |
 | 10 | Host presses End run, then starts another | Items are laid out again; no leftovers from the previous run |
 | 11 | Host presses End run | Both return to the lobby with the roster intact |
+| 12 | Start a run, then join with a third client | The late joiner gets a body instead of a camera stuck in the floor |
+| 13 | Kill the host process mid-run | Every other client lands back in the main menu with a reason logged, not stranded in the run scene |
 
 Step 7 is the one that catches registry and prefab-resolution mistakes. If the item vanishes for
 B but stays for the host, check the console on B for `NetworkPrefab could not be found`.
@@ -62,13 +64,18 @@ it registers a prefab handler on both ends, and a mistake there shows up only on
 
 ## Known gaps
 
-`ConnectionApproval` is off, a client joining mid-run gets no body, and a dropped host leaves
-clients stuck in the run scene. These are tracked with the rest of the findings in
-[Docs/CodeReview.md](Docs/CodeReview.md) §8.
-
 Combat lands damage and downs a player, but nothing yet turns being downed into a visible state:
 there is no revive interaction, no spectator camera and no health readout. `Health` publishes
-`LocalVitalsChanged` for whatever draws it first.
+`LocalVitalsChanged` for whatever draws it first, and `Health.ServerRevive` is waiting for
+something to call it.
+
+The lobby still does not lock during a run, so a mid-run join is allowed and gets a body
+wherever the spawn points put it. Remaining findings are tracked in
+[Docs/CodeReview.md](Docs/CodeReview.md) §8.
+
+**Two players on different builds cannot connect** — that is deliberate. The handshake compares
+`Application.version` and a fingerprint of `REG_Definitions`, so after changing content both
+machines need the same build. A rejected join logs what each side expected.
 
 ## Working in this repo
 

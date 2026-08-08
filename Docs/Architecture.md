@@ -175,6 +175,27 @@ profiles they all authenticate as the same anonymous player and the second one e
 | Player object creation | Server |
 | Everything else | Not implemented yet |
 
+**Connection approval.** `ConnectionApproval` is on, and the payload is a handshake:
+`Application.version` plus a fingerprint of every definition id and the name behind it
+(`ConnectionHandshake`). A client whose content disagrees with the host is turned away with a
+reason instead of joining successfully and then quietly seeing different items — the failure it
+prevents has no symptom on the wire, which is exactly what makes it expensive to debug later.
+
+The fingerprint uses a hand-written FNV-1a rather than `string.GetHashCode`, which is not stable
+across runtimes and, on some, not across processes. A hash that disagreed for reasons unrelated
+to content would reject two machines running the identical build — a worse failure than the one
+being guarded against, and `ConnectionHandshakeTests` pins it to the published vectors.
+
+`CreatePlayerObject` is false: bodies are spawned by `PlayerSpawner` when the run starts, not by
+NGO on connection, because the lobby has no bodies in it.
+
+**Losing the host.** `NetworkServiceInstaller` handles `OnClientStopped` and returns a
+non-host client to the main menu, per GDD §15. It lives in the boot scene deliberately — the
+session object is despawned by then, so nothing that rides on it can react. The scene teardown
+goes through `ISceneLoader.ReturnToAsync`, which unloads everything except boot rather than
+naming a scene: which run scene was loaded depends on the level, and the network layer has no
+business knowing the level list.
+
 **Network prefab registry.** `Assets/DefaultNetworkPrefabs.asset` holds `PF_Player` and
 `PF_Session`, and is referenced by the NetworkManager. `ForceSamePrefabs` is on, so client and
 server must carry identical lists — after adding any spawnable prefab, both machines need the
@@ -362,9 +383,19 @@ then left alone: renaming or moving an asset must not renumber it, or a connecte
 be holding an id that now means something else. Id `0` is reserved for "nothing", which is why
 `default(ItemStack)` reads as an empty slot.
 
+**The registry holds one array of `ContentDefinition`, not one per type**, and resolution goes
+through `registry.TryGet<ItemDefinition>(id, out var item)`. The id space was always shared, so
+per-type arrays bought nothing while costing a field, a dictionary, a `TryGet` and a builder
+edit for every new kind of content — and GDD still has enemies, rooms, recipes, objectives and
+anomalies to come. Now a new type is an asset and nothing else.
+
+The type parameter is a guard, not a cast convenience: an id that belongs to a prop must fail
+to resolve as an item rather than come back as something the caller will misuse.
+
 `DefinitionRegistryTests` fails the build on a definition without an id, on two definitions
-sharing one, and on an item that exists but is missing from the registry — each of those would
-otherwise surface only on a remote client, at runtime.
+sharing one, on a definition that exists but is missing from the registry, and on an id that
+resolves as the wrong type — each of those would otherwise surface only on a remote client, at
+runtime.
 
 ### 8.2 One prefab for every item
 
@@ -574,7 +605,10 @@ Known gaps in what does exist:
   This gap has already produced one shipped bug: the session object was originally placed in
   the Boot scene, which works for a host and fails for every client. Treat anything that only
   a remote client exercises as unverified until two machines have run it.
-- **Late join during a run** spawns a player once that client reports its scene ready, but the
-  case is untested and the lobby does not lock.
+- **Late join during a run** spawns a player once that client reports its scene ready.
+  `SessionDirector` raises `ClientReadyDuringRun` for it, because a late joiner produces no
+  phase transition and spawning otherwise hangs off the `InRun` edge alone. Untested with two
+  machines, and the lobby still does not lock — connection approval could refuse a mid-run join
+  outright, which may turn out to be the better answer than spawning one.
 - **The lobby look is placeholder.** GDD §14 wants a retro terminal HUD; that pass belongs with
   the PS1 render pipeline in Sprint 9.

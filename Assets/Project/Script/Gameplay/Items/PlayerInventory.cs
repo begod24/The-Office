@@ -194,7 +194,7 @@ namespace Office.Gameplay
         private int ResolveMaxStack(int definitionId)
         {
             if (ServiceLocator.TryGet<DefinitionRegistry>(out var registry) &&
-                registry.TryGetItem(definitionId, out var definition))
+                registry.TryGet<ItemDefinition>(definitionId, out var definition))
                 return Mathf.Max(1, definition.MaxStack);
 
             Debug.LogError($"[Item] Definition id {definitionId} did not resolve. " +

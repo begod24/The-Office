@@ -27,7 +27,7 @@ namespace Office.Gameplay
                 return null;
             }
 
-            if (registry.TryGetItem(definitionId, out var definition)) return definition;
+            if (registry.TryGet<ItemDefinition>(definitionId, out var definition)) return definition;
 
             Debug.LogError($"[Item] Definition id {definitionId} is not in the registry. Run " +
                            "'Office/Content/Rebuild Definition Registry'.", context);
