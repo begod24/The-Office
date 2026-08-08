@@ -8,7 +8,7 @@ namespace Office.Data
     /// this asset carries only the numbers and strings that a designer should own.
     /// </summary>
     [CreateAssetMenu(menuName = "Office/Content/Prop", fileName = "PRP_Prop")]
-    public sealed class PropDefinition : ContentDefinition
+    public class PropDefinition : ContentDefinition
     {
         [Header("Interaction")]
         [Tooltip("Off for pure decoration: the crosshair stays quiet and Interact does nothing.")]

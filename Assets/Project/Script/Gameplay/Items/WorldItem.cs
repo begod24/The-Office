@@ -56,6 +56,10 @@ namespace Office.Gameplay
         {
             if (IsServer && !pending.IsEmpty) stack.Value = pending;
 
+            // Consumed. A carrier that comes back out of the pool must not re-apply what the
+            // last spawn asked for.
+            pending = ItemStack.Empty;
+
             stack.OnValueChanged += OnStackChanged;
             ApplyStack(stack.Value);
         }
@@ -64,6 +68,14 @@ namespace Office.Gameplay
         {
             stack.OnValueChanged -= OnStackChanged;
             DestroyView();
+
+            // The view cache has to go with the view. This carrier is pooled, so the same
+            // instance comes back for the next item — and if the next one happens to be the
+            // same definition, ApplyStack would take its early-out, skip the rebuild, and
+            // spawn something with no mesh and no collider: present, promptable, and
+            // impossible to see or reach.
+            viewDefinitionId = ContentDefinition.NoId;
+            definition = null;
         }
 
         private void OnStackChanged(ItemStack previous, ItemStack current) => ApplyStack(current);

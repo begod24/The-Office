@@ -25,9 +25,14 @@ namespace Office.Editor
             MaterialFolder + "/Charachters/MAT_Cylinder.mat";
         private const string ScenesFolder = "Assets/Project/Scenes";
 
+        // Authored levels live here and nothing regenerates them. Build settings pick up
+        // whatever is in this folder, so adding a level never means editing this file.
+        private const string LevelsFolder = ScenesFolder + "/Level";
+
         private const string MovementConfigPath = ConfigFolder + "/CFG_PlayerMovement.asset";
         private const string LookConfigPath = ConfigFolder + "/CFG_PlayerLook.asset";
         private const string InteractionConfigPath = ConfigFolder + "/CFG_Interaction.asset";
+        private const string CombatConfigPath = ConfigFolder + "/CFG_Combat.asset";
 
         // Right hand height, slightly forward. Authored by hand in the prefab first; moving
         // it means editing this line, not the asset, or the next rebuild reverts it.
@@ -133,6 +138,7 @@ namespace Office.Editor
 
             CreateOrLoad<PlayerLookConfig>(LookConfigPath);
             CreateOrLoad<InteractionConfig>(InteractionConfigPath);
+            CreateOrLoad<CombatConfig>(CombatConfigPath);
 
             AssetDatabase.SaveAssets();
             Debug.Log("[Setup] Config assets ready.");
@@ -144,6 +150,7 @@ namespace Office.Editor
             var movementConfig = CreateOrLoad<PlayerMovementConfig>(MovementConfigPath);
             var lookConfig = CreateOrLoad<PlayerLookConfig>(LookConfigPath);
             var interactionConfig = CreateOrLoad<InteractionConfig>(InteractionConfigPath);
+            var combatConfig = CreateOrLoad<CombatConfig>(CombatConfigPath);
 
             var root = new GameObject("PF_Player") { layer = PhysicsLayers.Player };
 
@@ -201,8 +208,22 @@ namespace Office.Editor
             var interactor = root.AddComponent<PlayerInteractor>();
             var inventory = root.AddComponent<PlayerInventory>();
             var heldItem = root.AddComponent<HeldItemView>();
+            var health = root.AddComponent<Health>();
+            var attacker = root.AddComponent<PlayerAttacker>();
 
             Wire(movement, ("config", movementConfig), ("input", input));
+
+            // Health needs no wiring: its defaults are already the player's numbers, and it
+            // keeps an empty response table on purpose — a player takes damage as authored,
+            // and resistances are an enemy and prop concern.
+
+            Wire(attacker,
+                ("config", combatConfig),
+                ("input", input),
+                ("inventory", inventory),
+                ("movement", movement),
+                ("health", health),
+                ("playerCamera", camera));
 
             Wire(interactor,
                 ("config", interactionConfig),
@@ -398,6 +419,13 @@ namespace Office.Editor
                 ("networkManager", networkManager),
                 ("sessionPrefab", sessionPrefab));
 
+            // The item carrier is the first thing through the pool on purpose: it is already
+            // the one prefab every item shares, so a run that drops and picks things up
+            // exercises the pool constantly. Prewarm covers a typical floor's worth of loose
+            // items without a spawn storm on the InRun edge.
+            WirePooledPrefabs(networkInstaller,
+                (ItemContentBuilder.LoadWorldItemPrefab(), 24));
+
             var uiObject = new GameObject("[DevUI]");
             uiObject.AddComponent<DevSessionPanel>();
 
@@ -533,8 +561,23 @@ namespace Office.Editor
                 scenes.Add(new EditorBuildSettingsScene(path, true));
             }
 
+            // This command replaces the whole list, so authored levels have to be re-discovered
+            // rather than remembered — otherwise every Run All would silently drop them and the
+            // build would ship with the greybox as the only level.
+            var levels = 0;
+
+            if (AssetDatabase.IsValidFolder(LevelsFolder))
+            {
+                foreach (var guid in AssetDatabase.FindAssets("t:Scene", new[] { LevelsFolder }))
+                {
+                    scenes.Add(new EditorBuildSettingsScene(AssetDatabase.GUIDToAssetPath(guid), true));
+                    levels++;
+                }
+            }
+
             EditorBuildSettings.scenes = scenes.ToArray();
-            Debug.Log($"[Setup] Build settings: {scenes.Count} scenes, SCN_Boot at index 0.");
+            Debug.Log($"[Setup] Build settings: {scenes.Count} scenes ({levels} authored), " +
+                      "SCN_Boot at index 0.");
         }
 
         private static bool EnsureNoUnsavedScene()
@@ -654,6 +697,38 @@ namespace Office.Editor
                 }
 
                 property.objectReferenceValue = null;
+            }
+
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        // The pooled list is an array of a struct, so WireArray cannot reach it — that one
+        // only knows how to assign object references.
+        private static void WirePooledPrefabs(Object target,
+            params (GameObject Prefab, int Prewarm)[] entries)
+        {
+            var serialized = new SerializedObject(target);
+            var property = serialized.FindProperty("pooledPrefabs");
+
+            if (property == null || !property.isArray)
+            {
+                Debug.LogError($"[Setup] '{target.GetType().Name}.pooledPrefabs' is not a " +
+                               "serialised array.");
+                return;
+            }
+
+            property.arraySize = entries.Length;
+
+            for (var i = 0; i < entries.Length; i++)
+            {
+                var element = property.GetArrayElementAtIndex(i);
+
+                if (entries[i].Prefab == null)
+                    Debug.LogError("[Setup] A pooled prefab entry was given null. Nothing will " +
+                                   "be pooled for it.");
+
+                element.FindPropertyRelative("Prefab").objectReferenceValue = entries[i].Prefab;
+                element.FindPropertyRelative("Prewarm").intValue = entries[i].Prewarm;
             }
 
             serialized.ApplyModifiedPropertiesWithoutUndo();

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Office.Core;
 using Office.Data;
 using Office.Network;
 using Unity.Netcode;
@@ -107,15 +108,26 @@ namespace Office.Gameplay
                 return null;
             }
 
-            var instance = Instantiate(worldItemPrefab, position, rotation);
+            // Through the pool when one is registered, so that a run which drops and picks up
+            // the same crate a hundred times allocates once. Despawn hands it back to the
+            // pool automatically — NGO routes that through the prefab handler on every
+            // machine, which is the whole reason the pool has to own both directions.
+            var networkObject = ServiceLocator.TryGet<INetworkObjectPool>(out var pool)
+                ? pool.Acquire(worldItemPrefab, position, rotation)
+                : Instantiate(worldItemPrefab, position, rotation).GetComponent<NetworkObject>();
 
-            var item = instance.GetComponent<WorldItem>();
-            var networkObject = instance.GetComponent<NetworkObject>();
-
-            if (item == null || networkObject == null)
+            if (networkObject == null)
             {
-                Debug.LogError("[Item] PF_WorldItem is missing WorldItem or NetworkObject.");
-                Destroy(instance);
+                Debug.LogError("[Item] PF_WorldItem has no NetworkObject.");
+                return null;
+            }
+
+            var item = networkObject.GetComponent<WorldItem>();
+
+            if (item == null)
+            {
+                Debug.LogError("[Item] PF_WorldItem is missing its WorldItem component.");
+                Destroy(networkObject.gameObject);
                 return null;
             }
 

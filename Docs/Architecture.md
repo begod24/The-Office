@@ -40,6 +40,12 @@ in the right place instead of in `Assembly-CSharp`.
 
 Every asmdef sets `autoReferenced: false` — no project code may live outside an assembly.
 
+**`Office.Network` is reached through its service interfaces only.** Assemblies above it use
+`ILobbyService` and `ISessionService`. Reaching directly into `SessionDirector`, `PlayerSpawner`
+or `LobbyRoster` is not allowed — the compiler cannot stop it, because the reference points the
+right way. Once `Office.Enemies` and `Office.Anomalies` fill up, a direct call to something like
+`RequestEndRunRpc` from enemy code is the kind of thing nobody finds until it fires in a build.
+
 ---
 
 ## 2. Composition root
@@ -93,6 +99,19 @@ registers its own services. Dependencies still point downward.
 therefore holds a serialized same-scene reference to the NetworkManager. Do not replace it with
 `.Singleton`.
 
+### 2.1 How services may be resolved
+
+The locator stays a locator only while these hold. They are cheap now and unenforceable later:
+
+- Resolve once, in `Awake`, `Start` or `OnNetworkSpawn`, and cache the result in a field.
+- Never call `ServiceLocator.Get` from `Update`, a constructor or a static initializer.
+- Register a new service only through the `ServiceInstaller` of its own assembly.
+
+Service Locator earned its reputation as an anti-pattern from undisciplined use, not from the
+pattern itself: once every script pulls dependencies from anywhere at any time, initialization
+order stops being reviewable. Migrating to a DI container is deliberately **not** planned — the
+cost is real and the win at this size is zero.
+
 ---
 
 ## 3. Scenes
@@ -102,7 +121,12 @@ therefore holds a serialized same-scene reference to the NetworkManager. Do not 
 | `SCN_Boot` | Composition root, NetworkManager, session | Build index 0, never unloads |
 | `SCN_Lobby` | Pre-run room: roster, ready, start | Additively at boot, and on return from a run |
 | `SCN_MainMenu` | Terminal main menu, first scene after boot | Additively at boot, and on leaving a session |
-| `SCN_Sandbox` | Greybox test space | Additively when the run starts |
+| `SCN_Sandbox` | Greybox test space, regenerated from code | Additively when the run starts |
+
+Level scenes are added next to `SCN_Sandbox`, never in place of it: `SCN_Sandbox` stays the
+programmer's throwaway space for testing systems, and authored levels live in their own scenes
+that no builder regenerates. Which one the run loads is a single constant in `SceneNames` plus
+the build settings list. See §7 for who owns what.
 
 `NetworkConfig.EnableSceneManagement` is **off**. Each client drives its own scene flow from the
 replicated phase, so letting NGO also push scenes would load the same geometry twice on a
@@ -118,7 +142,7 @@ spawns**, not an object sitting in a scene — until scene management is turned 
 
 **This is also why nothing interactive is placed in a scene as a NetworkObject.** Level content
 is authored as plain marker components (`ItemPlacement`), and the server turns them into
-spawned, registered prefabs when the run starts. See §9.
+spawned, registered prefabs when the run starts. See §8.2.
 
 `SCN_Boot` holds no reference to level content. Systems find each other through the service
 locator and the event bus, never through inspector references across scenes.
@@ -294,6 +318,27 @@ All of it is idempotent. Prefabs and scenes are YAML that two people cannot merg
 that can be regenerated from code is — a broken prefab is fixed by re-running a menu item rather
 than by resolving an unreadable conflict.
 
+### 7.1 Who owns which asset
+
+Regeneration is destructive and silent. `Build ... Scene` opens an empty scene and saves it over
+the existing file; there is no merge and no undo. `SaveScene` also clears the read-only bit
+first — and that bit is exactly what `.gitattributes` sets on `*.unity` and `*.prefab` through
+LFS `lockable`. **A generated scene cannot be protected by locking it**, so the split below is
+the only thing standing between a menu click and someone's lost afternoon.
+
+| Owned by code — never edit by hand | Owned by a person — no builder touches it |
+|---|---|
+| `SCN_Boot`, `SCN_Lobby`, `SCN_MainMenu`, `SCN_Sandbox` | Level scenes |
+| The HUD, the pause menu, the settings panel | Room prefabs and the modular kit |
+| `PF_Player`, `PF_Session`, `PF_WorldItem`, `PF_LobbyRow` | `ItemPlacement` layouts inside level scenes |
+| Wrong in one of these? Fix the builder, then re-run it. | Wrong in one of these? Fix it in the editor. |
+
+**Starting a level scene: duplicate `SCN_Sandbox`, then delete its `Greybox` object.** Do not
+start from an empty scene. The copy inherits `PlayerSpawnPoints`, the HUD, the pause menu, the
+post-process volume and the lighting rig — of those, only the HUD and the pause menu have their
+own `Rebuild ... In Open Scene` menu item, and the rest exist solely inside `BuildSandboxScene`.
+An empty scene silently spawns players at the world origin with no HUD.
+
 **Trap worth knowing.** A reference to an asset created moments earlier goes stale as soon as
 the AssetDatabase reimports it, and `EditorSceneManager.NewScene` triggers exactly that reimport.
 Assigning the stale wrapper to a `SerializedProperty` writes a silent null. Always reload a
@@ -395,12 +440,128 @@ rather than visibly broken.
 
 ---
 
-## 9. What is deliberately not here yet
+## 9. Item modules
 
-Damage, enemies, level generation, power, voice, audio service, the PS1 render pipeline. Each
-has an empty assembly waiting for it. Props are defined but no prop behaviour exists yet — the
-first door will need `PropDefinition`, a `PropPlacement` marker and a component implementing
+An item's identity is fields on `ItemDefinition`; what it *does* is a list of `ItemModule`
+assets on it. `MeleeModule` makes it swingable, `LightSourceModule` makes it glow,
+`DurabilityModule` gives it a finite life.
+
+**Composition, not inheritance, because the content does not form a tree.** GDD §8.3 has a
+laser pointer that is a weapon *and* a light source, a fire extinguisher that is a weapon *and*
+a utility, and tape that is neither. Subclassing produces a diamond the first time two of those
+meet: `WeaponDefinition` and `LightSourceDefinition` cannot be combined. A list can.
+
+```
+ITM_LaserPointer → [ MOD_Melee(Light), MOD_Light, MOD_Durability ]
+```
+
+Three assets, no code. `definition.GetModule<MeleeModule>()` is how any system asks.
+
+**A module is data only.** It is a ScriptableObject, so one asset is shared by every instance
+of that item — the charge left in *this* flashlight cannot live there. Per-instance state goes
+in `ItemStack`; the systems that read modules keep the state.
+
+Nothing asks "is this a weapon". An item with no `MeleeModule` swings with the unarmed numbers
+from `CFG_Combat`, which is why a coffee cup needs no special case.
+
+---
+
+## 10. Combat
+
+### 10.1 Trust
+
+`PlayerAttacker` is shaped exactly like `PlayerInteractor`, for the same reason: movement is
+owner-authoritative, so the client's aim is the only aim that exists and the probe must run on
+the owner. That makes every request untrusted, so the server re-derives everything that matters:
+
+| Claim | Who decides |
+|---|---|
+| What was hit | Server re-resolves the `NetworkObjectReference` and re-checks reach from its own copy of the body |
+| Which weapon | Server reads the selected slot out of its own authoritative `PlayerInventory` |
+| How often | Server keeps the cooldown clock, with a tolerance so honest jitter does not cost swings |
+| How much | Server multiplies the weapon's damage by the *target's* resistance table |
+| Stamina | The owner, deliberately — see below |
+
+Stamina is the one thing the client is trusted with, because stamina already is owner state
+throughout `PlayerMovement` and there is no server copy to check against. The worst a modified
+client buys is swinging while tired; reach, rate and damage are all server-side.
+
+### 10.2 Vitals
+
+`Health` owns replication and authority; `Vitals` owns the rules and knows nothing about NGO,
+the same split as `PlayerInventory` and `ItemStacking`. The rules are unit tested.
+
+`VitalsState` travels as one `NetworkVariable`, not three, so a client can never observe health
+at zero while the downed flag is still in flight. Downed is **derived** from health rather than
+stored — a stored flag admits states that cannot happen.
+
+Per GDD §7.1 and §15: zero health is downed, not dead; a teammate has 60 seconds; then
+spectator. Damage to a downed player does nothing, because the revive window is a flat timer
+and the alternative rewards standing over a body. GDD leaves that open (§16, question 5) — it
+is one line in `Vitals.ApplyDamage` and the tests will say what else moves.
+
+### 10.3 Resistances are data
+
+GDD §8.3 pairs damage types against enemy classes, and GDD §9.2 makes "digital entities are
+immune to physical weapons" the lesson of the game. As code that is an `if` per pair, and a
+4 × 20 matrix of those is unreadable and cannot be balanced by a designer. Instead every target
+carries a `DamageResponseTable`.
+
+The matching rule is exact, and both halves matter:
+
+- **The strongest matching row wins.** A laser pointer is `Blunt | Light`; against a digital
+  enemy it deals ×2.5, because immunity to being hit with a stick must not cancel a weakness to
+  light.
+- **Rows that do not match are not considered at all.** A wet mop is `Blunt | Water`; against
+  that same enemy it deals ×0, because Water is not a listed weakness and must not drag the
+  result back to neutral.
+
+Averaging or multiplying instead would let any weapon launder its way past an immunity by
+carrying a second damage type. `DamageResponseTests` pins both cases down.
+
+---
+
+## 11. Object pooling
+
+`INetworkObjectPool` reuses networked instances instead of creating and destroying them. The
+point is the frame it saves, not the memory: GDD §9.1 is built on swarms, and instantiating
+those at the moment they appear puts a GC spike exactly where frame time matters most.
+
+NGO owns creation of networked objects, so pooling is only possible through
+`INetworkPrefabInstanceHandler`. Both ends register it, for opposite reasons — the server so
+its own spawns recycle, the client so an arriving spawn message does not instantiate. Server
+code calls `Acquire`; clients never do.
+
+**Registration happens on network start, not at boot.** `NetworkManager.PrefabHandler` does not
+exist until the manager initialises, so `NetworkServiceInstaller` registers from
+`OnServerStarted` and `OnClientStarted`. A host fires both, which is why registration is
+idempotent.
+
+**Parked instances are moved to `DontDestroyOnLoad`, not reparented.** A pooled object is a real
+GameObject sitting inactive in whatever scene it was created in, and runs end by unloading the
+run scene — so something has to move it out. The obvious move, parenting it under a tidy `[Pool]`
+root, does not work: NGO watches `OnTransformParentChanged` to replicate hierarchy changes and
+rejects them on an unspawned object, logging `NetworkObject can only be re-parented after being
+spawned` and then **reverting** the change. The object stays in the doomed scene and the queue
+fills with Unity-null entries that look fine to `Count`. `DontDestroyOnLoad` changes the scene
+without touching the parent, which is the part that was actually needed.
+
+`PF_WorldItem` is the first prefab through it: it is already the single carrier every item
+shares, so a run exercises the pool constantly.
+
+---
+
+## 12. What is deliberately not here yet
+
+Enemies, level generation, power, voice, audio service, the PS1 render pipeline. Each has an
+empty assembly waiting for it. Props are defined but no prop behaviour exists yet — the first
+door will need `PropDefinition`, a `PropPlacement` marker and a component implementing
 `IInteractable`, all of which the item path already demonstrates.
+
+Combat exists but has no consumers yet: nothing reads `MeleeModule.NoiseRadius` because there
+is nothing that hears, nothing reads `LightSourceModule` because held lights are not built, and
+`DurabilityModule` is authored but not spent. The numbers are resolved and ready so that the
+systems which need them do not also have to invent them.
 
 Known gaps in what does exist:
 

@@ -400,6 +400,8 @@ GameObject:
   - component: {fileID: 8926562458580785833}
   - component: {fileID: 5204242490135982034}
   - component: {fileID: 8114047689107679296}
+  - component: {fileID: 6757609155737015070}
+  - component: {fileID: 3125391884912623228}
   m_Layer: 8
   m_Name: PF_Player
   m_TagString: Untagged
@@ -463,7 +465,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 237481343
+  GlobalObjectIdHash: 1626332577
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -648,3 +650,39 @@ MonoBehaviour:
   m_EditorClassIdentifier: Office.Gameplay::Office.Gameplay.HeldItemView
   inventory: {fileID: 5204242490135982034}
   socket: {fileID: 6983724745320466104}
+--- !u!114 &6757609155737015070
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7794667978143733364}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 17ed697031828f4409f0e82039f84e84, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Office.Gameplay::Office.Gameplay.Health
+  ShowTopMostFoldoutHeaderGroup: 1
+  maxHealth: 100
+  canBeDowned: 1
+  responses:
+    responses: []
+--- !u!114 &3125391884912623228
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7794667978143733364}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b37b914ee224b874a940f09b42c5fcb7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Office.Gameplay::Office.Gameplay.PlayerAttacker
+  ShowTopMostFoldoutHeaderGroup: 1
+  config: {fileID: 11400000, guid: 61f2f86c632e53649b96e486793ed5ac, type: 2}
+  input: {fileID: 1978534859161905004}
+  inventory: {fileID: 5204242490135982034}
+  movement: {fileID: 3210191665465960946}
+  health: {fileID: 6757609155737015070}
+  playerCamera: {fileID: 8366318457784735011}

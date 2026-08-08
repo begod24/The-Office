@@ -37,5 +37,21 @@ namespace Office.Data
 
         public static LayerMask OcclusionMask =>
             (1 << LevelGeometry) | (1 << Default);
+
+        /// <summary>
+        /// What a melee swing can connect with.
+        /// </summary>
+        /// <remarks>
+        /// <see cref="LevelGeometry"/> is in here for the same reason it is in
+        /// <see cref="InteractionMask"/>: a wall between the swing and its target has to win,
+        /// and it can only do that by being hit first.
+        /// <para>
+        /// <see cref="Player"/> is deliberately absent — no friendly fire. GDD does not
+        /// settle it, so it lives in one line rather than scattered through the combat code:
+        /// adding the layer here turns it on everywhere at once.
+        /// </para>
+        /// </remarks>
+        public static LayerMask AttackMask =>
+            (1 << Enemy) | (1 << Prop) | (1 << Interactable) | (1 << LevelGeometry) | (1 << Default);
     }
 }

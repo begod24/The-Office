@@ -18,6 +18,7 @@ namespace Office.Gameplay
         private InputAction sprintAction;
         private InputAction crouchAction;
         private InputAction jumpAction;
+        private InputAction attackAction;
         private InputAction interactAction;
         private InputAction dropAction;
         private InputAction previousAction;
@@ -29,6 +30,7 @@ namespace Office.Gameplay
         public bool SprintHeld { get; private set; }
         public bool CrouchHeld { get; private set; }
         public bool JumpPressedThisFrame { get; private set; }
+        public bool AttackPressedThisFrame { get; private set; }
         public bool InteractPressedThisFrame { get; private set; }
         public bool DropPressedThisFrame { get; private set; }
 
@@ -72,6 +74,7 @@ namespace Office.Gameplay
             sprintAction = Resolve("Sprint");
             crouchAction = Resolve("Crouch");
             jumpAction = Resolve("Jump");
+            attackAction = Resolve("Attack");
             interactAction = Resolve("Interact");
             dropAction = Resolve("Drop");
             previousAction = Resolve("Previous");
@@ -110,6 +113,7 @@ namespace Office.Gameplay
             // template put on Interact does not delay it. Interact stays press-to-use.
             InteractPressedThisFrame = interactAction?.WasPressedThisFrame() ?? false;
             DropPressedThisFrame = dropAction?.WasPressedThisFrame() ?? false;
+            AttackPressedThisFrame = attackAction?.WasPressedThisFrame() ?? false;
 
             HotbarStep = (nextAction?.WasPressedThisFrame() ?? false ? 1 : 0)
                          - (previousAction?.WasPressedThisFrame() ?? false ? 1 : 0);
@@ -138,6 +142,7 @@ namespace Office.Gameplay
             SprintHeld = false;
             CrouchHeld = false;
             JumpPressedThisFrame = false;
+            AttackPressedThisFrame = false;
             InteractPressedThisFrame = false;
             DropPressedThisFrame = false;
             HotbarStep = 0;
