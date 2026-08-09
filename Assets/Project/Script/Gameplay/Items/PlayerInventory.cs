@@ -150,6 +150,25 @@ namespace Office.Gameplay
             return remainder;
         }
 
+        /// <summary>
+        /// Server only. Overwrites one slot outright. Returns false when nothing changed.
+        /// </summary>
+        /// <remarks>
+        /// Deliberately blunt, and deliberately not reachable from a client. It exists for the
+        /// transformations that <see cref="ServerAdd"/> cannot express — an item wearing down,
+        /// breaking, or turning into what it leaves behind — where the rules live in a tested
+        /// static class (<see cref="ItemWear"/>) and this component only publishes the result.
+        /// The early-out matters: writing an unchanged element still costs a delta on the wire.
+        /// </remarks>
+        public bool ServerSet(int index, ItemStack stack)
+        {
+            if (!IsServer || index < 0 || index >= slots.Count) return false;
+            if (slots[index].Equals(stack)) return false;
+
+            slots[index] = stack;
+            return true;
+        }
+
         /// <summary>Server only. Empties a slot and returns what was in it.</summary>
         public ItemStack ServerTake(int index)
         {

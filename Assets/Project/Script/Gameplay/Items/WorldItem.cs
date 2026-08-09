@@ -88,11 +88,11 @@ namespace Office.Gameplay
             viewDefinitionId = current.DefinitionId;
             DestroyView();
 
-            definition = ItemViewFactory.Resolve(current.DefinitionId, this);
+            definition = ContentViewFactory.Resolve<ItemDefinition>(current.DefinitionId, this);
             if (definition == null) return;
 
             // Solid: on the floor the collider is what the interaction probe hits.
-            view = ItemViewFactory.Build(definition, transform,
+            view = ContentViewFactory.Build(definition, transform,
                 new Vector3(0f, definition.GroundOffset, 0f), Quaternion.identity,
                 PhysicsLayers.Interactable, solid: true);
         }

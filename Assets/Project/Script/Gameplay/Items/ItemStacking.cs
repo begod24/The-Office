@@ -29,6 +29,14 @@ namespace Office.Gameplay
             {
                 var slot = slots[i];
                 if (slot.IsEmpty || slot.DefinitionId != incoming.DefinitionId) continue;
+
+                // Wear has to match, or a half-broken stapler would merge into a fresh one and
+                // one of the two histories would silently win. Items that wear are authored
+                // with a max stack of one, so in practice this never rejects anything; it is
+                // here so that authoring one wrong degrades into separate slots rather than
+                // into free repairs.
+                if (slot.Wear != incoming.Wear) continue;
+
                 if (slot.Count >= maxStack) continue;
 
                 var moved = Mathf.Min(maxStack - slot.Count, incoming.Count);
@@ -44,7 +52,7 @@ namespace Office.Gameplay
 
                 var moved = Mathf.Min(maxStack, incoming.Count);
 
-                slots[i] = new ItemStack(incoming.DefinitionId, moved);
+                slots[i] = new ItemStack(incoming.DefinitionId, moved, incoming.Wear);
                 incoming.Count -= moved;
             }
 

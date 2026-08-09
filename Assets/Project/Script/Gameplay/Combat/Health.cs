@@ -25,6 +25,8 @@ namespace Office.Gameplay
     public sealed class Health : NetworkBehaviour, IDamageable
     {
         [Header("Capacity")]
+        [Tooltip("The authored default. A definition-driven spawn overrides it through " +
+                 "ServerConfigure before the object spawns.")]
         [Min(1f)]
         [SerializeField] private float maxHealth = GameplayConstants.MaxPlayerHealth;
 
@@ -39,6 +41,19 @@ namespace Office.Gameplay
 
         private readonly NetworkVariable<VitalsState> vitals = new(
             default, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
+        /// <summary>
+        /// Replicated because a health bar is drawn from a fraction, and a client that only
+        /// knows the numerator would draw a definition-driven target as if it were a player.
+        /// </summary>
+        private readonly NetworkVariable<float> capacity = new(
+            0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
+        // Server only, consumed at spawn. Held rather than applied immediately so the values
+        // ride the spawn payload instead of arriving as a delta a late client could miss —
+        // the same reason WorldItem.ServerInitialise defers.
+        private float pendingCapacity = -1f;
+        private DamageResponseTable pendingResponses;
 
         private IEventBus bus;
 
@@ -59,9 +74,20 @@ namespace Office.Gameplay
 
         public VitalsState State => vitals.Value;
 
-        public float MaxHealth => maxHealth;
+        /// <summary>
+        /// What this thing holds when full. The authored value until the object spawns, the
+        /// replicated one after — so a client reads the same number the server ruled with.
+        /// </summary>
+        public float MaxHealth => capacity.Value > 0f ? capacity.Value : maxHealth;
 
-        public float Normalised => maxHealth <= 0f ? 0f : Mathf.Clamp01(vitals.Value.Health / maxHealth);
+        public float Normalised
+        {
+            get
+            {
+                var max = MaxHealth;
+                return max <= 0f ? 0f : Mathf.Clamp01(vitals.Value.Health / max);
+            }
+        }
 
         public bool IsAlive => vitals.Value.IsAlive;
 
@@ -72,9 +98,49 @@ namespace Office.Gameplay
             LocalChanged = null;
         }
 
+        /// <summary>
+        /// Server only, before <c>Spawn()</c>. Replaces the authored capacity and resistances
+        /// with a definition's.
+        /// </summary>
+        /// <remarks>
+        /// This is what keeps tuning out of prefabs: one <c>PF_Target</c> becomes a filing
+        /// cabinet or a digital anomaly depending on the asset the spawner hands it, and the
+        /// same path serves <c>EnemyDefinition</c> when enemies arrive. Calling it after the
+        /// object has spawned is ignored, because the values would then reach a late joiner and
+        /// an early one differently.
+        /// </remarks>
+        /// <param name="responses">Null keeps whatever was authored on the prefab.</param>
+        public void ServerConfigure(float newMaxHealth, DamageResponseTable responses)
+        {
+            if (IsSpawned)
+            {
+                Debug.LogWarning($"[Combat] {name} was configured after spawning. Ignored — " +
+                                 "clients already have the authored values.", this);
+                return;
+            }
+
+            pendingCapacity = newMaxHealth;
+            pendingResponses = responses;
+        }
+
         public override void OnNetworkSpawn()
         {
-            if (IsServer) vitals.Value = Vitals.Spawn(maxHealth);
+            if (IsServer)
+            {
+                // Assigned unconditionally, never topped up: a pooled instance still carries
+                // the last definition's capacity, and falling back to "keep what is there"
+                // would give a filing cabinet an anomaly's health.
+                capacity.Value = pendingCapacity > 0f ? pendingCapacity : maxHealth;
+
+                if (pendingResponses != null) responses = pendingResponses;
+
+                vitals.Value = Vitals.Spawn(MaxHealth);
+            }
+
+            // Consumed either way. This component is pooled along with its object, and the
+            // next spawn must not inherit the last one's definition.
+            pendingCapacity = -1f;
+            pendingResponses = null;
 
             vitals.OnValueChanged += OnVitalsChanged;
 
@@ -114,7 +180,7 @@ namespace Office.Gameplay
         }
 
         private void PublishLocal(in VitalsState state) =>
-            bus?.Publish(new LocalVitalsChanged(state.Health, maxHealth, state.IsDowned,
+            bus?.Publish(new LocalVitalsChanged(state.Health, MaxHealth, state.IsDowned,
                 state.IsDead, state.BleedOutRemaining));
 
         // Server only, and only while someone is actually bleeding out. Vitals.Tick is a
@@ -168,7 +234,7 @@ namespace Office.Gameplay
         {
             if (!IsServer || !IsSpawned) return false;
 
-            var after = Vitals.Revive(vitals.Value, Mathf.Min(health, maxHealth));
+            var after = Vitals.Revive(vitals.Value, Mathf.Min(health, MaxHealth));
             if (after.Equals(vitals.Value)) return false;
 
             vitals.Value = after;
@@ -180,7 +246,29 @@ namespace Office.Gameplay
         {
             if (!IsServer || !IsSpawned) return false;
 
-            var after = Vitals.Heal(vitals.Value, amount, maxHealth);
+            var after = Vitals.Heal(vitals.Value, amount, MaxHealth);
+            if (after.Equals(vitals.Value)) return false;
+
+            vitals.Value = after;
+            return true;
+        }
+
+        /// <summary>
+        /// Server only. Back to full, from any state including dead. Returns false if nothing
+        /// changed.
+        /// </summary>
+        /// <remarks>
+        /// The only way out of <see cref="VitalsState.IsDead"/>, and deliberately not something
+        /// <see cref="Vitals.Revive"/> can do — a revive is a teammate reaching a body inside
+        /// the bleed-out window, and letting it reach a corpse would erase the difference GDD
+        /// §15 draws between the two. This is the run telling something to exist again: a
+        /// respawning target, a prop reset between runs.
+        /// </remarks>
+        public bool ServerRestore()
+        {
+            if (!IsServer || !IsSpawned) return false;
+
+            var after = Vitals.Spawn(MaxHealth);
             if (after.Equals(vitals.Value)) return false;
 
             vitals.Value = after;

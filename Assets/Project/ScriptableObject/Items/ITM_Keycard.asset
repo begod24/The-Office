@@ -19,3 +19,6 @@ MonoBehaviour:
   maxStack: 4
   pickupVerb: TAKE
   groundOffset: 0.0025
+  heldOffset: {x: 0, y: 0, z: 0}
+  heldEulerAngles: {x: 0, y: 0, z: 0}
+  modules: []

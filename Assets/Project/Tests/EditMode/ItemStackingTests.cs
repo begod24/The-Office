@@ -105,5 +105,48 @@ namespace Office.Tests.EditMode
             Assert.IsTrue(new ItemStack(Stapler, 0).IsEmpty);
             Assert.IsFalse(new ItemStack(Stapler, 1).IsEmpty);
         }
+
+        // A half-used tool merging into a fresh one would have to pick one of the two wear
+        // values, and either choice is a bug: keeping the lower one repairs the worn item,
+        // keeping the higher one damages the fresh one.
+        [Test]
+        public void Distribute_DoesNotMergeStacksAtDifferentWear()
+        {
+            var slots = EmptySlots(3);
+            slots[0] = new ItemStack(Stapler, 1, 12);
+
+            var remainder = ItemStacking.Distribute(slots, new ItemStack(Stapler, 1), 4);
+
+            Assert.IsTrue(remainder.IsEmpty);
+            Assert.AreEqual(new ItemStack(Stapler, 1, 12), slots[0], "The worn stack was topped up.");
+            Assert.AreEqual(new ItemStack(Stapler, 1), slots[1]);
+        }
+
+        [Test]
+        public void Distribute_MergesStacksAtIdenticalWear()
+        {
+            var slots = EmptySlots(3);
+            slots[0] = new ItemStack(Stapler, 1, 12);
+
+            var remainder = ItemStacking.Distribute(slots, new ItemStack(Stapler, 1, 12), 4);
+
+            Assert.IsTrue(remainder.IsEmpty);
+            Assert.AreEqual(new ItemStack(Stapler, 2, 12), slots[0]);
+            Assert.IsTrue(slots[1].IsEmpty);
+        }
+
+        // Spilling into a new slot has to carry the wear across, or a stack of worn items
+        // splitting over two slots would come out half repaired.
+        [Test]
+        public void Distribute_CarriesWearIntoNewSlots()
+        {
+            var slots = EmptySlots(2);
+
+            var remainder = ItemStacking.Distribute(slots, new ItemStack(Keycard, 6, 7), 4);
+
+            Assert.AreEqual(new ItemStack(Keycard, 4, 7), slots[0]);
+            Assert.AreEqual(new ItemStack(Keycard, 2, 7), slots[1]);
+            Assert.IsTrue(remainder.IsEmpty);
+        }
     }
 }

@@ -35,6 +35,12 @@ namespace Office.Editor
         public static void BuildAll()
         {
             BuildSampleItems();
+
+            // After the items exist and before the registry: combat content attaches modules
+            // to those definitions and adds targets of its own, and every one of them needs an
+            // id from the rebuild that follows.
+            CombatContentBuilder.BuildAll();
+
             BuildWorldItemPrefab();
             RebuildRegistry();
 
@@ -192,6 +198,12 @@ namespace Office.Editor
             BuildSampleItem("ITM_CoffeeCup", "COFFEE", "TAKE", 2,
                 PrimitiveType.Cylinder, new Vector3(0.09f, 0.06f, 0.09f),
                 new Color(0.86f, 0.82f, 0.74f));
+
+            // Unstackable, because it wears out: two laser pointers in one slot would have to
+            // share a single wear value. See ItemStacking for what that costs.
+            BuildSampleItem("ITM_LaserPointer", "LASER", "TAKE", 1,
+                PrimitiveType.Cylinder, new Vector3(0.025f, 0.06f, 0.025f),
+                new Color(0.18f, 0.72f, 0.42f));
 
             AssetDatabase.SaveAssets();
             Debug.Log("[Content] Sample items built. Run 'Rebuild Definition Registry' next.");

@@ -70,9 +70,9 @@ namespace Office.Gameplay
 
             if (stack.IsEmpty) return;
 
-            Held = ItemViewFactory.Resolve(stack.DefinitionId, this);
+            Held = ContentViewFactory.Resolve<ItemDefinition>(stack.DefinitionId, this);
 
-            view = ItemViewFactory.Build(Held, socket, Held != null ? Held.HeldOffset : Vector3.zero,
+            view = ContentViewFactory.Build(Held, socket, Held != null ? Held.HeldOffset : Vector3.zero,
                 Held != null ? Held.HeldRotation : Quaternion.identity,
                 PhysicsLayers.ViewModel, solid: false);
         }

@@ -16,6 +16,7 @@ GameObject:
   - component: {fileID: 5141321947128826791}
   - component: {fileID: 4996509580375172365}
   - component: {fileID: 7709979185626738789}
+  - component: {fileID: 9054246090651743223}
   m_Layer: 0
   m_Name: PF_Session
   m_TagString: Untagged
@@ -50,7 +51,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2156343818
+  GlobalObjectIdHash: 161215755
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -150,3 +151,18 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   director: {fileID: 7922052314943904713}
   worldItemPrefab: {fileID: 8486401595416788269, guid: 52d67f3315d664041a85032988184c88, type: 3}
+--- !u!114 &9054246090651743223
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6216860476782636292}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ea8726039d7a18e44bc52ad35a1018f5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Office.Gameplay::Office.Gameplay.TargetSpawner
+  ShowTopMostFoldoutHeaderGroup: 1
+  director: {fileID: 7922052314943904713}
+  targetPrefab: {fileID: 5336884911585734003, guid: bd40956c44daf1345abc656cb1c1c043, type: 3}

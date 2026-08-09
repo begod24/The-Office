@@ -210,8 +210,17 @@ namespace Office.Editor
             var heldItem = root.AddComponent<HeldItemView>();
             var health = root.AddComponent<Health>();
             var attacker = root.AddComponent<PlayerAttacker>();
+            var feedback = root.AddComponent<CombatFeedback>();
 
             Wire(movement, ("config", movementConfig), ("input", input));
+
+            // Greybox effects. They exist so the three outcomes the server reports are
+            // distinguishable today; B replaces the prefabs without touching this wiring.
+            Wire(feedback,
+                ("attacker", attacker),
+                ("connectedEffect", CombatContentBuilder.LoadImpactEffect("PF_FX_Impact_Hit")),
+                ("absorbedEffect", CombatContentBuilder.LoadImpactEffect("PF_FX_Impact_Absorbed")),
+                ("missedEffect", CombatContentBuilder.LoadImpactEffect("PF_FX_Impact_Miss")));
 
             // Health needs no wiring: its defaults are already the player's numbers, and it
             // keeps an empty response table on purpose — a player takes damage as authored,
@@ -398,6 +407,7 @@ namespace Office.Editor
             var bootstrap = bootstrapObject.AddComponent<GameBootstrap>();
             var uiInstaller = bootstrapObject.AddComponent<UIEventSystemInstaller>();
             var networkInstaller = bootstrapObject.AddComponent<NetworkServiceInstaller>();
+            var gameplayInstaller = bootstrapObject.AddComponent<GameplayServiceInstaller>();
 
             var serialized = new SerializedObject(bootstrap);
             serialized.FindProperty("firstScene").stringValue = SceneNames.MainMenu;
@@ -412,7 +422,7 @@ namespace Office.Editor
 
             Wire(bootstrap, ("definitions", registry));
 
-            WireArray(bootstrap, "installers", uiInstaller, networkInstaller);
+            WireArray(bootstrap, "installers", uiInstaller, networkInstaller, gameplayInstaller);
 
             var sessionPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(SessionPrefabPath);
 
@@ -427,8 +437,11 @@ namespace Office.Editor
             // the one prefab every item shares, so a run that drops and picks things up
             // exercises the pool constantly. Prewarm covers a typical floor's worth of loose
             // items without a spawn storm on the InRun edge.
+            // Targets are pooled for the opposite reason to items: there are few of them, but
+            // the ones that respawn cycle through spawn and despawn all run long.
             WirePooledPrefabs(networkInstaller,
-                (ItemContentBuilder.LoadWorldItemPrefab(), 24));
+                (ItemContentBuilder.LoadWorldItemPrefab(), 24),
+                (CombatContentBuilder.LoadTargetPrefab(), 8));
 
             var uiObject = new GameObject("[DevUI]");
             uiObject.AddComponent<DevSessionPanel>();
@@ -457,6 +470,7 @@ namespace Office.Editor
             var spawner = root.AddComponent<PlayerSpawner>();
             var sceneFlow = root.AddComponent<RunSceneFlow>();
             var itemSpawner = root.AddComponent<WorldItemSpawner>();
+            var targetSpawner = root.AddComponent<TargetSpawner>();
 
             Wire(director, ("roster", roster));
 
@@ -475,6 +489,15 @@ namespace Office.Editor
                                "nothing can be picked up or dropped.");
 
             Wire(itemSpawner, ("director", director), ("worldItemPrefab", worldItemPrefab));
+
+            var targetPrefab = CombatContentBuilder.LoadTargetPrefab();
+
+            if (targetPrefab == null)
+                Debug.LogError("[Setup] PF_Target is missing. Run " +
+                               "'Office/Content/Build Combat Content' first — without it " +
+                               "nothing in the level can be hit.");
+
+            Wire(targetSpawner, ("director", director), ("targetPrefab", targetPrefab));
 
             EnsureFolder(Path.GetDirectoryName(SessionPrefabPath));
             PrefabUtility.SaveAsPrefabAsset(root, SessionPrefabPath);

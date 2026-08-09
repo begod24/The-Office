@@ -6,31 +6,41 @@ namespace Office.Gameplay
 {
     /// <summary>
     /// Turns a definition id into the mesh a player actually sees — on the floor under a
-    /// <see cref="WorldItem"/>, or in a hand under <see cref="HeldItemView"/>.
+    /// <see cref="WorldItem"/>, in a hand under <see cref="HeldItemView"/>, or as the body of
+    /// a <see cref="DamageableTarget"/>.
     /// </summary>
     /// <remarks>
-    /// Both callers do the same three things: resolve the id through the registry,
-    /// instantiate the definition's view prefab, force the layer. The layer is the part
-    /// worth centralising — the interaction probe's mask depends on it, so a wrong one makes
-    /// an item silently unreachable rather than visibly broken.
+    /// Every caller does the same three things: resolve the id through the registry,
+    /// instantiate the definition's view prefab, force the layer. The layer is the part worth
+    /// centralising — the interaction and attack masks depend on it, so a wrong one makes an
+    /// object silently unreachable rather than visibly broken.
+    /// <para>
+    /// Typed on <see cref="ContentDefinition"/> rather than on items, because the pattern is
+    /// the content system's and not the inventory's: a target, a prop and a pickup all consist
+    /// of a networked carrier plus a plain local view, which is what keeps the network prefab
+    /// list from growing by one entry per asset.
+    /// </para>
     /// </remarks>
-    internal static class ItemViewFactory
+    internal static class ContentViewFactory
     {
-        public static ItemDefinition Resolve(int definitionId, Object context)
+        /// <summary>
+        /// The definition behind <paramref name="definitionId"/>, or null with a logged reason.
+        /// </summary>
+        public static T Resolve<T>(int definitionId, Object context) where T : ContentDefinition
         {
             if (definitionId == ContentDefinition.NoId) return null;
 
             if (!ServiceLocator.TryGet<DefinitionRegistry>(out var registry))
             {
-                Debug.LogError("[Item] No DefinitionRegistry registered. Enter play mode from " +
+                Debug.LogError("[Content] No DefinitionRegistry registered. Enter play mode from " +
                                "SCN_Boot so the bootstrap runs.", context);
                 return null;
             }
 
-            if (registry.TryGet<ItemDefinition>(definitionId, out var definition)) return definition;
+            if (registry.TryGet<T>(definitionId, out var definition)) return definition;
 
-            Debug.LogError($"[Item] Definition id {definitionId} is not in the registry. Run " +
-                           "'Office/Content/Rebuild Definition Registry'.", context);
+            Debug.LogError($"[Content] Id {definitionId} did not resolve as {typeof(T).Name}. " +
+                           "Run 'Office/Content/Rebuild Definition Registry'.", context);
             return null;
         }
 
@@ -38,14 +48,14 @@ namespace Office.Gameplay
         /// False strips the colliders. A held item is decoration: leaving its collider live
         /// would let the holder's own item block their interaction probe and shove them.
         /// </param>
-        public static GameObject Build(ItemDefinition definition, Transform parent,
+        public static GameObject Build(ContentDefinition definition, Transform parent,
             Vector3 localPosition, Quaternion localRotation, int layer, bool solid)
         {
             if (definition == null) return null;
 
             if (definition.ViewPrefab == null)
             {
-                Debug.LogError($"[Item] '{definition.name}' has no view prefab — it would be " +
+                Debug.LogError($"[Content] '{definition.name}' has no view prefab — it would be " +
                                "invisible wherever it appears.", definition);
                 return null;
             }

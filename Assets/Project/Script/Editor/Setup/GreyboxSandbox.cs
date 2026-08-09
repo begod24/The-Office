@@ -8,6 +8,7 @@ namespace Office.Editor
     internal static class GreyboxSandbox
     {
         private const string ItemDefinitionFolder = "Assets/Project/ScriptableObject/Items";
+        private const string TargetDefinitionFolder = "Assets/Project/ScriptableObject/Props";
 
         private const float Module = 2f;
         private const float WallHeight = 3f;
@@ -32,6 +33,46 @@ namespace Office.Editor
             BuildCorridor(root);
             BuildScaleReferences(root);
             BuildItemPlacements(root);
+            BuildTargetPlacements(root);
+        }
+
+        // The Gate 4 harness, and the first place the physical/digital rule is playable. The
+        // two are deliberately side by side: a player who hits both with the same stapler
+        // learns more in five seconds than any prompt could tell them.
+        private static void BuildTargetPlacements(Transform parent)
+        {
+            var group = new GameObject("TargetPlacements").transform;
+            group.SetParent(parent, false);
+
+            PlaceTarget(group, "Target_Cabinet_A", "TGT_FilingCabinet", new Vector3(-2f, 0f, 9f));
+            PlaceTarget(group, "Target_Cabinet_B", "TGT_FilingCabinet", new Vector3(2f, 0f, 9f));
+
+            // Immune to everything in the build except the laser pointer.
+            PlaceTarget(group, "Target_Anomaly", "TGT_Anomaly", new Vector3(0f, 0f, 10.5f));
+        }
+
+        private static void PlaceTarget(Transform parent, string name, string definitionName,
+            Vector3 position)
+        {
+            var definition = AssetDatabase.LoadAssetAtPath<TargetDefinition>(
+                $"{TargetDefinitionFolder}/{definitionName}.asset");
+
+            if (definition == null)
+            {
+                Debug.LogWarning($"[Setup] '{definitionName}' not found — run " +
+                                 "'Office/Content/Build Combat Content'. Marker skipped.");
+                return;
+            }
+
+            var marker = new GameObject(name);
+            marker.transform.SetParent(parent, false);
+            marker.transform.localPosition = position;
+
+            var placement = marker.AddComponent<TargetPlacement>();
+
+            var serialized = new SerializedObject(placement);
+            serialized.FindProperty("definition").objectReferenceValue = definition;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
         // Markers only. They hold a definition reference and nothing networked — the server
