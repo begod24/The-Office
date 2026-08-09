@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ff417f37269394f3e86d352d149d72a3, type: 3}
+  m_Name: ITM_CoffeeCup
+  m_EditorClassIdentifier: Office.Data::Office.Data.ItemDefinition
+  id: 1
+  displayName: COFFEE
+  viewPrefab: {fileID: 851216052488784153, guid: 3c24500746e9e41febda76d17ee4ab1e, type: 3}
+  icon: {fileID: -8909161391469290756, guid: 45d571e7d540d43e9a129b69cba43dd8, type: 2}
+  maxStack: 2
+  pickupVerb: TAKE
+  groundOffset: 0.06

@@ -55,5 +55,26 @@ namespace Office.Core
             await LoadAdditiveAsync(sceneToLoad, setActive: true);
             await UnloadAsync(sceneToUnload);
         }
+
+        public async Awaitable ReturnToAsync(string sceneName, params string[] keep)
+        {
+            await LoadAdditiveAsync(sceneName, setActive: true);
+
+            // Collected before unloading anything: SceneManager's indices shift as scenes go
+            // away, so iterating and unloading in one pass skips half of them.
+            var doomed = new List<string>(SceneManager.sceneCount);
+
+            for (var i = 0; i < SceneManager.sceneCount; i++)
+            {
+                var scene = SceneManager.GetSceneAt(i);
+
+                if (!scene.isLoaded || scene.name == sceneName) continue;
+                if (keep != null && System.Array.IndexOf(keep, scene.name) >= 0) continue;
+
+                doomed.Add(scene.name);
+            }
+
+            foreach (var name in doomed) await UnloadAsync(name);
+        }
     }
 }

@@ -26,12 +26,20 @@ namespace Office.Network
 
         private void Awake()
         {
-            if (director != null) director.PhaseChanged += OnPhaseChanged;
+            if (director == null) return;
+
+            director.PhaseChanged += OnPhaseChanged;
+            director.ClientReadyDuringRun += OnClientReadyDuringRun;
         }
 
         public override void OnDestroy()
         {
-            if (director != null) director.PhaseChanged -= OnPhaseChanged;
+            if (director != null)
+            {
+                director.PhaseChanged -= OnPhaseChanged;
+                director.ClientReadyDuringRun -= OnClientReadyDuringRun;
+            }
+
             base.OnDestroy();
         }
 
@@ -74,14 +82,35 @@ namespace Office.Network
             }
 
             foreach (var clientId in NetworkManager.ConnectedClientsIds)
-            {
-                if (NetworkManager.ConnectedClients.TryGetValue(clientId, out var client) &&
-                    client.PlayerObject != null)
-                    continue;
-
-                SpawnFor(clientId);
-            }
+                if (NeedsBody(clientId))
+                    SpawnFor(clientId);
         }
+
+        /// <summary>
+        /// A client that reported its scene ready while the run was already going. Spawning
+        /// hangs off the InRun edge, and a late joiner never produces one — without this they
+        /// sit in the run scene as a camera with no body.
+        /// </summary>
+        private void OnClientReadyDuringRun(ulong clientId)
+        {
+            if (!IsServer || !IsSpawned) return;
+
+            if (manPrefab == null)
+            {
+                Debug.LogError("[Spawn] PlayerSpawner has no player prefab assigned.");
+                return;
+            }
+
+            if (!NeedsBody(clientId)) return;
+
+            SpawnFor(clientId);
+        }
+
+        // Connected and bodiless. The connection half matters for the late-join path: a
+        // client can disconnect between reporting its scene ready and this running.
+        private bool NeedsBody(ulong clientId) =>
+            NetworkManager.ConnectedClients.TryGetValue(clientId, out var client) &&
+            client.PlayerObject == null;
 
         private void SpawnFor(ulong clientId)
         {

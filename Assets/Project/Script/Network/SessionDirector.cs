@@ -15,14 +15,31 @@ namespace Office.Network
 
         private readonly HashSet<ulong> sceneReady = new();
 
+        // A tick at 30 Hz is two frames at 60 fps. The budget is deliberately far larger so
+        // that a stalled frame never turns into a run that refuses to end.
+        private const int MaxFramesPerTick = 120;
+
         private IGameStateService gameState;
         private LobbyService lobbyService;
+        private bool ending;
 
         public GameState Phase => phase.Value;
 
         public bool IsHostClient => IsServer;
 
         public event Action<GameState> PhaseChanged;
+
+        /// <summary>
+        /// Server only. A client finished loading the run scene while the run was already
+        /// under way — it has no body and needs one.
+        /// </summary>
+        /// <remarks>
+        /// Separate from <see cref="PhaseChanged"/> because a late joiner produces no phase
+        /// transition at all: the run is already <see cref="GameState.InRun"/> and stays
+        /// there. Anything that spawns per-player has to listen here as well, or it only ever
+        /// serves the players who were present when the run started.
+        /// </remarks>
+        public event Action<ulong> ClientReadyDuringRun;
 
         public override void OnNetworkSpawn()
         {
@@ -86,7 +103,17 @@ namespace Office.Network
         [Rpc(SendTo.Server)]
         public void ReportRunSceneReadyRpc(RpcParams rpcParams = default)
         {
-            sceneReady.Add(rpcParams.Receive.SenderClientId);
+            var clientId = rpcParams.Receive.SenderClientId;
+
+            sceneReady.Add(clientId);
+
+            // Already running: this is a late joiner, not the last of the starting group.
+            // The phase does not move, so nobody would hear about them without this.
+            if (phase.Value == GameState.InRun)
+            {
+                ClientReadyDuringRun?.Invoke(clientId);
+                return;
+            }
 
             if (phase.Value != GameState.Generating) return;
             if (sceneReady.Count < NetworkManager.ConnectedClientsIds.Count) return;
@@ -99,12 +126,68 @@ namespace Office.Network
         {
             if (rpcParams.Receive.SenderClientId != NetworkManager.ServerClientId) return;
             if (phase.Value is not (GameState.InRun or GameState.Generating)) return;
+            if (ending) return;
 
-            if (phase.Value == GameState.InRun) TrySetPhase(GameState.RunFailed);
+            _ = EndRunAsync();
+        }
 
-            sceneReady.Clear();
-            roster?.ClearReadyFlags();
-            TrySetPhase(GameState.Lobby);
+        /// <summary>
+        /// A run must pass through a terminal state — <see cref="GameState"/> has no direct
+        /// InRun to Lobby edge, so that a run can never end without reaching one.
+        /// </summary>
+        /// <remarks>
+        /// Which means the two writes cannot share a tick. A NetworkVariable sends the value
+        /// it holds when the tick fires, not every value it held during it, so writing
+        /// RunFailed and Lobby back to back would reach clients as Lobby alone and the
+        /// terminal state would exist on the server only. Nothing reads RunFailed yet; the
+        /// results screen will.
+        /// </remarks>
+        private async Awaitable EndRunAsync()
+        {
+            ending = true;
+
+            try
+            {
+                if (phase.Value == GameState.InRun)
+                {
+                    TrySetPhase(GameState.RunFailed);
+
+                    await NextTickAsync();
+
+                    if (this == null || !IsSpawned || !IsServer) return;
+                }
+
+                sceneReady.Clear();
+                roster?.ClearReadyFlags();
+                TrySetPhase(GameState.Lobby);
+            }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
+            }
+            finally
+            {
+                ending = false;
+            }
+        }
+
+        private async Awaitable NextTickAsync()
+        {
+            var tickSystem = NetworkManager != null ? NetworkManager.NetworkTickSystem : null;
+            if (tickSystem == null) return;
+
+            var start = tickSystem.LocalTime.Tick;
+
+            // Bounded: a shutdown mid-wait must not spin forever. At any sane tick rate a
+            // tick lands well inside this budget.
+            for (var frame = 0; frame < MaxFramesPerTick; frame++)
+            {
+                if (tickSystem.LocalTime.Tick != start) return;
+
+                await Awaitable.NextFrameAsync();
+
+                if (this == null || !IsSpawned) return;
+            }
         }
 
         private bool TrySetPhase(GameState next)

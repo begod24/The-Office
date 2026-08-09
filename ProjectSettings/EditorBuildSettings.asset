@@ -17,6 +17,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Project/Scenes/SCN_Sandbox.unity
     guid: a69625dd96a40604db32c9109d280a34
+  - enabled: 1
+    path: Assets/Project/Scenes/Level/SCN_Level_1.unity
+    guid: 58ad5f970454cb04c9578c1f36849a66
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0

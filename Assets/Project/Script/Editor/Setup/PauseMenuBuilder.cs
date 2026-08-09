@@ -3,8 +3,6 @@ using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
-using UnityEngine.EventSystems;
-using UnityEngine.InputSystem.UI;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -49,7 +47,6 @@ namespace Office.Editor
         {
             font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontPath);
 
-            EnsureEventSystem();
 
             var root = new GameObject(RootName);
 
@@ -164,15 +161,6 @@ namespace Office.Editor
             WireEnum(item, "action", (int)action);
 
             return item;
-        }
-
-        private static void EnsureEventSystem()
-        {
-            if (Object.FindFirstObjectByType<EventSystem>() != null) return;
-
-            var eventSystem = new GameObject("EventSystem");
-            eventSystem.AddComponent<EventSystem>();
-            eventSystem.AddComponent<InputSystemUIInputModule>();
         }
 
         private static RectTransform CreateRect(string name, Transform parent)

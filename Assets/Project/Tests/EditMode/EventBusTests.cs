@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using NUnit.Framework;
 using Office.Core;
 
@@ -144,6 +145,30 @@ namespace Office.Tests.EditMode
 
             bus.Publish(new Ping(1));
             Assert.AreEqual(1, count, "The handler kept receiving events after unsubscribing itself.");
+        }
+
+        [Test]
+        public void NestedPublish_StillReachesTheRemainingHandlers()
+        {
+            // Asserts on the values, not on "was reached at all": the nested Publish notifies
+            // the second handler too, so a plain bool stays true even when the outer loop is
+            // truncated. Only the missing outer value (1) exposes the failure.
+            var received = new List<int>();
+            var republished = false;
+
+            bus.Subscribe<Ping>(_ =>
+            {
+                if (republished) return;
+
+                republished = true;
+                bus.Publish(new Ping(2));
+            });
+            bus.Subscribe<Ping>(e => received.Add(e.Value));
+
+            bus.Publish(new Ping(1));
+
+            CollectionAssert.AreEqual(new[] { 2, 1 }, received,
+                "A nested Publish of the same type truncated the outer invocation list.");
         }
 
         [Test]

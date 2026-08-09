@@ -2,8 +2,6 @@ using Office.UI;
 using TMPro;
 using UnityEditor;
 using UnityEngine;
-using UnityEngine.EventSystems;
-using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 
 namespace Office.Editor
@@ -90,7 +88,6 @@ namespace Office.Editor
             LoadFont();
 
             BuildCamera();
-            BuildEventSystem();
 
             var canvas = BuildCanvas();
             var backdrop = CreateRect("Backdrop", canvas.transform);
@@ -254,14 +251,6 @@ namespace Office.Editor
             camera.backgroundColor = Backdrop;
             camera.cullingMask = 0;
 
-        }
-
-        private static void BuildEventSystem()
-        {
-            var eventSystem = new GameObject("EventSystem");
-            eventSystem.AddComponent<EventSystem>();
-
-            eventSystem.AddComponent<InputSystemUIInputModule>();
         }
 
         private static Canvas BuildCanvas()
