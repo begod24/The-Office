@@ -9,12 +9,12 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5375f9b174c9cff4b821b64631f30e30, type: 3}
-  m_Name: MOD_Melee_Stapler
-  m_EditorClassIdentifier: Office.Data::Office.Data.MeleeModule
+  m_Script: {fileID: 11500000, guid: efc281ea8b3998c4e92046f6384016cc, type: 3}
+  m_Name: MOD_Ranged_Stapler
+  m_EditorClassIdentifier: Office.Data::Office.Data.RangedModule
   damage: 16
-  damageType: 1
-  attackCooldown: 0.7
-  staminaCost: 10
-  noiseRadius: 12
+  damageType: 2
+  range: 18
+  attackCooldown: 0.35
+  noiseRadius: 20
   durabilityCost: 1

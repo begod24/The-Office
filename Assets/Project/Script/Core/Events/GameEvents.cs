@@ -91,6 +91,37 @@ namespace Office.Core
         public float Normalised => MaxHealth <= 0f ? 0f : Mathf.Clamp01(Health / MaxHealth);
     }
 
+    /// <summary>
+    /// How far a scene load has got, for whatever is covering the screen while it happens.
+    /// </summary>
+    /// <remarks>
+    /// Published by the scene loader rather than read from it, so the loading screen never
+    /// holds a reference to the loader and can be built, tested and replaced on its own.
+    /// <para>
+    /// <b>Progress is not the same as readiness.</b> A run is playable only once every client
+    /// has reported its scene loaded and the session has moved to InRun; this number stops at
+    /// 1 well before that. Anything showing it has to treat the phase as the truth and this as
+    /// the detail — see <c>LoadingScreen</c>.
+    /// </para>
+    /// </remarks>
+    public readonly struct SceneLoadProgressChanged
+    {
+        public readonly string SceneName;
+
+        /// <summary>0 to 1 across the load itself.</summary>
+        public readonly float Progress;
+
+        /// <summary>False on the last event of a load, once the scene is up.</summary>
+        public readonly bool IsLoading;
+
+        public SceneLoadProgressChanged(string sceneName, float progress, bool isLoading)
+        {
+            SceneName = sceneName ?? string.Empty;
+            Progress = Mathf.Clamp01(progress);
+            IsLoading = isLoading;
+        }
+    }
+
     public readonly struct PlayerConnectionChanged
     {
         public readonly ulong ClientId;

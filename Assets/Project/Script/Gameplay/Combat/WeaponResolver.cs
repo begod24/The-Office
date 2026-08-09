@@ -26,30 +26,54 @@ namespace Office.Gameplay
         /// </summary>
         public static WeaponLoadout Resolve(ItemDefinition definition, CombatConfig config)
         {
-            var melee = definition != null ? definition.GetModule<MeleeModule>() : null;
+            if (definition == null) return Unarmed(config);
 
-            if (melee == null) return Unarmed(config);
+            // Ranged first. An item carrying both modules is a firearm with a heavy grip, not a
+            // club that happens to shoot — and the ordering is what keeps its shots free of the
+            // stamina cost its melee half would otherwise impose.
+            var ranged = definition.GetModule<RangedModule>();
+            if (ranged != null) return FromRanged(ranged, definition);
 
-            var durability = definition.GetModule<DurabilityModule>();
+            var melee = definition.GetModule<MeleeModule>();
+            if (melee != null) return FromMelee(melee, definition);
 
-            // A DurabilityModule is what switches wear on. Without one the cost is dropped
-            // rather than carried, so a designer who authors a cost and forgets the module
-            // gets an item that never breaks instead of one that breaks on the first swing.
+            return Unarmed(config);
+        }
+
+        private static WeaponLoadout FromRanged(RangedModule ranged, ItemDefinition definition)
+        {
+            var wear = ResolveWear(definition, ranged.DurabilityCost);
+
+            var profile = new WeaponProfile(
+                ranged.Damage,
+                ranged.DamageType,
+                ranged.AttackCooldown,
+                ranged.Range,
+                // Not a value anyone can author. See RangedModule.
+                staminaCost: 0f,
+                ranged.NoiseRadius,
+                wear.Cost,
+                wear.MaxUses,
+                wear.BreaksIntoId);
+
+            return new WeaponLoadout(RangedShotBehaviour.Instance, profile);
+        }
+
+        private static WeaponLoadout FromMelee(MeleeModule melee, ItemDefinition definition)
+        {
+            var wear = ResolveWear(definition, melee.DurabilityCost);
+
             var profile = new WeaponProfile(
                 melee.Damage,
                 melee.DamageType,
                 melee.AttackCooldown,
+                melee.Range,
                 melee.StaminaCost,
                 melee.NoiseRadius,
-                durability != null ? melee.DurabilityCost : 0,
-                durability != null ? durability.MaxUses : 0,
-                durability != null && durability.BreaksInto != null
-                    ? durability.BreaksInto.Id
-                    : ContentDefinition.NoId);
+                wear.Cost,
+                wear.MaxUses,
+                wear.BreaksIntoId);
 
-            // One behaviour today. When GDD §8.3's staple gun arrives it is a ProjectileModule
-            // and a ProjectileBehaviour, chosen here by which module the item carries — not by
-            // a flag on MeleeModule, and not by a switch inside PlayerAttacker.
             return new WeaponLoadout(MeleeSwingBehaviour.Instance, profile);
         }
 
@@ -60,6 +84,7 @@ namespace Office.Gameplay
                 config.UnarmedDamage,
                 config.UnarmedDamageType,
                 config.UnarmedCooldown,
+                config.Range,
                 staminaCost: 0f,
                 config.UnarmedNoiseRadius,
                 durabilityCost: 0,
@@ -67,6 +92,22 @@ namespace Office.Gameplay
                 ContentDefinition.NoId);
 
             return new WeaponLoadout(MeleeSwingBehaviour.Instance, profile);
+        }
+
+        /// <summary>
+        /// A <see cref="DurabilityModule"/> is what switches wear on. Without one the authored
+        /// cost is dropped rather than carried, so a designer who sets a cost and forgets the
+        /// module gets an item that never breaks instead of one that breaks on its first use.
+        /// </summary>
+        private static (int Cost, int MaxUses, int BreaksIntoId) ResolveWear(
+            ItemDefinition definition, int authoredCost)
+        {
+            var durability = definition.GetModule<DurabilityModule>();
+
+            if (durability == null) return (0, 0, ContentDefinition.NoId);
+
+            return (authoredCost, durability.MaxUses,
+                durability.BreaksInto != null ? durability.BreaksInto.Id : ContentDefinition.NoId);
         }
     }
 

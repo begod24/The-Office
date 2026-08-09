@@ -30,6 +30,16 @@ namespace Office.Gameplay
         /// <summary>Seconds between uses. The server enforces it; the owner predicts it.</summary>
         public readonly float Cooldown;
 
+        /// <summary>
+        /// Metres this weapon reaches. A property of the weapon rather than of the arm, so a
+        /// staple gun and a coffee mug can share every other part of the attack path.
+        /// </summary>
+        public readonly float Range;
+
+        /// <summary>
+        /// Physical effort. Always zero for anything fired — see <see cref="RangedModule"/>
+        /// for why that is a property of the data's shape and not a number someone maintains.
+        /// </summary>
         public readonly float StaminaCost;
 
         /// <summary>
@@ -51,7 +61,7 @@ namespace Office.Gameplay
         /// </summary>
         public readonly int BreaksIntoId;
 
-        public WeaponProfile(float damage, DamageType damageType, float cooldown,
+        public WeaponProfile(float damage, DamageType damageType, float cooldown, float range,
             float staminaCost, float noiseRadius, int durabilityCost, int maxUses,
             int breaksIntoId)
         {
@@ -61,6 +71,7 @@ namespace Office.Gameplay
             // A zero cooldown is a weapon that fires every frame, on the server as well as on
             // the owner. Floored here rather than trusted from an asset.
             Cooldown = Mathf.Max(0.05f, cooldown);
+            Range = Mathf.Max(0.1f, range);
             StaminaCost = Mathf.Max(0f, staminaCost);
             NoiseRadius = Mathf.Max(0f, noiseRadius);
             DurabilityCost = Mathf.Max(0, durabilityCost);

@@ -21,6 +21,7 @@ namespace Office.Gameplay
         private InputAction attackAction;
         private InputAction interactAction;
         private InputAction dropAction;
+        private InputAction flashlightAction;
         private InputAction previousAction;
         private InputAction nextAction;
         private InputAction[] slotActions;
@@ -33,6 +34,9 @@ namespace Office.Gameplay
         public bool AttackPressedThisFrame { get; private set; }
         public bool InteractPressedThisFrame { get; private set; }
         public bool DropPressedThisFrame { get; private set; }
+
+        /// <summary>Toggle, not hold: a light the player has to keep a finger on is a chore.</summary>
+        public bool FlashlightPressedThisFrame { get; private set; }
 
         /// <summary>
         /// Zero-based slot the player asked for by number this frame, or -1 for none.
@@ -77,6 +81,7 @@ namespace Office.Gameplay
             attackAction = Resolve("Attack");
             interactAction = Resolve("Interact");
             dropAction = Resolve("Drop");
+            flashlightAction = Resolve("Flashlight");
             previousAction = Resolve("Previous");
             nextAction = Resolve("Next");
 
@@ -113,6 +118,7 @@ namespace Office.Gameplay
             // template put on Interact does not delay it. Interact stays press-to-use.
             InteractPressedThisFrame = interactAction?.WasPressedThisFrame() ?? false;
             DropPressedThisFrame = dropAction?.WasPressedThisFrame() ?? false;
+            FlashlightPressedThisFrame = flashlightAction?.WasPressedThisFrame() ?? false;
             AttackPressedThisFrame = attackAction?.WasPressedThisFrame() ?? false;
 
             HotbarStep = (nextAction?.WasPressedThisFrame() ?? false ? 1 : 0)
@@ -145,6 +151,7 @@ namespace Office.Gameplay
             AttackPressedThisFrame = false;
             InteractPressedThisFrame = false;
             DropPressedThisFrame = false;
+            FlashlightPressedThisFrame = false;
             HotbarStep = 0;
             HotbarSlot = -1;
         }

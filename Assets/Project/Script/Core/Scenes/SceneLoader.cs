@@ -8,6 +8,18 @@ namespace Office.Core
     {
         private readonly HashSet<string> inFlight = new(4);
 
+        private readonly IEventBus bus;
+
+        /// <summary>
+        /// Unity reports an additive load as done at 0.9 and spends the rest on activation.
+        /// Rescaling here rather than in the UI keeps that engine detail out of the view.
+        /// </summary>
+        private const float LoadCompleteProgress = 0.9f;
+
+        /// <param name="bus">Optional. Without one the loader simply reports no progress,
+        /// which is what an EditMode test wants.</param>
+        public SceneLoader(IEventBus bus = null) => this.bus = bus;
+
         public bool IsLoaded(string sceneName)
         {
             var scene = SceneManager.GetSceneByName(sceneName);
@@ -27,13 +39,23 @@ namespace Office.Core
                     return;
                 }
 
-                while (!op.isDone) await Awaitable.NextFrameAsync();
+                Report(sceneName, 0f, isLoading: true);
+
+                while (!op.isDone)
+                {
+                    Report(sceneName, op.progress / LoadCompleteProgress, isLoading: true);
+                    await Awaitable.NextFrameAsync();
+                }
 
                 if (setActive) SceneManager.SetActiveScene(SceneManager.GetSceneByName(sceneName));
             }
             finally
             {
                 inFlight.Remove(sceneName);
+
+                // In the finally, so a scene missing from Build Settings still closes the
+                // report it opened rather than leaving a loading screen up forever.
+                Report(sceneName, 1f, isLoading: false);
             }
         }
 
@@ -76,5 +98,8 @@ namespace Office.Core
 
             foreach (var name in doomed) await UnloadAsync(name);
         }
+
+        private void Report(string sceneName, float progress, bool isLoading) =>
+            bus?.Publish(new SceneLoadProgressChanged(sceneName, progress, isLoading));
     }
 }

@@ -36,10 +36,13 @@ namespace Office.Editor
 
         private const string MaterialFolder = "Assets/Project/Art/Materials/Items";
 
+        private const string FlashlightOpticsPath = ModuleFolder + "/MOD_Light_Flashlight.asset";
+
         [MenuItem("Office/Content/Build Combat Content", priority = 15)]
         public static void BuildAll()
         {
             BuildWeaponModules();
+            BuildFlashlightOptics();
             BuildTargetDefinitions();
             BuildTargetPrefab();
             BuildImpactEffects();
@@ -64,20 +67,24 @@ namespace Office.Editor
         /// </remarks>
         private static void BuildWeaponModules()
         {
-            // Blunt, cheap, and it never breaks: the weapon a player falls back to.
-            var mugMelee = Melee("MOD_Melee_Mug", 8f, DamageType.Blunt, 0.55f, 6f, 8f, 0);
+            // Blunt, cheap, and it never breaks: the weapon a player falls back to. Costs
+            // stamina, because swinging a full mug at something is work.
+            var mugMelee = Melee("MOD_Melee_Mug", 8f, DamageType.Blunt, 2.0f, 0.55f, 6f, 8f, 0);
             Attach("ITM_CoffeeCup", mugMelee);
 
-            // The workhorse. Wears out, which is what makes finding another one matter.
-            var staplerMelee = Melee("MOD_Melee_Stapler", 16f, DamageType.Blunt, 0.7f, 10f, 12f, 1);
+            // Fired, not swung — so no stamina, by construction. Wears out, which is what
+            // makes finding another one matter.
+            var staplerShot = Ranged("MOD_Ranged_Stapler", 16f, DamageType.Cutting, 18f,
+                0.35f, 20f, 1);
             var staplerWear = Durability("MOD_Durability_Stapler", 40, null);
-            Attach("ITM_Stapler", staplerMelee, staplerWear);
+            Attach("ITM_Stapler", staplerShot, staplerWear);
 
-            // Weak on contact, but the beam is the point. Batteries run out fast on purpose:
-            // the answer to a digital enemy has to be a resource, not a default.
+            // Weak on contact, but the beam is the point. Melee because it is pressed against
+            // the thing it hurts; batteries run out fast on purpose, so the answer to a digital
+            // enemy stays a resource rather than a default.
             var laser = BuildLaserPointer();
             var laserMelee = Melee("MOD_Melee_LaserPointer", 6f,
-                DamageType.Blunt | DamageType.Light, 0.4f, 3f, 2f, 1);
+                DamageType.Blunt | DamageType.Light, 2.6f, 0.4f, 3f, 2f, 1);
             var laserWear = Durability("MOD_Durability_LaserPointer", 25, null);
 
             if (laser != null) Attach("ITM_LaserPointer", laserMelee, laserWear);
@@ -85,6 +92,37 @@ namespace Office.Editor
             // The keycard stays a keycard. Swinging it falls through to the unarmed numbers,
             // which is the whole reason nothing asks "is this a weapon".
         }
+
+        /// <summary>
+        /// The optics for the light every player carries.
+        /// </summary>
+        /// <remarks>
+        /// A <see cref="LightSourceModule"/> rather than fields on the player, so the built-in
+        /// beam and a flashlight found on a desk are tuned in one asset. Narrow and not
+        /// especially bright: GDD §14 wants the beam to be a window onto the room, not a
+        /// replacement for the lights being on.
+        /// </remarks>
+        private static LightSourceModule BuildFlashlightOptics()
+        {
+            var module = CreateOrLoad<LightSourceModule>(FlashlightOpticsPath);
+            var serialized = new SerializedObject(module);
+
+            serialized.FindProperty("range").floatValue = 16f;
+            serialized.FindProperty("angle").floatValue = 48f;
+            serialized.FindProperty("intensity").floatValue = 3.2f;
+
+            // Roughly seven minutes of continuous use out of a full charge. Long enough to
+            // stop being a timer, short enough that leaving it on all run is a decision.
+            serialized.FindProperty("drainPerSecond").floatValue = 0.25f;
+
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(module);
+
+            return module;
+        }
+
+        public static LightSourceModule LoadFlashlightOptics() =>
+            AssetDatabase.LoadAssetAtPath<LightSourceModule>(FlashlightOpticsPath);
 
         private static ItemDefinition BuildLaserPointer()
         {
@@ -99,18 +137,39 @@ namespace Office.Editor
         }
 
         private static MeleeModule Melee(string assetName, float damage, DamageType type,
-            float cooldown, float staminaCost, float noiseRadius, int durabilityCost)
+            float range, float cooldown, float staminaCost, float noiseRadius, int durabilityCost)
         {
             var module = CreateOrLoad<MeleeModule>($"{ModuleFolder}/{assetName}.asset");
             var serialized = new SerializedObject(module);
 
             serialized.FindProperty("damage").floatValue = damage;
             serialized.FindProperty("damageType").intValue = (int)type;
+            serialized.FindProperty("range").floatValue = range;
             serialized.FindProperty("attackCooldown").floatValue = cooldown;
             serialized.FindProperty("staminaCost").floatValue = staminaCost;
             serialized.FindProperty("noiseRadius").floatValue = noiseRadius;
             serialized.FindProperty("durabilityCost").intValue = durabilityCost;
 
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(module);
+
+            return module;
+        }
+
+        private static RangedModule Ranged(string assetName, float damage, DamageType type,
+            float range, float cooldown, float noiseRadius, int durabilityCost)
+        {
+            var module = CreateOrLoad<RangedModule>($"{ModuleFolder}/{assetName}.asset");
+            var serialized = new SerializedObject(module);
+
+            serialized.FindProperty("damage").floatValue = damage;
+            serialized.FindProperty("damageType").intValue = (int)type;
+            serialized.FindProperty("range").floatValue = range;
+            serialized.FindProperty("attackCooldown").floatValue = cooldown;
+            serialized.FindProperty("noiseRadius").floatValue = noiseRadius;
+            serialized.FindProperty("durabilityCost").intValue = durabilityCost;
+
+            // No stamina field to write. That is the point of RangedModule.
             serialized.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(module);
 

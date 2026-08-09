@@ -1,43 +1,48 @@
+using Office.Data;
 using Unity.Netcode;
 using UnityEngine;
-using Office.Data;
 
 namespace Office.Gameplay
 {
     /// <summary>
-    /// A swing with whatever is in the player's hand. Covers everything from a fist to a fire
-    /// extinguisher — the difference between those is entirely in the
-    /// <see cref="WeaponProfile"/>, which is why they share one behaviour.
+    /// A shot fired down the line of sight. The staple gun, and anything else that reaches
+    /// across a room rather than across an arm.
     /// </summary>
     /// <remarks>
-    /// Stateless and shared, per <see cref="IWeaponBehaviour"/>. The one piece of mutable
-    /// storage is a static hit buffer, which is safe for the same reason it was safe on
-    /// <c>PlayerAttacker</c>: a probe runs to completion inside one <c>Update</c>, only the
-    /// owner probes, and the server's half of this class does not cast at all.
+    /// <b>Hitscan, not a spawned projectile.</b> At office distances a staple arrives inside a
+    /// frame, so a travelling object would be a networked entity whose whole life is one tick —
+    /// it would cost a spawn, a despawn and a pool slot to model something nobody can see move.
+    /// The impact effect already plays at the point that was hit, which is the part a player
+    /// actually reads. GDD §8.3's slower projectiles, if they arrive, are a second behaviour
+    /// next to this one rather than a change to it.
+    /// <para>
+    /// Stateless and shared, per <see cref="IWeaponBehaviour"/>. The static hit buffer is safe
+    /// for the same reason it is in <see cref="MeleeSwingBehaviour"/>: only the owner probes,
+    /// and a probe finishes inside one <c>Update</c>.
+    /// </para>
     /// </remarks>
-    public sealed class MeleeSwingBehaviour : IWeaponBehaviour
+    public sealed class RangedShotBehaviour : IWeaponBehaviour
     {
         /// <summary>The shared instance. There is no per-player state to justify another.</summary>
-        public static readonly MeleeSwingBehaviour Instance = new();
+        public static readonly RangedShotBehaviour Instance = new();
 
         private static readonly RaycastHit[] Hits = new RaycastHit[8];
 
         /// <summary>
-        /// Roughly where a standing player's shoulders are. Used only for the server's
-        /// line-of-sight check, which needs a believable origin rather than an exact one.
+        /// Roughly where a standing player's shoulders are. The server's firing origin, and
+        /// only ever an approximation — it has no pitch for a remote player.
         /// </summary>
         private const float ServerEyeHeight = 1.5f;
 
-        private MeleeSwingBehaviour()
+        private RangedShotBehaviour()
         {
         }
 
         /// <inheritdoc />
         /// <remarks>
-        /// A sphere rather than a ray, and a wider one than interaction uses: a swing is an
-        /// arc, and pixel-hunting a moving enemy is not the difficulty this game is after.
-        /// Level geometry sits in the mask on purpose — a wall in the way has to be found
-        /// first so that it blocks everything behind it.
+        /// A ray rather than the sphere a swing uses. A shot is aimed, and forgiving it into a
+        /// cone would make the staple gun better at close range than the thing you are supposed
+        /// to be swinging.
         /// </remarks>
         public WeaponAim Probe(in WeaponContext context)
         {
@@ -48,8 +53,8 @@ namespace Office.Gameplay
             var direction = aim.forward;
             var range = context.Profile.Range;
 
-            var count = Physics.SphereCastNonAlloc(
-                origin, context.Config.ProbeRadius, direction, Hits, range,
+            var count = Physics.RaycastNonAlloc(
+                origin, direction, Hits, range,
                 PhysicsLayers.AttackMask, QueryTriggerInteraction.Ignore);
 
             var nearestDistance = float.PositiveInfinity;
@@ -61,8 +66,8 @@ namespace Office.Gameplay
                 var hit = Hits[i];
                 if (hit.distance >= nearestDistance) continue;
 
-                // Plain geometry still counts: finding it here is what blocks everything
-                // behind it, even though it resolves to no target.
+                // Plain geometry still counts: finding it here is what stops the shot at the
+                // wall instead of through it, even though it resolves to no target.
                 var damageable = hit.collider.GetComponentInParent<IDamageable>();
 
                 nearestDistance = hit.distance;
@@ -88,11 +93,13 @@ namespace Office.Gameplay
             var damageable = target.GetComponent<IDamageable>();
             if (damageable == null || !damageable.IsAlive) return WeaponOutcome.Missed;
 
-            // The target's own centre, never the point the client sent. Measuring reach to a
-            // client-supplied position is the same thing as having no reach check at all.
             point = CombatGeometry.AimPoint(target);
 
-            if (!IsWithinReach(context, point)) return WeaponOutcome.Missed;
+            if (!IsWithinRange(context, point)) return WeaponOutcome.Missed;
+
+            // The same check that stops a melee swing through a wall, and it matters more here:
+            // the client's ray already stopped at geometry, but that ray is a claim, and at
+            // eighteen metres there is a great deal more wall to shoot through.
             if (CombatGeometry.IsOccluded(context.Body, point, ServerEyeHeight))
                 return WeaponOutcome.Missed;
 
@@ -102,15 +109,10 @@ namespace Office.Gameplay
                 context.Profile.Damage, context.Profile.DamageType, context.AttackerClientId,
                 point, direction));
 
-            // Zero from a target that is alive and in reach means a resistance table ate it.
-            // That is a different event from a miss, and the player has to be able to hear it.
             return applied > 0f ? WeaponOutcome.Connected : WeaponOutcome.Absorbed;
         }
 
-        // Measured from the body, not from a camera: the server has no pitch for a remote
-        // player worth trusting, and CombatConfig.ServerReach already carries the tolerance
-        // for the interpolation window that costs.
-        private static bool IsWithinReach(in WeaponContext context, Vector3 point)
+        private static bool IsWithinRange(in WeaponContext context, Vector3 point)
         {
             var reach = context.Config.ServerReachFor(context.Profile.Range);
             return (point - context.Body.position).sqrMagnitude <= reach * reach;

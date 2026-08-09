@@ -16,8 +16,8 @@ namespace Office.Tests.EditMode
     {
         private static WeaponProfile Profile(float cooldown = 0.5f, int durabilityCost = 1,
             int maxUses = 20) =>
-            new(damage: 10f, DamageType.Blunt, cooldown, staminaCost: 5f, noiseRadius: 8f,
-                durabilityCost, maxUses, ContentDefinition.NoId);
+            new(damage: 10f, DamageType.Blunt, cooldown, range: 2.2f, staminaCost: 5f,
+                noiseRadius: 8f, durabilityCost, maxUses, ContentDefinition.NoId);
 
         // A zero cooldown is a weapon that fires every frame — on the server too, where the
         // rate check is the only thing standing between a modified client and infinite damage.
@@ -38,13 +38,14 @@ namespace Office.Tests.EditMode
         public void NegativeAuthoredValues_AreFlooredAtZero()
         {
             var profile = new WeaponProfile(damage: 10f, DamageType.Blunt, cooldown: 0.5f,
-                staminaCost: -5f, noiseRadius: -1f, durabilityCost: -2, maxUses: -10,
+                range: -4f, staminaCost: -5f, noiseRadius: -1f, durabilityCost: -2, maxUses: -10,
                 ContentDefinition.NoId);
 
             Assert.AreEqual(0f, profile.StaminaCost);
             Assert.AreEqual(0f, profile.NoiseRadius);
             Assert.AreEqual(0, profile.DurabilityCost);
             Assert.AreEqual(0, profile.MaxUses);
+            Assert.Greater(profile.Range, 0f, "A zero range weapon can never connect with anything.");
         }
 
         // Both halves are needed. A cost with no ceiling wears towards a limit that does not

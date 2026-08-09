@@ -186,6 +186,22 @@ namespace Office.Editor
             pivot.transform.SetParent(root.transform, false);
             pivot.transform.localPosition = new Vector3(0f, 1.62f, 0f);
 
+            // A sibling of the camera under the pivot, never a child of it: PlayerRig switches
+            // the camera object off on remote instances, and a beam parented to it would be
+            // invisible on exactly the machines that need to see a teammate's light.
+            var flashlightObject = new GameObject("Flashlight");
+            flashlightObject.transform.SetParent(pivot.transform, false);
+            flashlightObject.transform.localPosition = new Vector3(0.18f, -0.1f, 0.2f);
+
+            var beam = flashlightObject.AddComponent<Light>();
+            beam.type = LightType.Spot;
+            beam.shadows = LightShadows.Soft;
+            beam.color = new Color(0.95f, 0.94f, 0.86f);
+
+            // Off in the prefab. PlayerFlashlight owns the state and turns it on from the
+            // replicated value, so a freshly spawned body is never lit for one frame.
+            beam.enabled = false;
+
             var cameraObject = new GameObject("PlayerCamera") { tag = "MainCamera" };
             cameraObject.transform.SetParent(pivot.transform, false);
 
@@ -211,8 +227,21 @@ namespace Office.Editor
             var health = root.AddComponent<Health>();
             var attacker = root.AddComponent<PlayerAttacker>();
             var feedback = root.AddComponent<CombatFeedback>();
+            var flashlight = root.AddComponent<PlayerFlashlight>();
 
             Wire(movement, ("config", movementConfig), ("input", input));
+
+            var optics = CombatContentBuilder.LoadFlashlightOptics();
+
+            if (optics == null)
+                Debug.LogError("[Setup] MOD_Light_Flashlight is missing. Run " +
+                               "'Office/Content/Build Combat Content' first — without it the " +
+                               "flashlight has no range, cone or battery.");
+
+            Wire(flashlight,
+                ("input", input),
+                ("beam", beam),
+                ("optics", optics));
 
             // Greybox effects. They exist so the three outcomes the server reports are
             // distinguishable today; B replaces the prefabs without touching this wiring.
@@ -446,6 +475,11 @@ namespace Office.Editor
             var uiObject = new GameObject("[DevUI]");
             uiObject.AddComponent<DevSessionPanel>();
 
+            // In the boot scene on purpose: it covers the scene swap, and a loading screen
+            // living inside the scene being loaded can only appear after the wait it was
+            // meant to hide.
+            LoadingScreenBuilder.Build();
+
             SaveScene(scene, BootScenePath);
             Debug.Log($"[Setup] {BootScenePath} built.");
         }
@@ -511,6 +545,21 @@ namespace Office.Editor
             Debug.Log($"[Setup] Session prefab written to {SessionPrefabPath}.");
         }
 
+        /// <summary>
+        /// The unpowered office: dark enough that the flashlight is the only way to read the
+        /// space, light enough that a player is never staring at a black screen.
+        /// </summary>
+        /// <remarks>
+        /// GDD §14 makes darkness the default state and light the resource that buys
+        /// information back, so the sandbox has to be lit the way the real floors will be or it
+        /// tunes combat, movement and props against a brightness the game never has.
+        /// <para>
+        /// The directional light is kept, barely — a floor at literal zero ambient makes
+        /// geometry outside the beam invisible rather than dim, and a player cannot navigate
+        /// towards a shape they cannot see at all. Fog does the rest of the work: it closes the
+        /// corridors off at a readable depth instead of letting the beam pick out the far wall.
+        /// </para>
+        /// </remarks>
         private static void BuildLighting()
         {
             var lightObject = new GameObject("Directional Light");
@@ -518,14 +567,23 @@ namespace Office.Editor
 
             var light = lightObject.AddComponent<Light>();
             light.type = LightType.Directional;
-            light.intensity = 0.9f;
-            light.color = new Color(0.92f, 0.94f, 1f);
+
+            // Moonlight through blinds, not daylight. Shadows stay on: the flashlight needs
+            // something for its cone to cut against.
+            light.intensity = 0.06f;
+            light.color = new Color(0.62f, 0.70f, 0.92f);
             light.shadows = LightShadows.Soft;
 
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
-            RenderSettings.ambientSkyColor = new Color(0.24f, 0.26f, 0.3f);
-            RenderSettings.ambientEquatorColor = new Color(0.18f, 0.18f, 0.2f);
-            RenderSettings.ambientGroundColor = new Color(0.1f, 0.1f, 0.11f);
+            RenderSettings.ambientSkyColor = new Color(0.035f, 0.040f, 0.055f);
+            RenderSettings.ambientEquatorColor = new Color(0.022f, 0.024f, 0.032f);
+            RenderSettings.ambientGroundColor = new Color(0.012f, 0.012f, 0.016f);
+
+            RenderSettings.fog = true;
+            RenderSettings.fogMode = FogMode.Linear;
+            RenderSettings.fogColor = new Color(0.015f, 0.017f, 0.024f);
+            RenderSettings.fogStartDistance = 4f;
+            RenderSettings.fogEndDistance = 26f;
         }
 
         private static void BuildSpawnPoints()

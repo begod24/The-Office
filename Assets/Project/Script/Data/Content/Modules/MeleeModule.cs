@@ -21,6 +21,13 @@ namespace Office.Data
                  "Blunt and Water. The target's response table decides what that is worth.")]
         [SerializeField] private DamageType damageType = DamageType.Blunt;
 
+        [Header("Reach")]
+        [Tooltip("Metres this connects at. A fire extinguisher is not a coffee mug — reach " +
+                 "belongs to the weapon, while the tolerance the server adds on top of it " +
+                 "belongs to CombatConfig.")]
+        [Min(0.1f)]
+        [SerializeField] private float range = 2.2f;
+
         [Header("Cost and rhythm")]
         [Tooltip("Seconds before this item can swing again. Enforced by the server, so a " +
                  "modified client gains nothing by asking faster.")]
@@ -44,6 +51,8 @@ namespace Office.Data
         public float Damage => damage;
 
         public DamageType DamageType => damageType;
+
+        public float Range => range;
 
         public float AttackCooldown => attackCooldown;
 

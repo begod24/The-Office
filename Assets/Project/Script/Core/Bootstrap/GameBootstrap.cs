@@ -47,7 +47,7 @@ namespace Office.Core
             eventBus = new EventBus();
 
             ServiceLocator.Register<IEventBus>(eventBus);
-            ServiceLocator.Register<ISceneLoader>(new SceneLoader());
+            ServiceLocator.Register<ISceneLoader>(new SceneLoader(eventBus));
             ServiceLocator.Register<IGameStateService>(new GameStateMachine(eventBus));
             ServiceLocator.Register(new RunState());
 
