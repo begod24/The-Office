@@ -1,4 +1,5 @@
 using System.IO;
+using Office.Audio;
 using Office.Core;
 using Office.Data;
 using Office.Gameplay;
@@ -23,6 +24,11 @@ namespace Office.Editor
 
         private const string PlayerBodyMaterialPath =
             MaterialFolder + "/Charachters/MAT_Cylinder.mat";
+
+        // The one background track. It sits in the SFX folder because that is where it was
+        // imported; move it and this constant, not one without the other.
+        private const string MenuTrackPath = "Assets/Project/Audio/SFX/SFX_BackMainMenu.mp3";
+
         private const string ScenesFolder = "Assets/Project/Scenes";
 
         // Authored levels live here and nothing regenerates them. Build settings pick up
@@ -436,6 +442,7 @@ namespace Office.Editor
             var bootstrapObject = new GameObject("[Bootstrap]");
             var bootstrap = bootstrapObject.AddComponent<GameBootstrap>();
             var uiInstaller = bootstrapObject.AddComponent<UIEventSystemInstaller>();
+            var audioInstaller = bootstrapObject.AddComponent<AudioServiceInstaller>();
             var networkInstaller = bootstrapObject.AddComponent<NetworkServiceInstaller>();
             var gameplayInstaller = bootstrapObject.AddComponent<GameplayServiceInstaller>();
 
@@ -452,7 +459,16 @@ namespace Office.Editor
 
             Wire(bootstrap, ("definitions", registry));
 
-            WireArray(bootstrap, "installers", uiInstaller, networkInstaller, gameplayInstaller);
+            var menuTrack = AssetDatabase.LoadAssetAtPath<AudioClip>(MenuTrackPath);
+
+            if (menuTrack == null)
+                Debug.LogError($"[Setup] {MenuTrackPath} is missing — the game builds silent. " +
+                               "The track is the one asset here nothing can regenerate.");
+
+            Wire(audioInstaller, ("menuTrack", menuTrack));
+
+            WireArray(bootstrap, "installers",
+                uiInstaller, audioInstaller, networkInstaller, gameplayInstaller);
 
             var sessionPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(SessionPrefabPath);
 

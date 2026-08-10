@@ -141,6 +141,22 @@ namespace Office.Core
         }
     }
 
+    /// <summary>
+    /// A setting changed. Carries the whole picture rather than the one field that moved.
+    /// </summary>
+    /// <remarks>
+    /// Whoever reacts to this usually reads more than the field that changed — the music
+    /// wants its own volume, a future mixer wants every bus — and a delta would make each
+    /// listener keep a copy of the rest to fill the gaps in. One value means no listener
+    /// holds settings state of its own.
+    /// </remarks>
+    public readonly struct SettingsChanged
+    {
+        public readonly GameSettings Settings;
+
+        public SettingsChanged(GameSettings settings) => Settings = settings;
+    }
+
     public readonly struct PlayerConnectionChanged
     {
         public readonly ulong ClientId;

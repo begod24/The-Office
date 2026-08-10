@@ -51,6 +51,13 @@ namespace Office.Core
             ServiceLocator.Register<IGameStateService>(new GameStateMachine(eventBus));
             ServiceLocator.Register(new RunState());
 
+            // Before the installers, not in one of them: the settings service applies the
+            // stored resolution in its constructor, and everything an installer creates —
+            // the music among it — reads a volume from here in its own Awake.
+            ServiceLocator.Register<ISettingsService>(
+                new GameSettingsService(new PlayerPrefsSettingsStore(), new ScreenDisplayDevice(),
+                    eventBus));
+
             if (definitions != null)
             {
                 // A registry cached from a previous play session would still hold ids that
