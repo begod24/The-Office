@@ -58,5 +58,56 @@ namespace Office.Gameplay
 
             return incoming.Count > 0 ? incoming : ItemStack.Empty;
         }
+
+        /// <summary>
+        /// Moves one slot's contents onto another and reports whether anything actually moved.
+        /// What the player is doing when they drag a cell across the inventory.
+        /// </summary>
+        /// <remarks>
+        /// Two readings of a drop, and the slot decides which: onto the same item it merges,
+        /// onto anything else it swaps. Swapping rather than refusing is what makes an
+        /// occupied target work at all — the item already there has to go somewhere, and the
+        /// slot the player just emptied is the only place that does not invent capacity.
+        /// <para>
+        /// Wear is part of identity here for the reason <see cref="Distribute"/> gives: merging
+        /// a half-broken stapler into a fresh one silently picks a winner between two
+        /// histories. Mismatched wear falls through to the swap, which keeps both.
+        /// </para>
+        /// </remarks>
+        public static bool Move(ItemStack[] slots, int from, int to, int maxStack)
+        {
+            if (slots == null || from == to) return false;
+            if (from < 0 || from >= slots.Length || to < 0 || to >= slots.Length) return false;
+
+            var source = slots[from];
+
+            // Dragging an empty slot is a gesture, not an edit.
+            if (source.IsEmpty) return false;
+
+            maxStack = Mathf.Max(1, maxStack);
+
+            var target = slots[to];
+
+            if (!target.IsEmpty &&
+                target.DefinitionId == source.DefinitionId &&
+                target.Wear == source.Wear &&
+                target.Count < maxStack)
+            {
+                var moved = Mathf.Min(maxStack - target.Count, source.Count);
+
+                target.Count += moved;
+                source.Count -= moved;
+
+                slots[to] = target;
+
+                // Whatever did not fit stays where it was rather than evaporating.
+                slots[from] = source.Count > 0 ? source : ItemStack.Empty;
+                return true;
+            }
+
+            slots[from] = target;
+            slots[to] = source;
+            return true;
+        }
     }
 }

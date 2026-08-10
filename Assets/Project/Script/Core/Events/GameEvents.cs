@@ -42,6 +42,25 @@ namespace Office.Core
     }
 
     /// <summary>
+    /// The local player opened or closed the inventory screen. Nothing pauses: the run goes
+    /// on, and no other client sees anything.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="LocalPauseChanged"/> even though both free the cursor and mute
+    /// this player's input, because the two are not interchangeable to everything that listens:
+    /// the pause menu has to suppress its own Escape key for this one and not for its own, and
+    /// a screen effect tied to being paused must not fire when a player merely looks in a bag.
+    /// Publishing this as a pause would also let one of the two overlays close the other's
+    /// cursor out from under it.
+    /// </remarks>
+    public readonly struct LocalInventoryChanged
+    {
+        public readonly bool IsOpen;
+
+        public LocalInventoryChanged(bool isOpen) => IsOpen = isOpen;
+    }
+
+    /// <summary>
     /// What the local player is currently looking at, as a line of HUD text. An empty
     /// prompt means "nothing in reach" and hides the label.
     /// </summary>

@@ -24,6 +24,11 @@ namespace Office.Gameplay
 
         private IEventBus bus;
         private bool paused;
+        private bool inventoryOpen;
+
+        // Two overlays, one cursor. Tracked separately so closing either one cannot re-lock
+        // the cursor while the other is still up.
+        private bool InputSuspended => paused || inventoryOpen;
 
         public override void OnNetworkSpawn()
         {
@@ -47,6 +52,7 @@ namespace Office.Gameplay
             if (ServiceLocator.TryGet(out bus))
             {
                 bus.Subscribe<LocalPauseChanged>(OnPauseChanged);
+                bus.Subscribe<LocalInventoryChanged>(OnInventoryChanged);
                 bus.Publish(new LocalPlayerSpawned(OwnerClientId));
             }
         }
@@ -56,8 +62,10 @@ namespace Office.Gameplay
             if (!IsOwner) return;
 
             bus?.Unsubscribe<LocalPauseChanged>(OnPauseChanged);
+            bus?.Unsubscribe<LocalInventoryChanged>(OnInventoryChanged);
             bus = null;
             paused = false;
+            inventoryOpen = false;
 
             SetCursorLocked(false);
         }
@@ -67,12 +75,20 @@ namespace Office.Gameplay
         private void OnPauseChanged(LocalPauseChanged evt)
         {
             paused = evt.IsPaused;
-            SetCursorLocked(!paused);
+            SetCursorLocked(!InputSuspended);
+        }
+
+        // The inventory takes the same two things for the same reason, and is not a pause:
+        // the body stands there while the player reads, in front of everyone else.
+        private void OnInventoryChanged(LocalInventoryChanged evt)
+        {
+            inventoryOpen = evt.IsOpen;
+            SetCursorLocked(!InputSuspended);
         }
 
         private void Update()
         {
-            if (!IsOwner || !manageCursor || paused) return;
+            if (!IsOwner || !manageCursor || InputSuspended) return;
 
             var mouse = Mouse.current;
             if (mouse != null && mouse.leftButton.wasPressedThisFrame &&

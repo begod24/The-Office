@@ -125,6 +125,47 @@ namespace Office.Gameplay
             selected.Value = index;
         }
 
+        /// <summary>Owner only. Asks the server to put one slot's contents on the floor.</summary>
+        /// <remarks>
+        /// The hotbar drops whatever is selected and needs no argument; the inventory screen
+        /// drops the slot the player is pointing at, which is the only reason this is not
+        /// private. It adds no trust: the RPC behind it still checks the sender and still
+        /// computes the landing spot from the server's copy of the body.
+        /// </remarks>
+        public void RequestDrop(int index)
+        {
+            if (!IsSpawned || !IsOwner || !InRange(index)) return;
+
+            RequestDropRpc(index);
+        }
+
+        /// <summary>
+        /// Owner only. Asks the server to move one slot's contents onto another — merging into
+        /// a matching stack, swapping with anything else.
+        /// </summary>
+        /// <remarks>
+        /// Contents are server-authoritative, so a drag is a request like a pickup is, not a
+        /// local edit that gets replicated afterwards. There is deliberately no prediction: a
+        /// slot the client rearranged optimistically would have to be un-rearranged when the
+        /// server disagreed, and the one case where it disagrees — the server having just put a
+        /// picked-up item in that slot — is exactly the case where the flicker would be worst.
+        /// <para>
+        /// <b>The selection does not follow the item.</b> A slot is a place in the hand, not a
+        /// label on an object: dragging the equipped item elsewhere leaves the player holding
+        /// whatever now sits in the selected slot, which is what pressing the same number key
+        /// afterwards would give them.
+        /// </para>
+        /// </remarks>
+        public void RequestMove(int from, int to)
+        {
+            if (!IsSpawned || !IsOwner || from == to) return;
+            if (!InRange(from) || !InRange(to)) return;
+
+            RequestMoveRpc(from, to);
+        }
+
+        private bool InRange(int index) => index >= 0 && index < slots.Count;
+
         // ------------------------------------------------------------------ server API
 
         /// <summary>
@@ -135,19 +176,29 @@ namespace Office.Gameplay
         {
             if (!IsServer || incoming.IsEmpty) return incoming;
 
-            if (buffer == null || buffer.Length != slots.Count) buffer = new ItemStack[slots.Count];
-
-            for (var i = 0; i < slots.Count; i++) buffer[i] = slots[i];
+            LoadBuffer();
 
             var remainder = ItemStacking.Distribute(
                 buffer, incoming, ResolveMaxStack(incoming.DefinitionId));
 
-            // Only what moved. Writing an unchanged element still costs a delta on the wire.
+            FlushBuffer();
+
+            return remainder;
+        }
+
+        private void LoadBuffer()
+        {
+            if (buffer == null || buffer.Length != slots.Count) buffer = new ItemStack[slots.Count];
+
+            for (var i = 0; i < slots.Count; i++) buffer[i] = slots[i];
+        }
+
+        // Only what moved. Writing an unchanged element still costs a delta on the wire.
+        private void FlushBuffer()
+        {
             for (var i = 0; i < slots.Count; i++)
                 if (!buffer[i].Equals(slots[i]))
                     slots[i] = buffer[i];
-
-            return remainder;
         }
 
         /// <summary>
@@ -179,6 +230,27 @@ namespace Office.Gameplay
 
             slots[index] = ItemStack.Empty;
             return taken;
+        }
+
+        [Rpc(SendTo.Server)]
+        private void RequestMoveRpc(int from, int to, RpcParams rpcParams = default)
+        {
+            // Every client can see this object, so anyone could aim an RPC at it.
+            if (rpcParams.Receive.SenderClientId != OwnerClientId) return;
+
+            if (from == to || !InRange(from) || !InRange(to)) return;
+
+            var source = slots[from];
+
+            // Read before the move: ResolveMaxStack logs an unresolvable id as a content bug,
+            // and an empty slot's id is not one.
+            if (source.IsEmpty) return;
+
+            LoadBuffer();
+
+            if (!ItemStacking.Move(buffer, from, to, ResolveMaxStack(source.DefinitionId))) return;
+
+            FlushBuffer();
         }
 
         [Rpc(SendTo.Server)]

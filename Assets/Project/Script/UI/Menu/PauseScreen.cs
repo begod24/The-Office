@@ -27,6 +27,8 @@ namespace Office.UI
 
         private bool paused;
         private bool busy;
+        private bool inventoryOpen;
+        private int inventoryChangedFrame = -1;
 
         private void Start()
         {
@@ -34,6 +36,8 @@ namespace Office.UI
             ServiceLocator.TryGet(out session);
             ServiceLocator.TryGet(out sceneLoader);
             ServiceLocator.TryGet(out gameState);
+
+            bus?.Subscribe<LocalInventoryChanged>(OnInventoryChanged);
 
             InitialiseItems();
 
@@ -44,14 +48,28 @@ namespace Office.UI
 
         private void OnDestroy()
         {
+            bus?.Unsubscribe<LocalInventoryChanged>(OnInventoryChanged);
+
             if (paused) bus?.Publish(new LocalPauseChanged(false));
+        }
+
+        private void OnInventoryChanged(LocalInventoryChanged evt)
+        {
+            inventoryOpen = evt.IsOpen;
+            inventoryChangedFrame = Time.frameCount;
         }
 
         protected override void Update()
         {
             base.Update();
 
-            if (busy) return;
+            // The inventory closes on Escape too, and both screens read the key straight from
+            // the device rather than through an action map that is disabled while either is
+            // open. The frame check is what makes the outcome independent of script execution
+            // order: if this ran first it sees the screen still open, and if it ran second it
+            // sees the frame the screen closed on. Without it, the same press that closes the
+            // inventory opens the pause menu — on some machines, some of the time.
+            if (busy || inventoryOpen || Time.frameCount == inventoryChangedFrame) return;
 
             var keyboard = Keyboard.current;
             if (keyboard == null || !keyboard.escapeKey.wasPressedThisFrame) return;

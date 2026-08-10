@@ -345,6 +345,7 @@ namespace Office.Editor
             BuildFallbackCamera(new Vector3(0f, 9f, -11f), new Vector3(32f, 0f, 0f));
             PostProcessBuilder.BuildVolume();
             HudBuilder.Build();
+            InventoryBuilder.Build();
             PauseMenuBuilder.Build();
 
             SaveScene(scene, SandboxScenePath);

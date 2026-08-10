@@ -26,6 +26,9 @@ namespace Office.UI
         private IEventBus bus;
         private CanvasGroup group;
 
+        private bool paused;
+        private bool inventoryOpen;
+
         private DefinitionRegistry definitions;
         private PlayerInventory inventory;
 
@@ -41,10 +44,13 @@ namespace Office.UI
 
             if (ServiceLocator.TryGet(out lobby)) lobby.Changed += Refresh;
 
-            // The pause overlay replaces the HUD for the local player.
+            // The pause overlay and the inventory each replace the HUD for the local player —
+            // both draw the same information larger, and leaving it underneath them reads as
+            // two hotbars.
             if (ServiceLocator.TryGet(out bus))
             {
                 bus.Subscribe<LocalPauseChanged>(OnPauseChanged);
+                bus.Subscribe<LocalInventoryChanged>(OnInventoryChanged);
                 bus.Subscribe<InteractionPromptChanged>(OnPromptChanged);
             }
 
@@ -67,6 +73,7 @@ namespace Office.UI
             if (lobby != null) lobby.Changed -= Refresh;
 
             bus?.Unsubscribe<LocalPauseChanged>(OnPauseChanged);
+            bus?.Unsubscribe<LocalInventoryChanged>(OnInventoryChanged);
             bus?.Unsubscribe<InteractionPromptChanged>(OnPromptChanged);
 
             PlayerInventory.LocalChanged -= BindInventory;
@@ -141,7 +148,20 @@ namespace Office.UI
 
         private void OnPauseChanged(LocalPauseChanged evt)
         {
-            if (group != null) group.alpha = evt.IsPaused ? 0f : 1f;
+            paused = evt.IsPaused;
+            ApplyVisibility();
+        }
+
+        private void OnInventoryChanged(LocalInventoryChanged evt)
+        {
+            inventoryOpen = evt.IsOpen;
+            ApplyVisibility();
+        }
+
+        // Two overlays can hide the HUD, and either can close while the other is still up.
+        private void ApplyVisibility()
+        {
+            if (group != null) group.alpha = paused || inventoryOpen ? 0f : 1f;
         }
 
         public void SetCrosshairVisible(bool visible)

@@ -148,5 +148,127 @@ namespace Office.Tests.EditMode
             Assert.AreEqual(new ItemStack(Keycard, 2, 7), slots[1]);
             Assert.IsTrue(remainder.IsEmpty);
         }
+
+        // ---------------------------------------------------------------------------- Move
+        //
+        // What a player does when they drag a cell across the inventory screen. Every case
+        // below is a way a drag could quietly duplicate, erase or repair an item — none of
+        // which looks like a bug in a playtest, only like the inventory "acting strange".
+
+        [Test]
+        public void Move_FillsAnEmptySlot()
+        {
+            var slots = EmptySlots(4);
+            slots[0] = new ItemStack(Stapler, 1);
+
+            Assert.IsTrue(ItemStacking.Move(slots, 0, 3, 1));
+
+            Assert.IsTrue(slots[0].IsEmpty);
+            Assert.AreEqual(new ItemStack(Stapler, 1), slots[3]);
+        }
+
+        [Test]
+        public void Move_SwapsTwoDifferentItems()
+        {
+            var slots = EmptySlots(4);
+            slots[0] = new ItemStack(Stapler, 1);
+            slots[1] = new ItemStack(Keycard, 2);
+
+            Assert.IsTrue(ItemStacking.Move(slots, 0, 1, 1));
+
+            Assert.AreEqual(new ItemStack(Keycard, 2), slots[0]);
+            Assert.AreEqual(new ItemStack(Stapler, 1), slots[1]);
+        }
+
+        [Test]
+        public void Move_MergesOntoAMatchingStack()
+        {
+            var slots = EmptySlots(4);
+            slots[0] = new ItemStack(Keycard, 2);
+            slots[1] = new ItemStack(Keycard, 1);
+
+            Assert.IsTrue(ItemStacking.Move(slots, 0, 1, 4));
+
+            Assert.IsTrue(slots[0].IsEmpty);
+            Assert.AreEqual(new ItemStack(Keycard, 3), slots[1]);
+        }
+
+        // The overflow has to stay in the slot it came from. Anywhere else and the drag either
+        // deletes it or invents a slot the player did not have.
+        [Test]
+        public void Move_LeavesWhatDoesNotFitBehind()
+        {
+            var slots = EmptySlots(4);
+            slots[0] = new ItemStack(Keycard, 3);
+            slots[1] = new ItemStack(Keycard, 2);
+
+            Assert.IsTrue(ItemStacking.Move(slots, 0, 1, 4));
+
+            Assert.AreEqual(new ItemStack(Keycard, 1), slots[0]);
+            Assert.AreEqual(new ItemStack(Keycard, 4), slots[1]);
+        }
+
+        [Test]
+        public void Move_SwapsRatherThanMergingWhenTheTargetIsFull()
+        {
+            var slots = EmptySlots(4);
+            slots[0] = new ItemStack(Keycard, 1);
+            slots[1] = new ItemStack(Keycard, 4);
+
+            Assert.IsTrue(ItemStacking.Move(slots, 0, 1, 4));
+
+            Assert.AreEqual(new ItemStack(Keycard, 4), slots[0]);
+            Assert.AreEqual(new ItemStack(Keycard, 1), slots[1]);
+        }
+
+        // Merging these would pick a winner between two histories and hand out a free repair
+        // on the loser. Swapping keeps both.
+        [Test]
+        public void Move_KeepsItemsWornDifferentlyApart()
+        {
+            var slots = EmptySlots(4);
+            slots[0] = new ItemStack(Stapler, 1, 12);
+            slots[1] = new ItemStack(Stapler, 1, 3);
+
+            Assert.IsTrue(ItemStacking.Move(slots, 0, 1, 4));
+
+            Assert.AreEqual(new ItemStack(Stapler, 1, 3), slots[0]);
+            Assert.AreEqual(new ItemStack(Stapler, 1, 12), slots[1]);
+        }
+
+        [Test]
+        public void Move_DoesNothingWhenTheSourceIsEmpty()
+        {
+            var slots = EmptySlots(4);
+            slots[1] = new ItemStack(Keycard, 2);
+
+            Assert.IsFalse(ItemStacking.Move(slots, 0, 1, 4));
+
+            Assert.IsTrue(slots[0].IsEmpty);
+            Assert.AreEqual(new ItemStack(Keycard, 2), slots[1]);
+        }
+
+        [Test]
+        public void Move_DoesNothingWhenADragEndsWhereItStarted()
+        {
+            var slots = EmptySlots(4);
+            slots[2] = new ItemStack(Stapler, 1);
+
+            Assert.IsFalse(ItemStacking.Move(slots, 2, 2, 1));
+
+            Assert.AreEqual(new ItemStack(Stapler, 1), slots[2]);
+        }
+
+        [Test]
+        public void Move_RefusesAnIndexOutsideTheInventory()
+        {
+            var slots = EmptySlots(4);
+            slots[0] = new ItemStack(Stapler, 1);
+
+            Assert.IsFalse(ItemStacking.Move(slots, 0, 4, 1));
+            Assert.IsFalse(ItemStacking.Move(slots, -1, 0, 1));
+
+            Assert.AreEqual(new ItemStack(Stapler, 1), slots[0]);
+        }
     }
 }

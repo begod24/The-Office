@@ -40,6 +40,42 @@ namespace Office.Gameplay
             return Unarmed(config);
         }
 
+        /// <summary>
+        /// The numbers behind an item that really is a weapon, for a readout rather than for a
+        /// swing. False for everything else.
+        /// </summary>
+        /// <remarks>
+        /// <see cref="Resolve"/> answers "what happens when this player attacks", so an empty
+        /// hand and a coffee mug both come back as the unarmed profile — correct for the attack
+        /// path and a lie on an item card, which would end up printing the shove's damage next
+        /// to a mug. This asks the other question. It shares the resolution below so a display
+        /// can never disagree with the swing it describes.
+        /// </remarks>
+        public static bool TryResolve(ItemDefinition definition, out WeaponProfile profile)
+        {
+            if (definition != null)
+            {
+                var ranged = definition.GetModule<RangedModule>();
+
+                if (ranged != null)
+                {
+                    profile = FromRanged(ranged, definition).Profile;
+                    return true;
+                }
+
+                var melee = definition.GetModule<MeleeModule>();
+
+                if (melee != null)
+                {
+                    profile = FromMelee(melee, definition).Profile;
+                    return true;
+                }
+            }
+
+            profile = default;
+            return false;
+        }
+
         private static WeaponLoadout FromRanged(RangedModule ranged, ItemDefinition definition)
         {
             var wear = ResolveWear(definition, ranged.DurabilityCost);
