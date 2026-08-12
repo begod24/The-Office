@@ -13,6 +13,11 @@ there is no revive interaction, no spectator camera and no health readout. `Heal
 `LocalVitalsChanged` for whatever draws it first, and `Health.ServerRevive` is waiting for
 something to call it.
 
+The first enemy exists as a definition, a carrier prefab and a server-side brain, and **nothing
+spawns one** — there is no `EnemyPlacement` marker and no `EnemySpawner`. It also cannot hear:
+`EnemyDefinition.HearingRadius` and every weapon's `NoiseRadius` are both authored and nothing
+publishes a noise between them. See [Docs/Architecture.md](Docs/Architecture.md) §13.
+
 The lobby still does not lock during a run, so a mid-run join is allowed and gets a body
 wherever the spawn points put it. Remaining findings are tracked in
 [Docs/CodeReview.md](Docs/CodeReview.md) §8.

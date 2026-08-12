@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ac20f0d993e864b8a87f3357132f7269, type: 3}
+  m_Name: ENM_Stapler
+  m_EditorClassIdentifier: Office.Data::Office.Data.EnemyDefinition
+  id: 7
+  displayName: STAPLER
+  viewPrefab: {fileID: 8152220100406532111, guid: 0e9de158285c54fb9b9e535312ba18a2, type: 3}
+  icon: {fileID: 0}
+  maxHealth: 20
+  responses:
+    responses: []
+  bodyRadius: 0.25
+  bodyHeight: 0.6
+  patrolSpeed: 1.4
+  chaseSpeed: 4.2
+  acceleration: 16
+  turnSpeed: 900
+  sightRadius: 12
+  sightAngle: 140
+  memorySeconds: 4
+  hearingRadius: 16
+  attackDamage: 8
+  attackDamageType: 2
+  attackRange: 1.1
+  attackWindup: 0.3
+  attackCooldown: 0.9
+  corpseSeconds: 6

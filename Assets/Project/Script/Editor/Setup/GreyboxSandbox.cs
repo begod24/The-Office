@@ -10,6 +10,7 @@ namespace Office.Editor
         private const string ItemDefinitionFolder = "Assets/Project/ScriptableObject/Items";
         private const string TargetDefinitionFolder = "Assets/Project/ScriptableObject/Props";
 
+
         private const float Module = 2f;
         private const float WallHeight = 3f;
         private const float WallThickness = 0.25f;
@@ -34,6 +35,14 @@ namespace Office.Editor
             BuildScaleReferences(root);
             BuildItemPlacements(root);
             BuildTargetPlacements(root);
+
+            // Last. The bake reads colliders that are already in the scene, so anything added
+            // after this line is a hole in the mesh that nobody sees until an enemy walks into
+            // it.
+            // The path comes from NavigationSetup so that a full rebuild and a
+            // 'Bake Navigation In Open Scene' write the same asset. Two paths would leave a
+            // stale mesh behind that nothing points at and nobody notices.
+            NavigationSetup.BuildSurface(root, NavigationSetup.DataPathFor(SceneNames.Sandbox));
         }
 
         // The Gate 4 harness, and the first place the physical/digital rule is playable. The

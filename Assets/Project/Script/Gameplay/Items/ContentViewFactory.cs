@@ -20,8 +20,13 @@ namespace Office.Gameplay
     /// of a networked carrier plus a plain local view, which is what keeps the network prefab
     /// list from growing by one entry per asset.
     /// </para>
+    /// <para>
+    /// Public rather than internal because <c>Office.Enemies</c> is the fourth caller and lives
+    /// in its own assembly. Widening it is cheaper than either copying the three steps or
+    /// dragging enemies down into <c>Office.Gameplay</c> to be near them.
+    /// </para>
     /// </remarks>
-    internal static class ContentViewFactory
+    public static class ContentViewFactory
     {
         /// <summary>
         /// The definition behind <paramref name="definitionId"/>, or null with a logged reason.

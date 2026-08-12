@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: REG_Definitions
   m_EditorClassIdentifier: Office.Data::Office.Data.DefinitionRegistry
   definitions:
+  - {fileID: 11400000, guid: c4066818669684693ae79a66f11f32d2, type: 2}
   - {fileID: 11400000, guid: dc67d246aebb74d379153f7f40ec6608, type: 2}
   - {fileID: 11400000, guid: e2347ad1cd1814b599728c379b90402a, type: 2}
   - {fileID: 11400000, guid: 259999c3e817be34394b944ccde3d732, type: 2}

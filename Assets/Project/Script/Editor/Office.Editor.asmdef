@@ -12,6 +12,7 @@
         "Office.UI",
         "Office.Audio",
         "Office.Rendering",
+        "Unity.AI.Navigation",
         "Unity.Netcode.Runtime",
         "Unity.RenderPipelines.Universal.Runtime",
         "Unity.RenderPipelines.Core.Runtime",

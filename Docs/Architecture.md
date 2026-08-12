@@ -34,7 +34,7 @@ Two assemblies were added beyond Technical Plan §3.2: `Office.Rendering` (URP r
 for the PS1 pipeline in Sprint 9 — it must reference URP, and nothing else should) and
 `Office.Editor` (setup tooling, which must never ship in a build).
 
-`Office.Rendering`, `Office.Enemies`, `Office.LevelGen`, `Office.Anomalies` and
+`Office.Rendering`, `Office.LevelGen`, `Office.Anomalies` and
 `Office.Tests.PlayMode` are empty. They exist so that the first file written into each one lands
 in the right place instead of in `Assembly-CSharp`.
 
@@ -723,16 +723,80 @@ points at an exposed parameter and nothing else in the project changes.
 
 ---
 
-## 13. What is deliberately not here yet
+## 13. Enemies
 
-Enemies, level generation, power, voice, SFX and ambience, the PS1 render pipeline. Each has an
+One registered prefab, `PF_Enemy`, is every enemy there will ever be — the third use of the
+arrangement `WorldItem` and `DamageableTarget` already share. An `EnemyDefinition` id rides the
+spawn payload, each machine builds the definition's view prefab locally, and `Health` is
+configured from the definition before the object spawns. A new enemy is an asset and a mesh.
+
+| Component | Runs on | Owns |
+|---|---|---|
+| `Enemy` | everyone | The definition, the view, the capsule, the agent's dimensions, the corpse timer |
+| `EnemyBrain` | server only | Sight, the state machine, the attack |
+| `Health` | server writes | Damage, resistances, death — `canBeDowned` is off, so zero is dead |
+
+**The brain disables itself everywhere but the server**, and so does the `NavMeshAgent`. An
+agent left live on a client fights the replicated transform for the same object and wins about
+half the frames, which arrives as an enemy that stutters only for the people not hosting.
+
+**What crosses the wire is one `EnemyBehaviourState` and the transform.** Nothing else — no
+`NetworkAnimator`, no target id, no path. That is what makes a view's animation free to be
+procedural: it is a function of a byte and a position, computed identically on every machine
+from data that was already being sent. GDD §9.1 is built on swarms, and a swarm cannot afford
+an animator sync per member.
+
+**The collider is on the carrier, not in the art.** One prefab serves every enemy, so the
+capsule a swing connects with and the agent that walks are both sized from the definition and
+have to agree. Views are built with their colliders stripped, which leaves an artist free to
+hand over a mesh with whatever collision it came with.
+
+### 13.1 Navigation
+
+Unity's built-in Humanoid agent is half a metre wide, and a bake erodes the mesh by the agent's
+radius on both sides of every obstacle — so nothing survives in a doorway narrower than a metre.
+Real office doors are 0.8–0.9 m and the greybox partition's is exactly one. Baking with Humanoid
+produces a sandbox with no connection through its only door, and **the failure is silent**: the
+enemy simply stands there.
+
+So the project owns an agent type. `Office`, id **1**, radius 0.25, height 1.8, climb 0.35 —
+written by `Office/Setup/Create Navigation Agent Type` into `NavMeshAreas.asset`. The id is a
+fixed constant rather than the hash the Navigation window hands out, because a surface baked
+against one id and an agent asking for another produce a mesh nothing can stand on, and nothing
+is logged.
+
+One type, not one per enemy: every agent takes its own radius and height from its definition,
+but they all walk the same mesh, and the mesh is baked for the tightest thing that uses it. A
+crawling enemy that wants to go under a desk needs a second type and a second bake.
+
+`SCN_Sandbox` bakes as part of `Build Sandbox Scene`; `Office/Setup/Bake Navigation In Open
+Scene` re-bakes without regenerating everything else, the same escape hatch the HUD and the
+inventory screen have. The mesh is written beside the scenes, in
+`Assets/Project/Scenes/Navigation/`, and both entry points get the path from
+`NavigationSetup.DataPathFor` so they cannot write to two files.
+
+Edit-time baking is right while levels are hand-built. Procedural floors cannot be baked before
+their shape is known, so `Office.LevelGen` will bake on the server at run start instead — the
+agent type is the part both paths share.
+
+---
+
+## 14. What is deliberately not here yet
+
+Level generation, power, voice, SFX and ambience, the PS1 render pipeline. Each has an
 empty assembly waiting for it — `Office.Audio` now holds the music and the settings-to-sound
 binding, and no sound effect, stinger or ambience system yet. Props are defined but no prop behaviour exists yet — the first
 door will need `PropDefinition`, a `PropPlacement` marker and a component implementing
 `IInteractable`, all of which the item path already demonstrates.
 
-Combat exists but has no consumers yet: nothing reads `MeleeModule.NoiseRadius` because there
-is nothing that hears, nothing reads `LightSourceModule` because held lights are not built, and
+**Enemies exist but nothing spawns one.** §13 has what is built; what is missing is hearing,
+the `EnemyPlacement` marker and the `EnemySpawner` that reads it. Until that spawner exists an
+enemy reaches the world only by being dropped into a scene by hand, where it will sit inert
+because it has no server.
+
+Nothing reads `MeleeModule.NoiseRadius` because there is still nothing that hears —
+`EnemyDefinition.HearingRadius` is now the other half of that pair, authored and waiting for
+the same event. Nothing reads `LightSourceModule` because held lights are not built, and
 `DurabilityModule` is authored but not spent. The numbers are resolved and ready so that the
 systems which need them do not also have to invent them.
 
