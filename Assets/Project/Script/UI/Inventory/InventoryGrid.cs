@@ -21,6 +21,30 @@ namespace Office.UI
         /// <summary>Nothing to point at. What an empty grid answers.</summary>
         public const int None = -1;
 
+        /// <summary>
+        /// Cells per row. Four, matching the hotbar, so a slot keeps the number the player
+        /// learned — and with <c>GameplayConstants.HotbarSlots</c> also at four, the top row
+        /// <em>is</em> the hand and everything under it is the backpack.
+        /// </summary>
+        public const int Columns = 4;
+
+        /// <summary>Rows drawn, whether or not the player has slots for all of them.</summary>
+        public const int Rows = 2;
+
+        /// <summary>
+        /// Cells the screen draws. Anything past the player's capacity is drawn locked and the
+        /// cursor never reaches it, so this may exceed the capacity but must never fall short.
+        /// </summary>
+        /// <remarks>
+        /// Here rather than in the builder that lays the grid out, because the invariant it has
+        /// to satisfy — at least <c>GameplayConstants.InventorySlots</c> — cannot be checked
+        /// where it was. Both numbers are compile-time constants, so a runtime guard in the
+        /// builder is code the compiler can prove will never run: it warns, and it protects
+        /// nothing. <c>InventoryCapacityTests</c> asserts it instead, which fails when the
+        /// suite runs rather than when someone happens to click the menu item.
+        /// </remarks>
+        public const int Cells = Columns * Rows;
+
         /// <summary>The nearest live index, or <see cref="None"/> when there are none.</summary>
         public static int Clamp(int index, int count) =>
             count <= 0 ? None : Mathf.Clamp(index, 0, count - 1);

@@ -30,13 +30,12 @@ Office.Editor        → everything (Editor platform only)
 Office.Tests.EditMode / .PlayMode → everything
 ```
 
-Two assemblies were added beyond Technical Plan §3.2: `Office.Rendering` (URP render features
-for the PS1 pipeline in Sprint 9 — it must reference URP, and nothing else should) and
-`Office.Editor` (setup tooling, which must never ship in a build).
+Two assemblies were added beyond Technical Plan §3.2: `Office.Rendering` (URP render features —
+it must reference URP, and nothing else should) and `Office.Editor` (setup tooling, which must
+never ship in a build).
 
-`Office.Rendering`, `Office.LevelGen`, `Office.Anomalies` and
-`Office.Tests.PlayMode` are empty. They exist so that the first file written into each one lands
-in the right place instead of in `Assembly-CSharp`.
+`Office.LevelGen`, `Office.Anomalies` and `Office.Tests.PlayMode` are empty. They exist so that
+the first file written into each one lands in the right place instead of in `Assembly-CSharp`.
 
 Every asmdef sets `autoReferenced: false` — no project code may live outside an assembly.
 
@@ -338,6 +337,7 @@ Collision matrix, configured by `Office/Setup/Configure Collision Matrix`:
 | `Office/Setup/Build Lobby Scene` | Regenerates `PF_LobbyRow` and `SCN_Lobby` |
 | `Office/Setup/Build Main Menu Scene` | Regenerates `SCN_MainMenu` |
 | `Office/Setup/Build Boot Scene` | Regenerates `SCN_Boot`, including the music clip on `AudioServiceInstaller` |
+| `Office/Setup/Build Retro Render` | Render scale + point upscale on `PC_RPAsset`, the retro pass on `PC_Renderer` |
 | `Office/Setup/Configure Build Settings` | Scene list, `SCN_Boot` at index 0 |
 | `Office/Content/Build All` | Everything below, in order |
 | `Office/Content/Build Sample Items` | Greybox item definitions, view prefabs and icons |
@@ -455,8 +455,26 @@ collider on `LevelGeometry` and keeps only its interaction collider on `Interact
 ### 8.4 Slots
 
 `PlayerInventory` holds a `NetworkList<ItemStack>` pre-filled to `GameplayConstants.InventorySlots`
-so indices stay stable, and `HudBuilder` generates exactly that many hotbar cells from the same
-constant. `ServerAdd` tops up matching stacks before opening a new slot, returns whatever did
+so indices stay stable.
+
+**The hand and the backpack are one list, split by index.** The first
+`GameplayConstants.HotbarSlots` entries — four, per GDD §7.1 — are the hand: the number keys
+address them, `HudBuilder` draws exactly that many hotbar cells, and `Select` refuses anything
+past them, because selecting into the backpack would put the hotbar highlight on a cell the HUD
+does not draw. The remaining four are storage. Only what is in the hand can be held or swung.
+
+One list rather than two, because every alternative is a second source of truth for the same
+slots: moving an item between them would be a transfer needing its own RPC and its own failure
+mode, instead of the `RequestMove` a drag already goes through. It also keeps the scarcity GDD
+§7.2 builds the soft roles on — the backpack does not loosen it, because reaching into one means
+opening the screen and standing still in front of everyone, so it stores options rather than
+answers. `InventoryCapacityTests` pins the two constants against each other and against the grid
+width; every way of getting them wrong is silent.
+
+A pickup fills the hand first, and that is not a rule anywhere — `ItemStacking.Distribute` walks
+the list in order and the hand is the front of it. The test says so out loud, because reversing
+that loop would leave a player who just picked something up unable to swing it, with nothing
+logged. `ServerAdd` tops up matching stacks before opening a new slot, returns whatever did
 not fit, and writes back only the entries that actually moved — an unchanged element still
 costs a delta. A full inventory hands the whole stack back untouched, which is how `WorldItem`
 knows to leave the item on the floor instead of deleting it.
@@ -531,7 +549,15 @@ The grid is drawn at a fixed 4×2 and only the first `GameplayConstants.Inventor
 live; any drawn past that are locked and the cursor never reaches one. Today the constant is 8
 and every cell is live. It cannot exceed the drawn cells — `InventoryBuilder` refuses to build
 and says to add a row, because the failure is silent otherwise: the hotbar would still address a
-slot by number that this screen never draws. The cursor arithmetic is a pure static class,
+slot by number that this screen never draws.
+
+**The grid is four wide and the hand is four slots, so the top row is the hand and the bottom is
+the backpack** — the split needs no divider, only for those two numbers to agree, which
+`InventoryCapacityTests` requires. Cells carry a number only where a number key reaches them, and
+a legend over the grid says which row is which rather than leaving a player to infer it. Equipping
+means two different things by row: a hand cell is selected, and a backpack cell is *moved* into
+the selected hand slot — the same `RequestMove` a drag uses, so it swaps what was held into the
+bag and adds no second path through the server. The cursor arithmetic is a pure static class,
 `InventoryGrid`, tested without a scene, and for the same reason as the rest: every failure mode
 is a cursor sitting on a cell that does not exist, which reads as a screen that will not respond
 rather than as a bug.
@@ -597,6 +623,18 @@ the same split as `PlayerInventory` and `ItemStacking`. The rules are unit teste
 `VitalsState` travels as one `NetworkVariable`, not three, so a client can never observe health
 at zero while the downed flag is still in flight. Downed is **derived** from health rather than
 stored — a stored flag admits states that cannot happen.
+
+**How the HUD reads it.** `Health` keeps a static list of every *spawned player's* instance —
+`SpawnedPlayerList` — and `HudScreen` binds a squad row to each and listens to its `Changed`.
+Nothing is copied: every machine already holds a `Health` for every player and the
+`NetworkVariable` on it arrives on its own, so the list is a way of finding them rather than a
+second source of truth. It is players only, because enemies and breakable props carry this
+component too and a HUD that swept the scene for it would bind a row to a filing cabinet.
+
+The event bus cannot do this job: `LocalVitalsChanged` carries no client id and cannot grow one
+without `Office.Core` learning what a player is. That mismatch is why the wiring was missing for
+so long — `HudScreen` had `SetHealth` and `SetDowned` and nothing ever called them, so damage
+changed the numbers on the wire while the HUD went on drawing full bars.
 
 Per GDD §7.1 and §15: zero health is downed, not dead; a teammate has 60 seconds; then
 spectator. Damage to a downed player does nothing, because the revive window is a flat timer
@@ -733,8 +771,26 @@ configured from the definition before the object spawns. A new enemy is an asset
 | Component | Runs on | Owns |
 |---|---|---|
 | `Enemy` | everyone | The definition, the view, the capsule, the agent's dimensions, the corpse timer |
-| `EnemyBrain` | server only | Sight, the state machine, the attack |
+| `EnemyBrain` | server only | Sight, hearing, the state machine, the attack |
 | `Health` | server writes | Damage, resistances, death — `canBeDowned` is off, so zero is dead |
+
+**How one reaches the world.** `EnemySpawner` on `PF_Session` is the third subclass of
+`RunScopedSpawner`, next to the items and the practice targets: it reads the level's
+`EnemyPlacement` markers on the InRun edge, pushes each marker's definition and health into
+the carrier before `Spawn()`, and takes everything back when the run ends. A marker is a spawn
+point, not a spawner — one marker, one enemy, once per run; waves and the escalating director
+belong to whatever reads the markers later. The sandbox authors two stapler markers in its far
+corners, deliberately outside sight of the spawn area.
+
+**Hearing.** Every swing the server rules valid — hit or miss — publishes `NoiseRaised` on the
+event bus, carrying the position and the weapon's `NoiseRadius`. The event is server-side only:
+it is published where attacks are ruled on and consumed where brains run, so it never crosses
+the wire, and what a client sees is the replicated behaviour state changing. An enemy hears a
+noise when the distance clears **the smaller of** the noise's radius and its own
+`HearingRadius` — the quieter of the two decides, so both numbers stay worth authoring. A heard
+noise sends a targetless enemy to the point at chase speed (`Investigating`); it lingers there
+for `MemorySeconds`, then forgets. Sight always wins: the moment anything is seen the noise is
+dropped, and a noise never interrupts a chase or a committed swing.
 
 **The brain disables itself everywhere but the server**, and so does the `NavMeshAgent`. An
 agent left live on a client fights the replicated transform for the same object and wins about
@@ -781,24 +837,65 @@ agent type is the part both paths share.
 
 ---
 
-## 14. What is deliberately not here yet
+## 14. Rendering
 
-Level generation, power, voice, SFX and ambience, the PS1 render pipeline. Each has an
-empty assembly waiting for it — `Office.Audio` now holds the music and the settings-to-sound
-binding, and no sound effect, stinger or ambience system yet. Props are defined but no prop behaviour exists yet — the first
+The screen half of GDD §12.1 is built: a genuinely low-resolution picture, a limited palette
+with ordered dithering, and a worn tape over the top. `Office/Setup/Build Retro Render` owns all
+of it and is idempotent like every other builder.
+
+**Two halves, one menu item, because they share a number.** The pipeline asset carries the
+render scale (0.55) and — the setting that decides whether any of this works — a **point**
+upscale, since a linear one turns a low-resolution image into a blurry high-resolution one
+rather than into pixels. `RetroFilmFeature` on `PC_Renderer` carries the rest, and has to be
+told how tall the picture actually is: the wobble and the scanlines are measured in picture
+rows, so that they stay locked to the pixels instead of changing size with the player's window.
+Working that height out twice by hand is how they end up half a pixel apart.
+
+**The scale is deliberately far above the 320×240 that GDD §12.1 quotes.** That number describes
+the hardware being referenced, not the look: a true quarter-scale buffer makes a stapler across
+an unlit office four pixels wide, and a player cannot be frightened by a shape they cannot
+resolve. The grid should be felt, not read — and the same applies to the tape. Every artefact is
+tuned to sit under notice: the chromatic bleed only shows on high-contrast edges, the scanlines
+are barely on, and the tracking tear is narrow and gated to arrive every twenty seconds or so,
+because a permanent one is wallpaper the player stops seeing inside a minute while still paying
+for it in legibility for the rest of a thirty-minute run.
+
+Two things in the shader are load-bearing and neither is obvious:
+
+- **The palette is quantised in gamma space, not linear.** Evenly spaced steps on a linear value
+  put nearly the whole palette in the highlights, leaving an unlit office described by two or
+  three of them — the dither then has nothing to blend between and becomes a visible plaid over
+  the entire picture. This was not a subtle degradation; it made the effect unusable.
+- **Everything hashed on time takes a wrapped clock.** `_Time.y` is seconds since launch, and
+  the hash loses its precision once its input reaches the hundreds, so the grain would decay
+  into fixed vertical bars a few minutes into a run — correct in every short test, broken by the
+  time anyone finished a session.
+
+The pass runs at `AfterRenderingPostProcessing`, so the volume profile's grade, bloom and
+vignette are inside the signal being degraded, while the screen-space UI — composited after URP
+entirely — stays sharp. It also runs for game cameras only: the scene view is where the level
+gets built, and a dithered, wobbling picture is in the way of the person placing walls.
+
+Anti-aliasing is off in both places that could reintroduce it (the pipeline's MSAA, the camera's
+FXAA). A visible pixel grid and edge smoothing are the same argument from opposite sides.
+
+**Not built:** the per-object half — vertex jitter and affine texture mapping. Those need a
+custom lit shader that every material switches to, which is a larger job than the screen layer
+was, and it is why the geometry here is still perfectly stable while the picture around it is not.
+
+---
+
+## 15. What is deliberately not here yet
+
+Level generation, power, voice, SFX and ambience. Each has an empty assembly waiting for it —
+`Office.Audio` now holds the music and the settings-to-sound binding, and no sound effect,
+stinger or ambience system yet. Props are defined but no prop behaviour exists yet — the first
 door will need `PropDefinition`, a `PropPlacement` marker and a component implementing
 `IInteractable`, all of which the item path already demonstrates.
 
-**Enemies exist but nothing spawns one.** §13 has what is built; what is missing is hearing,
-the `EnemyPlacement` marker and the `EnemySpawner` that reads it. Until that spawner exists an
-enemy reaches the world only by being dropped into a scene by hand, where it will sit inert
-because it has no server.
-
-Nothing reads `MeleeModule.NoiseRadius` because there is still nothing that hears —
-`EnemyDefinition.HearingRadius` is now the other half of that pair, authored and waiting for
-the same event. Nothing reads `LightSourceModule` because held lights are not built, and
-`DurabilityModule` is authored but not spent. The numbers are resolved and ready so that the
-systems which need them do not also have to invent them.
+`LightSourceModule` is read by the flashlight and the item card, but a held item that glows —
+a laser pointer lighting the wall it points at — is not built. The numbers are resolved and
+ready so that the system which needs them does not also have to invent them.
 
 Known gaps in what does exist:
 
@@ -816,5 +913,6 @@ Known gaps in what does exist:
   phase transition and spawning otherwise hangs off the `InRun` edge alone. Untested with two
   machines, and the lobby still does not lock — connection approval could refuse a mid-run join
   outright, which may turn out to be the better answer than spawning one.
-- **The lobby look is placeholder.** GDD §14 wants a retro terminal HUD; that pass belongs with
-  the PS1 render pipeline in Sprint 9.
+- **The lobby look is placeholder.** GDD §14 wants a retro terminal HUD. The screen effect does
+  not reach it — the UI is composited after URP and stays sharp on purpose (§14) — so that pass
+  is its own piece of work rather than something the render layer will deliver.

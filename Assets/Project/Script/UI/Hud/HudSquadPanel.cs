@@ -2,17 +2,21 @@ using UnityEngine;
 
 namespace Office.UI
 {
+    /// <summary>
+    /// The squad readout. Rows are addressed by seat when they are bound and by client id
+    /// afterwards, because health arrives from the network knowing only who it belongs to.
+    /// </summary>
     public sealed class HudSquadPanel : MonoBehaviour
     {
         [SerializeField] private HudPlayerRow[] rows;
 
         public int Capacity => rows == null ? 0 : rows.Length;
 
-        public void Bind(int index, ulong clientId, string tag, bool isLocal)
+        public void Bind(int index, ulong clientId, string tag, string displayName, bool isLocal)
         {
             if (!InRange(index)) return;
 
-            rows[index].Bind(clientId, tag, isLocal);
+            rows[index].Bind(clientId, tag, displayName, isLocal);
         }
 
         public void HideFrom(int index)
@@ -33,20 +37,50 @@ namespace Office.UI
             }
         }
 
-        public bool SetHealth(ulong clientId, float normalized)
+        public bool SetHealth(ulong clientId, float normalised)
         {
             if (!TryFind(clientId, out var row)) return false;
 
-            row.SetHealth(normalized);
+            row.SetHealth(normalised);
             return true;
         }
 
-        public bool SetDowned(ulong clientId, bool downed)
+        public bool SetDowned(ulong clientId, float bleedOutRemaining)
         {
             if (!TryFind(clientId, out var row)) return false;
 
-            row.SetDowned(downed);
+            row.SetDowned(bleedOutRemaining);
             return true;
+        }
+
+        public bool SetDead(ulong clientId)
+        {
+            if (!TryFind(clientId, out var row)) return false;
+
+            row.SetDead();
+            return true;
+        }
+
+        /// <summary>
+        /// Marks a bound seat as having no body to read. Called for everyone before the run
+        /// starts, so a row never sits at a full bar for a player who has not spawned.
+        /// </summary>
+        public bool SetOffline(ulong clientId)
+        {
+            if (!TryFind(clientId, out var row)) return false;
+
+            row.SetOffline();
+            return true;
+        }
+
+        /// <summary>Every bound row, so a caller can mark them all before filling some in.</summary>
+        public void SetAllOffline()
+        {
+            if (rows == null) return;
+
+            foreach (var row in rows)
+                if (row != null && row.IsBound)
+                    row.SetOffline();
         }
 
         private bool TryFind(ulong clientId, out HudPlayerRow found)

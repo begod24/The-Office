@@ -83,7 +83,10 @@ namespace Office.Editor
             var data = camera.GetUniversalAdditionalCameraData();
             data.renderPostProcessing = true;
 
-            data.antialiasing = AntialiasingMode.FastApproximateAntialiasing;
+            // No anti-aliasing, deliberately. GDD §12.1 wants a visible pixel grid, and
+            // smoothing the edges is the exact opposite request — FXAA would spend frame time
+            // undoing what the render scale and the retro pass are for.
+            data.antialiasing = AntialiasingMode.None;
         }
 
         private static T Add<T>(VolumeProfile profile) where T : VolumeComponent

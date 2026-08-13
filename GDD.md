@@ -174,7 +174,7 @@ Design check at M3: if playtesters ignore the clock entirely and never feel hurr
 | Movement | Walk, sprint with stamina, crouch, vault low obstacles |
 | Health | 100 HP, no regeneration. Healing only from first aid kits found in the office. |
 | Stamina | Drains on sprint, refills when walking. Panic drains it faster. |
-| Inventory | 4 hotbar slots. Weapons and tools compete for the same slots. |
+| Inventory | 4 hotbar slots — only these can be held or used. 4 further backpack slots store items, but reaching one means opening the inventory screen and standing still. Weapons and tools compete for the same hand. |
 | Light | Every player has a phone flashlight with a battery. Batteries are a resource. |
 | Interaction | Single interact key, context-sensitive. Some interactions require two players. |
 | Downed state | At 0 HP a player is downed, not dead. A teammate can revive within 60 seconds. |
@@ -189,7 +189,7 @@ The concept mentions each player having a role. Two options:
 
 **LOCKED: soft roles.** No classes, no class-specific abilities, no class selection screen. All players are mechanically identical at spawn.
 
-Roles emerge from equipment and from what the group needs: whoever picked up the multimeter becomes the electrician for that run, whoever carries the extinguisher takes point. Because inventory is only four slots, a group of four cannot carry everything — specialisation is forced by scarcity, not by a menu.
+Roles emerge from equipment and from what the group needs: whoever picked up the multimeter becomes the electrician for that run, whoever carries the extinguisher takes point. Because only four slots are in the hand, a group of four cannot carry everything ready to use — specialisation is forced by scarcity, not by a menu. The backpack does not undo this: what is in it is stored, not held, and swapping mid-fight costs the seconds the fight does not give.
 
 This removes an entire balancing axis, four sets of unique animations and abilities, and the class-vs-enemy balance matrix. It is the single largest scope saving in this document.
 

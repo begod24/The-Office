@@ -59,9 +59,11 @@ namespace Office.UI
         [SerializeField] private Image dragGhostIcon;
 
         [Header("Layout")]
-        [Tooltip("Cells per row. The cursor wraps inside a row and inside a column.")]
+        [Tooltip("Cells per row. The cursor wraps inside a row and inside a column. Written by " +
+                 "InventoryBuilder from the same constant this defaults to, so the two cannot " +
+                 "disagree unless someone edits the value in the inspector by hand.")]
         [Min(1)]
-        [SerializeField] private int columns = 4;
+        [SerializeField] private int columns = InventoryGrid.Columns;
 
         private IEventBus bus;
         private DefinitionRegistry definitions;
@@ -338,11 +340,25 @@ namespace Office.UI
             Equip(cell.Index);
         }
 
+        /// <remarks>
+        /// Two different requests behind one verb. A hand slot equips by selection, which the
+        /// owner already owns. A backpack slot cannot be selected — the hotbar does not draw
+        /// it — so equipping from there means moving the item into the selected hand slot,
+        /// which swaps whatever was held into the bag. Same server rules as any drag.
+        /// </remarks>
         private void Equip(int index)
         {
             if (inventory == null || index < 0 || index >= LiveCount) return;
 
-            inventory.Select(index);
+            if (index < GameplayConstants.HotbarSlots)
+            {
+                inventory.Select(index);
+                return;
+            }
+
+            if (inventory[index].IsEmpty) return;
+
+            inventory.RequestMove(index, inventory.SelectedIndex);
         }
 
         private void Drop(int index)

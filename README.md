@@ -8,19 +8,25 @@ breaking them already cost a day — lives in [Docs/Architecture.md](Docs/Archit
 
 ## Known gaps
 
-Combat lands damage and downs a player, but nothing yet turns being downed into a visible state:
-there is no revive interaction, no spectator camera and no health readout. `Health` publishes
-`LocalVitalsChanged` for whatever draws it first, and `Health.ServerRevive` is waiting for
-something to call it.
+Combat lands damage, the HUD draws it, and a downed player is announced — but there is still no
+way back up: `Health.ServerRevive` is waiting for something to call it, and there is no revive
+interaction and no spectator camera. A downed player watches their own countdown reach zero.
 
-The first enemy exists as a definition, a carrier prefab and a server-side brain, and **nothing
-spawns one** — there is no `EnemyPlacement` marker and no `EnemySpawner`. It also cannot hear:
-`EnemyDefinition.HearingRadius` and every weapon's `NoiseRadius` are both authored and nothing
-publishes a noise between them. See [Docs/Architecture.md](Docs/Architecture.md) §13.
+The first enemy spawns from `EnemyPlacement` markers when the run starts — the sandbox carries
+a test pair — and it hears: a confirmed swing publishes a server-side `NoiseRaised`, and an
+enemy within both radii walks to where it came from. What an enemy still lacks is any patrol
+route while idle, and any sound or animation of its own. See
+[Docs/Architecture.md](Docs/Architecture.md) §13.
 
 The lobby still does not lock during a run, so a mid-run join is allowed and gets a body
 wherever the spawn points put it. Remaining findings are tracked in
 [Docs/CodeReview.md](Docs/CodeReview.md) §8.
+
+The PS1 look is the screen half only — low internal resolution, limited palette, worn tape,
+all from `Office/Setup/Build Retro Render` ([Docs/Architecture.md](Docs/Architecture.md) §14).
+Vertex jitter and affine texture mapping are not built, so the geometry itself is still
+perfectly stable. **The effect shows in the Game view, never the Scene view**, so building a
+level is unaffected by it.
 
 **Two players on different builds cannot connect** — that is deliberate. The handshake compares
 `Application.version` and a fingerprint of `REG_Definitions`, so after changing content both

@@ -87,7 +87,9 @@ namespace Office.Gameplay
 
             // One action per slot rather than one clever action: a designer rebinding this
             // sees five named rows in the Input Actions window instead of scale processors.
-            slotActions = new InputAction[GameplayConstants.InventorySlots];
+            // Hand slots only: the backpack has no number keys, and a Hotbar5 action would
+            // select a slot the HUD does not draw.
+            slotActions = new InputAction[GameplayConstants.HotbarSlots];
             for (var i = 0; i < slotActions.Length; i++) slotActions[i] = Resolve($"Hotbar{i + 1}");
         }
 

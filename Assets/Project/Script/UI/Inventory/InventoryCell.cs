@@ -1,4 +1,5 @@
 using System;
+using Office.Data;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -95,7 +96,12 @@ namespace Office.UI
         {
             Index = index;
 
-            if (numberLabel != null) numberLabel.text = (index + 1).ToString();
+            // The number is the key that selects the slot, so only hand slots carry one — a
+            // numbered backpack cell would promise a keypress that does nothing.
+            if (numberLabel != null)
+                numberLabel.text = index < GameplayConstants.HotbarSlots
+                    ? (index + 1).ToString()
+                    : string.Empty;
 
             SetLocked();
         }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Office.Core;
 using Office.Data;
 using Unity.Netcode;
@@ -63,6 +64,33 @@ namespace Office.Gameplay
         /// <summary>Fires when <see cref="Local"/> starts or stops pointing at a player.</summary>
         public static event Action<Health> LocalChanged;
 
+        private static readonly List<Health> SpawnedPlayers = new(4);
+
+        /// <summary>
+        /// Every spawned player's vitals, teammates included, on every machine.
+        /// </summary>
+        /// <remarks>
+        /// A squad readout needs all four, and <see cref="LocalVitalsChanged"/> on the bus can
+        /// only ever carry one — it has no client id on it, deliberately, because
+        /// <c>Office.Core</c> may not know what a player is. Everything needed is replicated
+        /// already: every machine holds a <see cref="Health"/> for every player and the
+        /// <c>NetworkVariable</c> on it arrives on its own. So this is a way of *finding* them
+        /// rather than a second copy of anything — a reader binds to the instances and listens
+        /// to <see cref="Changed"/>, and no vitals travel that were not travelling anyway.
+        /// <para>
+        /// Players only. Enemies and breakable props carry this component too, and a HUD that
+        /// swept the scene for it would bind a row to a filing cabinet.
+        /// </para>
+        /// </remarks>
+        public static IReadOnlyList<Health> SpawnedPlayerList => SpawnedPlayers;
+
+        /// <summary>
+        /// Fires when a player's vitals appear or disappear — a body spawning at the start of a
+        /// run, a client leaving. Not raised for damage; that is <see cref="Changed"/> on the
+        /// instance.
+        /// </summary>
+        public static event Action SpawnedPlayersChanged;
+
         /// <summary>Any change to this instance's state, on every machine.</summary>
         public event Action<VitalsState> Changed;
 
@@ -96,6 +124,9 @@ namespace Office.Gameplay
         {
             Local = null;
             LocalChanged = null;
+
+            SpawnedPlayers.Clear();
+            SpawnedPlayersChanged = null;
         }
 
         /// <summary>
@@ -144,6 +175,14 @@ namespace Office.Gameplay
 
             vitals.OnValueChanged += OnVitalsChanged;
 
+            // Every player on this machine, not just this one's owner: a squad readout draws
+            // teammates, and their vitals are already replicated here.
+            if (NetworkObject.IsPlayerObject)
+            {
+                SpawnedPlayers.Add(this);
+                SpawnedPlayersChanged?.Invoke();
+            }
+
             // IsPlayerObject, not IsOwner alone: on a host every server-owned enemy also
             // passes IsOwner, and the HUD must not start tracking one of those.
             if (IsOwner && NetworkObject.IsPlayerObject)
@@ -159,6 +198,8 @@ namespace Office.Gameplay
         public override void OnNetworkDespawn()
         {
             vitals.OnValueChanged -= OnVitalsChanged;
+
+            if (SpawnedPlayers.Remove(this)) SpawnedPlayersChanged?.Invoke();
 
             if (!ReferenceEquals(Local, this)) return;
 

@@ -24,14 +24,21 @@ namespace Office.Editor
 
         private const string FontPath = "Assets/Project/Fonts/blockblueprint.asset";
 
-        // Four across is what the hotbar already reads left to right, so a slot keeps the
-        // number the player learned. GameplayConstants.InventorySlots is the only thing that
-        // decides how many cells are live, here and in the HUD; any drawn beyond it are locked.
-        private const int Columns = 4;
-        private const int Rows = 2;
+        // The grid's shape belongs to InventoryGrid, next to the cursor arithmetic that has to
+        // agree with it and where a test can reach it — see InventoryCapacityTests. The layout
+        // here is the only thing that draws it, but it is not the only thing that has an
+        // opinion about it.
+        //
+        // With Columns at four and GameplayConstants.HotbarSlots also at four, the top row *is*
+        // the hand and everything under it is the backpack: the whole visual explanation of the
+        // split, for free, as long as those two agree. The legend below says so out loud rather
+        // than relying on a player noticing.
+        private const int Columns = InventoryGrid.Columns;
+        private const int Rows = InventoryGrid.Rows;
 
-        private const int Cells = Columns * Rows;
+        private const int Cells = InventoryGrid.Cells;
 
+        // How many of the drawn cells the player actually owns. The rest are drawn locked.
         private const int LiveCells = GameplayConstants.InventorySlots;
 
         private const int ConditionSegments = 12;
@@ -81,15 +88,12 @@ namespace Office.Editor
                 return false;
             }
 
-            // A grid smaller than the player's capacity hides real slots, and hides them
-            // silently: the hotbar would still address them by number and this screen simply
-            // would not draw them. Widen Columns or Rows rather than shrinking the capacity.
-            if (LiveCells > Cells)
-            {
-                Debug.LogError($"[Setup] The inventory grid draws {Cells} cells but a player " +
-                               $"has {LiveCells} slots. Add a row.");
-                return false;
-            }
+            // A grid smaller than the player's capacity would hide real slots, and hide them
+            // silently. That invariant is not checked here: both numbers are compile-time
+            // constants, so the compiler folds the comparison and the guard becomes code it can
+            // prove will never run — a permanent warning that protects nothing. It lives in
+            // InventoryCapacityTests, which is a better place for it anyway, because the suite
+            // runs on every change rather than only when someone clicks this menu item.
 
             var root = new GameObject(RootName);
 
@@ -157,8 +161,14 @@ namespace Office.Editor
             panel.Root.anchorMax = new Vector2(1f, 1f);
             panel.Root.pivot = new Vector2(1f, 1f);
             panel.Root.anchoredPosition = new Vector2(-ScreenMargin, -ScreenMargin);
+            // The legend row is only built while the hand is smaller than the grid, so the
+            // frame has to grow by exactly what that row and its spacing take — a fixed
+            // height here would crop the bottom row of cells the day the legend appears.
+            var legendHeight = GameplayConstants.HotbarSlots < LiveCells ? 28f : 0f;
+
             panel.Root.sizeDelta = new Vector2(
-                Columns * CellSize + (Columns - 1) * CellSpacing + 36f, gridHeight + 90f);
+                Columns * CellSize + (Columns - 1) * CellSpacing + 36f,
+                gridHeight + 90f + legendHeight);
 
             var layout = panel.Content.gameObject.AddComponent<VerticalLayoutGroup>();
             layout.padding = new RectOffset(18, 18, 16, 18);
@@ -172,6 +182,18 @@ namespace Office.Editor
                 TextAlignmentOptions.MidlineLeft, TextPrimary);
             title.characterSpacing = 10f;
             AddLayoutElement(title.gameObject, preferredHeight: 24f);
+
+            // Which row can be held is the one rule this screen has to teach, and the numbers
+            // on the cells only imply it. Drawn only while the split is real — if the hand
+            // ever grows to fill the grid there is nothing left to distinguish.
+            if (GameplayConstants.HotbarSlots < LiveCells)
+            {
+                var legend = CreateLabel("Legend", panel.Content,
+                    $"HAND 1-{GameplayConstants.HotbarSlots}  ·  BAG BELOW", 14f,
+                    TextAlignmentOptions.MidlineLeft, TextDim);
+                legend.characterSpacing = 6f;
+                AddLayoutElement(legend.gameObject, preferredHeight: 18f);
+            }
 
             var rule = CreateRect("Rule", panel.Content);
             CreateImage(rule, Rule);

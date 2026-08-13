@@ -104,11 +104,11 @@ namespace Office.Gameplay
             if (input.DropPressedThisFrame) RequestDropRpc(selected.Value);
         }
 
-        // Wraps: stepping past the last slot lands on the first. A hotbar that stops dead
-        // at the ends makes the player look down to find out why.
+        // Wraps: stepping past the last hand slot lands on the first. A hotbar that stops
+        // dead at the ends makes the player look down to find out why.
         private void Step(int direction)
         {
-            var count = slots.Count;
+            var count = Mathf.Min(GameplayConstants.HotbarSlots, slots.Count);
             if (count == 0) return;
 
             var next = (selected.Value + direction) % count;
@@ -118,9 +118,16 @@ namespace Office.Gameplay
         }
 
         /// <summary>Owner only. Moves the highlight; the server is not involved.</summary>
+        /// <remarks>
+        /// Hand slots only. The backpack half of the list can be rearranged and dropped from,
+        /// but never held: selecting into it would put the hotbar highlight on a cell the HUD
+        /// does not draw. The inventory screen equips a backpack item by moving it into the
+        /// selected hand slot instead.
+        /// </remarks>
         public void Select(int index)
         {
             if (!IsOwner || index < 0 || index >= slots.Count) return;
+            if (index >= GameplayConstants.HotbarSlots) return;
 
             selected.Value = index;
         }

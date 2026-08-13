@@ -1,8 +1,10 @@
 using System;
+using Office.Core;
 using Office.Data;
 using Office.Gameplay;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.AI;
 
 namespace Office.Enemies
 {
@@ -22,11 +24,11 @@ namespace Office.Enemies
     /// so a swarm costs no more to replicate than a swarm of moving boxes.
     /// </para>
     /// <para>
-    /// The senses here are sight alone. Hearing is the other half, and the number it needs is
-    /// already authored on both sides — <see cref="EnemyDefinition.HearingRadius"/> and the
-    /// <c>NoiseRadius</c> every <c>WeaponProfile</c> resolves — waiting for something to publish
-    /// a noise. That is what raises <see cref="EnemyBehaviourState.Investigating"/>, which nothing does
-    /// yet.
+    /// The senses are sight and hearing, and they are not equals: sight produces a target and
+    /// hearing produces a place. A <see cref="NoiseRaised"/> within reach of both radii sends
+    /// the enemy to where the noise came from — <see cref="EnemyBehaviourState.Investigating"/>
+    /// — but the moment anything is actually seen, the chase owns the brain and the noise is
+    /// forgotten. Both events live on the server, so hearing costs the wire nothing.
     /// </para>
     /// </remarks>
     [DisallowMultipleComponent]
@@ -48,6 +50,7 @@ namespace Office.Enemies
             NetworkVariableWritePermission.Server);
 
         // Server only, all of it.
+        private IEventBus bus;
         private Health target;
         private float lastSeenTime;
         private float nextScanTime;
@@ -55,6 +58,16 @@ namespace Office.Enemies
 
         // Negative means no swing is in the air.
         private float attackLandsAt = -1f;
+
+        // The last heard noise, consumed by Investigating. Negative arrival time means the
+        // enemy is still on its way there.
+        private Vector3 noisePoint;
+        private bool hasNoise;
+        private float noiseArrivedTime = -1f;
+
+        // Close enough to call the walk over. Wider than the agent's own stopping slop so a
+        // partial path — a noise behind a desk — still counts as arriving.
+        private const float NoiseArriveDistance = 0.75f;
 
         /// <summary>What this enemy is doing, on every machine.</summary>
         public EnemyBehaviourState State => state.Value;
@@ -80,6 +93,12 @@ namespace Office.Enemies
                 attackLandsAt = -1f;
                 nextAttackTime = 0f;
                 nextScanTime = 0f;
+                hasNoise = false;
+                noiseArrivedTime = -1f;
+
+                // Server only: noises are published where actions are ruled on, which is here.
+                // A client instance subscribing would wait on an event that never comes.
+                if (ServiceLocator.TryGet(out bus)) bus.Subscribe<NoiseRaised>(OnNoise);
             }
 
             StateChanged?.Invoke(state.Value);
@@ -89,6 +108,9 @@ namespace Office.Enemies
         {
             state.OnValueChanged -= OnStateChanged;
             target = null;
+
+            bus?.Unsubscribe<NoiseRaised>(OnNoise);
+            bus = null;
         }
 
         private void OnStateChanged(EnemyBehaviourState previous, EnemyBehaviourState current) =>
@@ -128,9 +150,15 @@ namespace Office.Enemies
 
             if (target == null)
             {
-                Idle(definition);
+                if (hasNoise) Investigate(definition);
+                else Idle(definition);
                 return;
             }
+
+            // Seeing beats hearing, permanently: a noise is only worth keeping while there is
+            // nothing better, and returning to a stale one after losing a chase would read as
+            // the enemy knowing something it no longer does.
+            hasNoise = false;
 
             var distance = Vector3.Distance(transform.position, target.transform.position);
 
@@ -170,6 +198,61 @@ namespace Office.Enemies
             agent.speed = definition.ChaseSpeed;
             agent.isStopped = false;
             agent.SetDestination(target.transform.position);
+        }
+
+        /// <summary>
+        /// Walks to the last heard noise, lingers, forgets. The place is the whole prize:
+        /// there is no target in this state, and sight can end it on any frame.
+        /// </summary>
+        /// <remarks>
+        /// At chase speed on purpose. GDD §8.1 promises that fighting is loud and pulls the
+        /// office in, and an enemy ambling towards a fight arrives after it is over — the
+        /// counterplay is not being where the noise happened, not outwaiting the walk.
+        /// </remarks>
+        private void Investigate(EnemyDefinition definition)
+        {
+            Enter(EnemyBehaviourState.Investigating);
+
+            var agent = enemy.Agent;
+
+            if (agent == null || !agent.enabled || !agent.isOnNavMesh)
+            {
+                // An enemy that cannot walk must not stand in Investigating forever — with no
+                // path and no timer, nothing else would ever clear the noise.
+                hasNoise = false;
+                return;
+            }
+
+            agent.speed = definition.ChaseSpeed;
+            agent.isStopped = false;
+            agent.SetDestination(noisePoint);
+
+            if (agent.pathPending) return;
+
+            // A noise nowhere near the mesh builds no path at all, and an agent with an
+            // invalid path reports infinite remaining distance — it would stand here forever.
+            if (agent.pathStatus == NavMeshPathStatus.PathInvalid)
+            {
+                hasNoise = false;
+                return;
+            }
+
+            // remainingDistance is measured along the path the agent could actually build, so
+            // a noise behind unwalkable ground still arrives at the closest reachable point.
+            if (agent.remainingDistance > NoiseArriveDistance) return;
+
+            if (noiseArrivedTime < 0f)
+            {
+                noiseArrivedTime = Time.time;
+                return;
+            }
+
+            // The linger reuses MemorySeconds: how long this enemy keeps believing in
+            // something it can no longer perceive is one number, whichever sense produced it.
+            if (Time.time - noiseArrivedTime < definition.MemorySeconds) return;
+
+            hasNoise = false;
+            noiseArrivedTime = -1f;
         }
 
         private void BeginAttack(EnemyDefinition definition)
@@ -215,6 +298,35 @@ namespace Office.Enemies
         private void Enter(EnemyBehaviourState next)
         {
             if (state.Value != next) state.Value = next;
+        }
+
+        // ------------------------------------------------------------------ hearing
+
+        /// <remarks>
+        /// Runs on the server only — the subscription exists nowhere else. Deliberately does
+        /// not interrupt a chase: a noise is a weaker fact than a target in sight, and the
+        /// wind-up guard in <see cref="Update"/> already keeps a committed swing honest.
+        /// </remarks>
+        private void OnNoise(NoiseRaised evt)
+        {
+            if (!IsSpawned || target != null) return;
+            if (health != null && !health.IsAlive) return;
+
+            var definition = enemy != null ? enemy.Definition : null;
+            if (definition == null) return;
+
+            // Audible when both halves agree: the noise carries Radius metres, and this enemy
+            // hears nothing past its own HearingRadius. The quieter of the two decides, so a
+            // mug swung next to a deaf enemy and a gunshot across the building both stay
+            // unheard — and both numbers stay worth authoring.
+            var reach = Mathf.Min(definition.HearingRadius, evt.Radius);
+            if ((evt.Position - transform.position).sqrMagnitude > reach * reach) return;
+
+            // The latest noise wins outright. An enemy halfway to an old noise turning to a
+            // new one is exactly the pull GDD §8.1 wants fighting to have.
+            hasNoise = true;
+            noisePoint = evt.Position;
+            noiseArrivedTime = -1f;
         }
 
         // ------------------------------------------------------------------ sight

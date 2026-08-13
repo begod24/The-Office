@@ -2,6 +2,7 @@ using System.IO;
 using Office.Audio;
 using Office.Core;
 using Office.Data;
+using Office.Enemies;
 using Office.Gameplay;
 using Office.Network;
 using Office.UI;
@@ -522,6 +523,7 @@ namespace Office.Editor
             var sceneFlow = root.AddComponent<RunSceneFlow>();
             var itemSpawner = root.AddComponent<WorldItemSpawner>();
             var targetSpawner = root.AddComponent<TargetSpawner>();
+            var enemySpawner = root.AddComponent<EnemySpawner>();
 
             Wire(director, ("roster", roster));
 
@@ -549,6 +551,15 @@ namespace Office.Editor
                                "nothing in the level can be hit.");
 
             Wire(targetSpawner, ("director", director), ("targetPrefab", targetPrefab));
+
+            var enemyPrefab = EnemyContentBuilder.LoadEnemyPrefab();
+
+            if (enemyPrefab == null)
+                Debug.LogError("[Setup] PF_Enemy is missing. Run " +
+                               "'Office/Content/Build Enemy Content' first — without it " +
+                               "nothing in the level can hunt.");
+
+            Wire(enemySpawner, ("director", director), ("enemyPrefab", enemyPrefab));
 
             EnsureFolder(Path.GetDirectoryName(SessionPrefabPath));
             PrefabUtility.SaveAsPrefabAsset(root, SessionPrefabPath);

@@ -44,9 +44,10 @@ namespace Office.Editor
             // machine including the one that authored it.
             ItemContentBuilder.RebuildRegistry();
 
-            Debug.Log("[Enemy] Enemy content built. Nothing spawns it yet — that is the " +
-                      "EnemySpawner, which does not exist. Drop PF_Enemy into a scene by hand " +
-                      "only to look at it; it needs a server to think.");
+            Debug.Log("[Enemy] Enemy content built. EnemySpawner reads EnemyPlacement markers " +
+                      "when the run starts — add a marker to a level, or rebuild the sandbox " +
+                      "for its test pair. Rebuild the session prefab if PF_Enemy was missing " +
+                      "when it was last built.");
         }
 
         public static GameObject LoadEnemyPrefab() =>

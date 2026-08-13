@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Office.Core;
 using Office.Data;
 using Office.Gameplay;
@@ -7,6 +8,18 @@ using UnityEngine;
 
 namespace Office.UI
 {
+    /// <summary>
+    /// The in-run HUD. Draws the objectives, the squad, the hotbar and the held item, and
+    /// nothing else — GDD §14 keeps it minimal so that the BSOD enemy taking it away is worth
+    /// something.
+    /// </summary>
+    /// <remarks>
+    /// <b>Everything here is a view of state that already exists somewhere else.</b> The squad
+    /// reads each player's replicated <see cref="Health"/>, the hotbar reads the replicated
+    /// <see cref="PlayerInventory"/>, and this component keeps no copy of either. That is why
+    /// it can be destroyed and rebuilt by the editor tooling between runs without losing
+    /// anything.
+    /// </remarks>
     public sealed class HudScreen : MonoBehaviour
     {
         private const int MaxPlayers = 4;
@@ -14,10 +27,17 @@ namespace Office.UI
         [SerializeField] private HudObjectivesPanel objectives;
         [SerializeField] private HudSquadPanel squad;
         [SerializeField] private HudHotbar hotbar;
+        [SerializeField] private HudHeldItem heldItem;
         [SerializeField] private GameObject crosshair;
 
         [Tooltip("Line under the crosshair naming what the player is looking at.")]
         [SerializeField] private TMP_Text interactPrompt;
+
+        [Tooltip("Covers the screen while the local player is down. Unmissable on purpose — " +
+                 "being downed is the one state a player must never have to look for.")]
+        [SerializeField] private GameObject downedBanner;
+
+        [SerializeField] private TMP_Text downedLabel;
 
         [Tooltip("Fills the panels with dummy rows when no session is running.")]
         [SerializeField] private bool showPlaceholdersWhenOffline = true;
@@ -31,6 +51,10 @@ namespace Office.UI
 
         private DefinitionRegistry definitions;
         private PlayerInventory inventory;
+
+        // Every player's vitals this HUD is currently listening to. Held so the subscriptions
+        // can be dropped again — a body despawns at the end of every run.
+        private readonly List<Health> tracked = new(MaxPlayers);
 
         public HudObjectivesPanel Objectives => objectives;
 
@@ -61,9 +85,16 @@ namespace Office.UI
             PlayerInventory.LocalChanged += BindInventory;
             BindInventory(PlayerInventory.Local);
 
+            // Same for vitals, except that the squad needs every player's and not only the
+            // local one's — see Health.SpawnedPlayerList.
+            Health.SpawnedPlayersChanged += BindVitals;
+            BindVitals();
+
             SetPrompt(string.Empty);
+            SetDownedBanner(false, 0f);
 
             if (objectives != null) objectives.ShowPlaceholders();
+            if (heldItem != null) heldItem.Clear();
 
             Refresh();
         }
@@ -78,6 +109,9 @@ namespace Office.UI
 
             PlayerInventory.LocalChanged -= BindInventory;
             BindInventory(null);
+
+            Health.SpawnedPlayersChanged -= BindVitals;
+            UntrackAll();
         }
 
         // ------------------------------------------------------------------- interaction
@@ -91,6 +125,93 @@ namespace Office.UI
             interactPrompt.text = prompt;
             interactPrompt.enabled = !string.IsNullOrEmpty(prompt);
         }
+
+        // ------------------------------------------------------------------------ vitals
+
+        /// <summary>
+        /// Subscribes to every spawned player's vitals and drops the ones that have gone.
+        /// </summary>
+        /// <remarks>
+        /// This is the wiring that was missing: the panel and its setters existed, and nothing
+        /// ever called them, so damage changed the numbers on the network and the HUD went on
+        /// drawing full bars. Bound per instance rather than through the event bus because the
+        /// bus carries only the local player's vitals — <c>LocalVitalsChanged</c> has no client
+        /// id on it and cannot grow one without <c>Office.Core</c> learning what a player is.
+        /// </remarks>
+        private void BindVitals()
+        {
+            UntrackAll();
+
+            // A seat with no body reads as OFFLINE rather than as a full bar. Between runs
+            // that is the truth, and during one it is the half-second before a late joiner's
+            // player object arrives.
+            if (squad != null) squad.SetAllOffline();
+
+            var players = Health.SpawnedPlayerList;
+
+            for (var i = 0; i < players.Count; i++)
+            {
+                var health = players[i];
+                if (health == null) continue;
+
+                health.Changed += OnVitalsChanged;
+                tracked.Add(health);
+
+                Draw(health);
+            }
+        }
+
+        private void UntrackAll()
+        {
+            foreach (var health in tracked)
+                if (health != null)
+                    health.Changed -= OnVitalsChanged;
+
+            tracked.Clear();
+        }
+
+        // The state arrives without saying who it belongs to, so every tracked player is
+        // redrawn. There are at most four, and this only runs when someone is hurt.
+        private void OnVitalsChanged(VitalsState state)
+        {
+            foreach (var health in tracked)
+                if (health != null)
+                    Draw(health);
+        }
+
+        private void Draw(Health health)
+        {
+            if (!health.IsSpawned) return;
+
+            var owner = health.OwnerClientId;
+            var state = health.State;
+
+            if (squad != null)
+            {
+                if (state.IsDead) squad.SetDead(owner);
+                else if (state.IsDowned) squad.SetDowned(owner, state.BleedOutRemaining);
+                else squad.SetHealth(owner, health.Normalised);
+            }
+
+            if (!ReferenceEquals(health, Health.Local)) return;
+
+            SetDownedBanner(state.IsDowned || state.IsDead, state.BleedOutRemaining);
+        }
+
+        private void SetDownedBanner(bool visible, float bleedOutRemaining)
+        {
+            if (downedBanner != null) downedBanner.SetActive(visible);
+
+            if (downedLabel == null || !visible) return;
+
+            downedLabel.text = bleedOutRemaining > 0f
+                ? $"DOWNED   {Mathf.CeilToInt(bleedOutRemaining)}"
+                : "DOWNED";
+        }
+
+        // No Update here, deliberately. The server ticks the bleed-out clock into the
+        // replicated state every frame (Health.Update), so the countdown arrives as ordinary
+        // state changes and redrawing it locally would be a second, disagreeing clock.
 
         // --------------------------------------------------------------------- inventory
 
@@ -109,42 +230,78 @@ namespace Office.UI
 
         private void RefreshHotbar()
         {
-            if (hotbar == null) return;
-
             if (inventory == null || !inventory.IsSpawned)
             {
-                hotbar.ClearAll();
+                if (hotbar != null) hotbar.ClearAll();
+                if (heldItem != null) heldItem.Clear();
                 return;
             }
 
-            for (var i = 0; i < hotbar.Count; i++)
+            if (hotbar != null)
             {
-                if (i >= inventory.Capacity)
+                for (var i = 0; i < hotbar.Count; i++)
                 {
-                    hotbar.ClearSlot(i);
-                    continue;
+                    if (i >= inventory.Capacity)
+                    {
+                        hotbar.ClearSlot(i);
+                        continue;
+                    }
+
+                    var stack = inventory[i];
+
+                    if (stack.IsEmpty)
+                    {
+                        hotbar.ClearSlot(i);
+                        continue;
+                    }
+
+                    hotbar.SetItem(i, IconFor(stack.DefinitionId), stack.Count);
                 }
 
-                var stack = inventory[i];
-
-                if (stack.IsEmpty)
-                {
-                    hotbar.ClearSlot(i);
-                    continue;
-                }
-
-                // A missing definition is a content bug, not a reason to blank the slot:
-                // draw the count so the player can still see they are carrying something.
-                var icon = definitions != null &&
-                           definitions.TryGet<ItemDefinition>(stack.DefinitionId, out var definition)
-                    ? definition.Icon
-                    : null;
-
-                hotbar.SetItem(i, icon, stack.Count);
+                hotbar.SetSelected(inventory.SelectedIndex);
             }
 
-            hotbar.SetSelected(inventory.SelectedIndex);
+            RefreshHeldItem();
         }
+
+        private void RefreshHeldItem()
+        {
+            if (heldItem == null) return;
+
+            var index = inventory.SelectedIndex;
+
+            if (index < 0 || index >= inventory.Capacity)
+            {
+                heldItem.Clear();
+                return;
+            }
+
+            var stack = inventory[index];
+
+            if (stack.IsEmpty)
+            {
+                heldItem.Clear();
+                return;
+            }
+
+            heldItem.Show(Resolve(stack.DefinitionId), stack);
+        }
+
+        // A missing definition is a content bug, not a reason to blank the slot: the count
+        // still draws, so the player can see they are carrying something.
+        private Sprite IconFor(int definitionId)
+        {
+            var definition = Resolve(definitionId);
+            return definition != null ? definition.Icon : null;
+        }
+
+        private ItemDefinition Resolve(int definitionId) =>
+            definitions != null &&
+            definitions.TryGet<ItemDefinition>(definitionId, out var definition)
+                ? definition
+                : null;
+
+        // ------------------------------------------------------------------- visibility
 
         private void OnPauseChanged(LocalPauseChanged evt)
         {
@@ -169,19 +326,7 @@ namespace Office.UI
             if (crosshair != null) crosshair.SetActive(visible);
         }
 
-        public void SetHealth(ulong clientId, float normalized)
-        {
-            if (squad != null) squad.SetHealth(clientId, normalized);
-        }
-
-        // Health systems report raw points; players cap at MaxPlayerHealth (100).
-        public void SetHealthPoints(ulong clientId, float healthPoints) =>
-            SetHealth(clientId, healthPoints / GameplayConstants.MaxPlayerHealth);
-
-        public void SetDowned(ulong clientId, bool downed)
-        {
-            if (squad != null) squad.SetDowned(clientId, downed);
-        }
+        // ------------------------------------------------------------------------ squad
 
         private void Refresh()
         {
@@ -199,11 +344,16 @@ namespace Office.UI
             {
                 if (!lobby.TryGetSlot(i, out var slot)) break;
 
-                squad.Bind(i, slot.ClientId, $"P{i + 1}", slot.ClientId == lobby.LocalClientId);
+                squad.Bind(i, slot.ClientId, $"P{i + 1}", slot.DisplayName.ToString(),
+                    slot.ClientId == lobby.LocalClientId);
                 shown++;
             }
 
             squad.HideFrom(shown);
+
+            // The roster just replaced every row, so whatever health they were showing went
+            // with it. Re-reading the vitals is what puts it back.
+            BindVitals();
         }
     }
 }

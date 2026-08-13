@@ -17,6 +17,7 @@ GameObject:
   - component: {fileID: 4996509580375172365}
   - component: {fileID: 7709979185626738789}
   - component: {fileID: 9054246090651743223}
+  - component: {fileID: 7653957277700135936}
   m_Layer: 0
   m_Name: PF_Session
   m_TagString: Untagged
@@ -51,7 +52,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 4033329218
+  GlobalObjectIdHash: 1645300083
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -166,3 +167,18 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   director: {fileID: 7922052314943904713}
   targetPrefab: {fileID: 5336884911585734003, guid: bd40956c44daf1345abc656cb1c1c043, type: 3}
+--- !u!114 &7653957277700135936
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6216860476782636292}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2cb701ed3345f474d8fa972ffd8c0a78, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Office.Enemies::Office.Enemies.EnemySpawner
+  ShowTopMostFoldoutHeaderGroup: 1
+  director: {fileID: 7922052314943904713}
+  enemyPrefab: {fileID: 7831539041491745684, guid: 1468dc875c18042949800d46c8a9989a, type: 3}

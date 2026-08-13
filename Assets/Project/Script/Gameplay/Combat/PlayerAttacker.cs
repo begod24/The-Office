@@ -58,6 +58,10 @@ namespace Office.Gameplay
 
         public override void OnNetworkSpawn()
         {
+            // Resolved for everyone, not just the owner: the owner listens for pause on it,
+            // and the server publishes the noise a confirmed swing makes. A host is both.
+            ServiceLocator.TryGet(out bus);
+
             if (!IsOwner) return;
 
             if (config == null || playerCamera == null)
@@ -68,14 +72,13 @@ namespace Office.Gameplay
                 return;
             }
 
-            if (ServiceLocator.TryGet(out bus)) bus.Subscribe<LocalPauseChanged>(OnPauseChanged);
+            bus?.Subscribe<LocalPauseChanged>(OnPauseChanged);
         }
 
         public override void OnNetworkDespawn()
         {
-            if (!IsOwner) return;
+            if (IsOwner) bus?.Unsubscribe<LocalPauseChanged>(OnPauseChanged);
 
-            bus?.Unsubscribe<LocalPauseChanged>(OnPauseChanged);
             bus = null;
             paused = false;
         }
@@ -138,6 +141,12 @@ namespace Office.Gameplay
             var outcome = loadout.Behaviour.ServerResolve(context, aim, NetworkManager, out var point);
 
             ServerSpendWear(loadout.Profile);
+
+            // Fighting is loud (GDD §8.1), and a miss is exactly as audible as a hit — the
+            // noise belongs to the swing the server just ruled valid, not to its outcome.
+            // Published here because every enemy brain lives on this machine; see NoiseRaised.
+            bus?.Publish(new NoiseRaised(
+                transform.position, loadout.Profile.NoiseRadius, OwnerClientId));
 
             // The client's point is only ever a hint for effects, and only when nothing was
             // actually hit — it never decides damage.

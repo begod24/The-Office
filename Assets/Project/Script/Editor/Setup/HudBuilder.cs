@@ -16,28 +16,41 @@ namespace Office.Editor
 
         private const string FontPath = "Assets/Project/Fonts/blockblueprint.asset";
 
+        private const string UiSpriteFolder = "Assets/Project/Art/UI";
+
         private const int SquadRows = 4;
-        private const int HealthSegments = 12;
         private const int ObjectiveRows = 3;
 
-        // One cell per inventory slot. Shared with PlayerInventory so the two cannot drift.
-        private const int HotbarSlots = GameplayConstants.InventorySlots;
+        // Five, not twelve. The bar is read at a glance from the corner of the eye while
+        // something is chasing the player, and at that size a fine bar is a smear — what has
+        // to survive is "how many blocks are left", which needs them countable.
+        private const int HealthSegments = 5;
 
-        private const float SlotSize = 66f;
-        private const float SlotSpacing = 8f;
+        // One cell per hand slot. Shared with PlayerInventory so the two cannot drift.
+        private const int HotbarSlots = GameplayConstants.HotbarSlots;
+
+        private const float SlotSize = 56f;
+        private const float SlotSpacing = 6f;
         private const float ScreenMargin = 28f;
 
         // Below the crosshair, clear of the stamina rule that sits just under it.
         private const float PromptOffset = 54f;
 
-        private static readonly Color Frame = new(0.75f, 0.76f, 0.78f, 0.45f);
-        private static readonly Color Fill = new(0.02f, 0.02f, 0.03f, 0.55f);
+        private static readonly Color Frame = new(0.80f, 0.81f, 0.79f, 0.55f);
+        private static readonly Color Fill = new(0.03f, 0.03f, 0.04f, 0.72f);
         private static readonly Color TextPrimary = new(0.90f, 0.90f, 0.88f, 1f);
         private static readonly Color TextDim = new(0.72f, 0.72f, 0.70f, 0.70f);
         private static readonly Color Rule = new(1f, 1f, 1f, 0.12f);
-        private static readonly Color Portrait = new(0.18f, 0.18f, 0.20f, 1f);
-        private static readonly Color Crosshair = new(0.90f, 0.90f, 0.88f, 0.50f);
-        private static readonly Color SegmentFilled = new(0.86f, 0.86f, 0.84f, 1f);
+        private static readonly Color Crosshair = new(0.90f, 0.90f, 0.88f, 0.55f);
+
+        // Green, and only here. GDD §12.2 keeps the office grey so that the few saturated
+        // things carry meaning — a teammate's health is exactly the reading that has to be
+        // findable without looking straight at it.
+        private static readonly Color SegmentFilled = new(0.45f, 0.83f, 0.40f, 1f);
+        private static readonly Color SegmentDrained = new(0.45f, 0.83f, 0.40f, 0.13f);
+        private static readonly Color SegmentCritical = new(0.85f, 0.25f, 0.20f, 1f);
+
+        private static readonly Color Danger = new(0.85f, 0.25f, 0.20f, 1f);
 
         private static TMP_FontAsset font;
 
@@ -94,18 +107,54 @@ namespace Office.Editor
             var objectives = BuildObjectives(root.transform);
             var squad = BuildSquad(root.transform);
             var hotbar = BuildHotbar(root.transform);
+            var held = BuildHeldItem(root.transform);
             var crosshair = BuildCrosshair(root.transform);
             var prompt = BuildInteractPrompt(root.transform);
+            var downed = BuildDownedBanner(root.transform, out var downedLabel);
             BuildStamina(root.transform);
 
             Wire(screen,
                 ("objectives", objectives),
                 ("squad", squad),
                 ("hotbar", hotbar),
+                ("heldItem", held),
                 ("crosshair", crosshair),
-                ("interactPrompt", prompt));
+                ("interactPrompt", prompt),
+                ("downedBanner", downed),
+                ("downedLabel", downedLabel));
 
             return true;
+        }
+
+        /// <summary>
+        /// The one thing on this HUD that is allowed to shout. Everything else is a readout;
+        /// this is a state the player cannot be left to infer from a bar going empty.
+        /// </summary>
+        private static GameObject BuildDownedBanner(Transform parent, out TMP_Text label)
+        {
+            var root = CreateRect("Downed", parent);
+            root.anchorMin = new Vector2(0.5f, 0.5f);
+            root.anchorMax = new Vector2(0.5f, 0.5f);
+            root.pivot = new Vector2(0.5f, 0.5f);
+            root.anchoredPosition = new Vector2(0f, 110f);
+            root.sizeDelta = new Vector2(460f, 76f);
+
+            label = CreateLabel("Label", root, "DOWNED", 40f,
+                TextAlignmentOptions.Center, Danger);
+            Stretch(label.rectTransform);
+            label.characterSpacing = 10f;
+
+            var hint = CreateLabel("Hint", root, "WAIT FOR A TEAMMATE", 16f,
+                TextAlignmentOptions.Center, TextDim);
+            hint.rectTransform.anchorMin = new Vector2(0f, 0f);
+            hint.rectTransform.anchorMax = new Vector2(1f, 0f);
+            hint.rectTransform.pivot = new Vector2(0.5f, 1f);
+            hint.rectTransform.sizeDelta = new Vector2(0f, 22f);
+            hint.rectTransform.anchoredPosition = new Vector2(0f, -4f);
+            hint.characterSpacing = 6f;
+
+            root.gameObject.SetActive(false);
+            return root.gameObject;
         }
 
         private static HudObjectivesPanel BuildObjectives(Transform parent)
@@ -127,10 +176,10 @@ namespace Office.Editor
             layout.childForceExpandWidth = true;
             layout.childForceExpandHeight = false;
 
-            var title = CreateLabel("Title", content, "OBJECTIVES", 18f,
-                TextAlignmentOptions.MidlineLeft, TextPrimary);
-            title.characterSpacing = 10f;
-            AddLayoutElement(title.gameObject, preferredHeight: 22f);
+            var title = CreateLabel("Title", content, "[OBJECTIVES]", 15f,
+                TextAlignmentOptions.MidlineLeft, TextDim);
+            title.characterSpacing = 6f;
+            AddLayoutElement(title.gameObject, preferredHeight: 20f);
 
             var rule = CreateRect("Rule", content);
             CreateImage(rule, Rule);
@@ -158,18 +207,22 @@ namespace Office.Editor
             layout.childForceExpandWidth = false;
             layout.childForceExpandHeight = true;
 
+            // The empty box is always drawn and the filled one sits on top of it, rather than
+            // swapping one sprite for another: an objective that is not started still has to
+            // show *where* its mark will go, or a pending list reads as an empty list.
             var holder = CreateRect("Box", row);
-            AddLayoutElement(holder.gameObject, preferredWidth: 16f, flexibleWidth: 0f);
+            AddLayoutElement(holder.gameObject, preferredWidth: 18f, flexibleWidth: 0f);
 
-            var box = CreateFrame("Frame", holder);
-            Centre(box.Root, new Vector2(14f, 14f));
+            var empty = CreateRect("Empty", holder);
+            Centre(empty, new Vector2(15f, 15f));
+            CreateImage(empty, TextDim, Sprite("checkbox"));
 
-            var marker = CreateRect("Marker", box.Content);
-            Stretch(marker, 2f);
-            var markerImage = CreateImage(marker, TextPrimary);
+            var marker = CreateRect("Marker", holder);
+            Centre(marker, new Vector2(15f, 15f));
+            var markerImage = CreateImage(marker, TextPrimary, Sprite("checkbox-filled"));
             markerImage.enabled = false;
 
-            var label = CreateLabel("Label", row, "---", 17f,
+            var label = CreateLabel("Label", row, "---", 16f,
                 TextAlignmentOptions.MidlineLeft, TextDim);
             AddLayoutElement(label.gameObject, flexibleWidth: 1f);
 
@@ -181,8 +234,8 @@ namespace Office.Editor
 
         private static HudSquadPanel BuildSquad(Transform parent)
         {
-            const float rowHeight = 30f;
-            const float spacing = 4f;
+            const float rowHeight = 34f;
+            const float spacing = 6f;
 
             var panel = CreateFrame("Squad", parent);
             var content = panel.Content;
@@ -191,16 +244,21 @@ namespace Office.Editor
             panel.Root.anchorMax = Vector2.zero;
             panel.Root.pivot = Vector2.zero;
             panel.Root.anchoredPosition = new Vector2(ScreenMargin, ScreenMargin);
-            panel.Root.sizeDelta = new Vector2(300f,
-                SquadRows * rowHeight + (SquadRows - 1) * spacing + 20f);
+            panel.Root.sizeDelta = new Vector2(290f,
+                SquadRows * rowHeight + (SquadRows - 1) * spacing + 52f);
 
             var layout = content.gameObject.AddComponent<VerticalLayoutGroup>();
-            layout.padding = new RectOffset(10, 10, 10, 10);
+            layout.padding = new RectOffset(14, 14, 12, 12);
             layout.spacing = spacing;
             layout.childControlWidth = true;
             layout.childControlHeight = true;
             layout.childForceExpandWidth = true;
             layout.childForceExpandHeight = false;
+
+            var title = CreateLabel("Title", content, "[TEAM STATUS]", 15f,
+                TextAlignmentOptions.MidlineLeft, TextDim);
+            title.characterSpacing = 6f;
+            AddLayoutElement(title.gameObject, preferredHeight: 20f);
 
             var rows = new Object[SquadRows];
             for (var i = 0; i < SquadRows; i++) rows[i] = BuildSquadRow(content, i, rowHeight);
@@ -211,15 +269,19 @@ namespace Office.Editor
             return component;
         }
 
+        /// <remarks>
+        /// Two lines in the space of one: the seat and the name on top, the bar underneath.
+        /// A single row would have to choose between a readable name and a readable bar, and
+        /// the name is what tells a player *whose* bar is emptying — which is the entire
+        /// reason a co-op HUD draws teammates at all.
+        /// </remarks>
         private static HudPlayerRow BuildSquadRow(RectTransform parent, int index, float height)
         {
             var row = CreateRect($"Player_{index + 1}", parent);
             AddLayoutElement(row.gameObject, preferredHeight: height);
 
-            var background = CreateImage(row, new Color(0.08f, 0.08f, 0.09f, 0.35f));
-
             var layout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
-            layout.padding = new RectOffset(4, 8, 0, 0);
+            layout.padding = new RectOffset(0, 0, 0, 0);
             layout.spacing = 8f;
             layout.childAlignment = TextAnchor.MiddleLeft;
             layout.childControlWidth = true;
@@ -227,27 +289,48 @@ namespace Office.Editor
             layout.childForceExpandWidth = false;
             layout.childForceExpandHeight = true;
 
-            var portraitHolder = CreateRect("Portrait", row);
-            AddLayoutElement(portraitHolder.gameObject, preferredWidth: 24f, flexibleWidth: 0f);
+            // The seat tag in its own box, so P1..P4 reads as a column even when the names
+            // beside it are different lengths.
+            var tagHolder = CreateRect("Tag", row);
+            AddLayoutElement(tagHolder.gameObject, preferredWidth: 30f, flexibleWidth: 0f);
 
-            var portraitFrame = CreateFrame("Frame", portraitHolder);
-            Centre(portraitFrame.Root, new Vector2(24f, 24f));
+            var tagBackground = CreateImage(tagHolder, new Color(1f, 1f, 1f, 0.07f));
 
-            var portrait = portraitFrame.Fill;
-            portrait.color = Portrait;
+            var tagLabel = CreateLabel("Label", tagHolder, $"P{index + 1}", 14f,
+                TextAlignmentOptions.Center, TextPrimary);
+            Stretch(tagLabel.rectTransform);
 
-            var label = CreateLabel("Tag", row, $"P{index + 1}", 17f,
+            var body = CreateRect("Body", row);
+            AddLayoutElement(body.gameObject, flexibleWidth: 1f);
+
+            var bodyLayout = body.gameObject.AddComponent<VerticalLayoutGroup>();
+            bodyLayout.spacing = 3f;
+            bodyLayout.childAlignment = TextAnchor.MiddleLeft;
+            bodyLayout.childControlWidth = true;
+            bodyLayout.childControlHeight = true;
+            bodyLayout.childForceExpandWidth = true;
+            bodyLayout.childForceExpandHeight = false;
+
+            var nameLabel = CreateLabel("Name", body, "---", 14f,
                 TextAlignmentOptions.MidlineLeft, TextPrimary);
-            AddLayoutElement(label.gameObject, preferredWidth: 30f, flexibleWidth: 0f);
+            AddLayoutElement(nameLabel.gameObject, preferredHeight: 16f);
 
-            var bar = BuildHealthBar(row);
+            var bar = BuildHealthBar(body);
+
+            // Occupies the bar's place rather than sitting beside it: a downed teammate has no
+            // health worth drawing, and the seconds left are what replaces it.
+            var status = CreateLabel("Status", body, "OFFLINE", 13f,
+                TextAlignmentOptions.MidlineLeft, Danger);
+            AddLayoutElement(status.gameObject, preferredHeight: 12f);
+            status.gameObject.SetActive(false);
 
             var component = row.gameObject.AddComponent<HudPlayerRow>();
             Wire(component,
-                ("label", label),
+                ("tagLabel", tagLabel),
+                ("nameLabel", nameLabel),
                 ("health", bar),
-                ("portrait", portrait),
-                ("background", background));
+                ("statusLabel", status),
+                ("tagBackground", tagBackground));
 
             return component;
         }
@@ -255,18 +338,24 @@ namespace Office.Editor
         private static HudSegmentBar BuildHealthBar(RectTransform parent)
         {
             var bar = CreateRect("Health", parent);
-            AddLayoutElement(bar.gameObject, flexibleWidth: 1f);
+            AddLayoutElement(bar.gameObject, preferredHeight: 12f);
 
             var layout = bar.gameObject.AddComponent<HorizontalLayoutGroup>();
-            layout.spacing = 2f;
+            layout.spacing = 3f;
             layout.childAlignment = TextAnchor.MiddleLeft;
 
-            // Segments share the full row width instead of a fixed 5px each.
+            // Control on, expand off. A LayoutElement's preferredWidth is only read when the
+            // group controls the width — with it off the group leaves each segment at its own
+            // rect size and they run off the side of the panel. Expand stays off so the
+            // segments keep that preferred width instead of sharing the row.
             layout.childControlWidth = true;
             layout.childControlHeight = true;
-            layout.childForceExpandWidth = true;
+            layout.childForceExpandWidth = false;
             layout.childForceExpandHeight = false;
 
+            // Fixed-width blocks rather than a bar that shares the row: a segment has to be the
+            // same size on every player, or a four-person squad and a two-person one would
+            // report the same health at different scales.
             var segments = new Object[HealthSegments];
 
             for (var i = 0; i < HealthSegments; i++)
@@ -274,30 +363,114 @@ namespace Office.Editor
                 var segment = CreateRect($"Tick_{i + 1}", bar);
 
                 var element = segment.gameObject.AddComponent<LayoutElement>();
-                element.flexibleWidth = 1f;
-                element.preferredHeight = 14f;
-                element.minHeight = 14f;
+                element.preferredWidth = 16f;
+                element.minWidth = 16f;
+                element.preferredHeight = 10f;
+                element.minHeight = 10f;
 
-                segments[i] = CreateImage(segment, SegmentFilled);
+                segments[i] = CreateImage(segment, SegmentFilled, Sprite("Green Box inner"));
             }
 
             var component = bar.gameObject.AddComponent<HudSegmentBar>();
             WireArray(component, "segments", segments);
 
+            SetColour(component, "filled", SegmentFilled);
+            SetColour(component, "drained", SegmentDrained);
+            SetColour(component, "critical", SegmentCritical);
+
             return component;
         }
 
+        /// <summary>
+        /// Bottom right: what is in the hand, and how much of it is left. GDD §14.
+        /// </summary>
+        private static HudHeldItem BuildHeldItem(Transform parent)
+        {
+            var panel = CreateFrame("HeldItem", parent);
+            var content = panel.Content;
+
+            panel.Root.anchorMin = new Vector2(1f, 0f);
+            panel.Root.anchorMax = new Vector2(1f, 0f);
+            panel.Root.pivot = new Vector2(1f, 0f);
+            panel.Root.anchoredPosition = new Vector2(-ScreenMargin, ScreenMargin);
+            panel.Root.sizeDelta = new Vector2(230f, 62f);
+
+            var layout = content.gameObject.AddComponent<HorizontalLayoutGroup>();
+            layout.padding = new RectOffset(10, 14, 8, 8);
+            layout.spacing = 12f;
+            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = true;
+
+            var iconHolder = CreateRect("Icon", content);
+            AddLayoutElement(iconHolder.gameObject, preferredWidth: 40f, flexibleWidth: 0f);
+
+            var iconFrame = CreateRect("Frame", iconHolder);
+            Stretch(iconFrame, 2f);
+            CreateImage(iconFrame, new Color(1f, 1f, 1f, 0.10f), Sprite("icon-container"));
+
+            var iconRect = CreateRect("Sprite", iconFrame);
+            Stretch(iconRect, 8f);
+            var icon = CreateImage(iconRect, Color.white);
+            icon.preserveAspect = true;
+            icon.enabled = false;
+
+            var text = CreateRect("Text", content);
+            AddLayoutElement(text.gameObject, flexibleWidth: 1f);
+
+            var textLayout = text.gameObject.AddComponent<VerticalLayoutGroup>();
+            textLayout.spacing = 2f;
+            textLayout.childAlignment = TextAnchor.MiddleLeft;
+            textLayout.childControlWidth = true;
+            textLayout.childControlHeight = true;
+            textLayout.childForceExpandWidth = true;
+            textLayout.childForceExpandHeight = false;
+
+            var nameLabel = CreateLabel("Name", text, "---", 15f,
+                TextAlignmentOptions.MidlineLeft, TextPrimary);
+            nameLabel.characterSpacing = 4f;
+            AddLayoutElement(nameLabel.gameObject, preferredHeight: 18f);
+
+            var counter = CreateLabel("Counter", text, string.Empty, 20f,
+                TextAlignmentOptions.MidlineLeft, TextPrimary);
+            AddLayoutElement(counter.gameObject, preferredHeight: 22f);
+
+            var component = panel.Root.gameObject.AddComponent<HudHeldItem>();
+            Wire(component,
+                ("root", panel.Root.gameObject),
+                ("icon", icon),
+                ("nameLabel", nameLabel),
+                ("counterLabel", counter));
+
+            panel.Root.gameObject.SetActive(false);
+
+            return component;
+        }
+
+        /// <remarks>
+        /// The slots sit inside one bordered panel rather than floating as separate boxes, so
+        /// the hand reads as a single object the eye can find in the dark — the same framing
+        /// the objectives and the squad use.
+        /// </remarks>
         private static HudHotbar BuildHotbar(Transform parent)
         {
-            var bar = CreateRect("Hotbar", parent);
-            bar.anchorMin = new Vector2(0.5f, 0f);
-            bar.anchorMax = new Vector2(0.5f, 0f);
-            bar.pivot = new Vector2(0.5f, 0f);
-            bar.anchoredPosition = new Vector2(0f, ScreenMargin);
-            bar.sizeDelta = new Vector2(
-                HotbarSlots * SlotSize + (HotbarSlots - 1) * SlotSpacing, SlotSize);
+            const float padding = 10f;
+
+            var panel = CreateFrame("Hotbar", parent);
+            var bar = panel.Content;
+
+            panel.Root.anchorMin = new Vector2(0.5f, 0f);
+            panel.Root.anchorMax = new Vector2(0.5f, 0f);
+            panel.Root.pivot = new Vector2(0.5f, 0f);
+            panel.Root.anchoredPosition = new Vector2(0f, ScreenMargin);
+            panel.Root.sizeDelta = new Vector2(
+                HotbarSlots * SlotSize + (HotbarSlots - 1) * SlotSpacing + padding * 2f,
+                SlotSize + padding * 2f);
 
             var layout = bar.gameObject.AddComponent<HorizontalLayoutGroup>();
+            layout.padding = new RectOffset((int)padding, (int)padding, (int)padding, (int)padding);
             layout.spacing = SlotSpacing;
             layout.childAlignment = TextAnchor.MiddleCenter;
             layout.childControlWidth = false;
@@ -308,7 +481,7 @@ namespace Office.Editor
             var slots = new Object[HotbarSlots];
             for (var i = 0; i < HotbarSlots; i++) slots[i] = BuildSlot(bar, i);
 
-            var component = bar.gameObject.AddComponent<HudHotbar>();
+            var component = panel.Root.gameObject.AddComponent<HudHotbar>();
             WireArray(component, "slots", slots);
 
             return component;
@@ -320,13 +493,17 @@ namespace Office.Editor
             var content = slot.Content;
             slot.Root.sizeDelta = new Vector2(SlotSize, SlotSize);
 
+            var container = CreateRect("Container", content);
+            Stretch(container);
+            CreateImage(container, new Color(1f, 1f, 1f, 0.08f), Sprite("icon-container"));
+
             var icon = CreateRect("Icon", content);
-            Stretch(icon, 8f);
+            Stretch(icon, 10f);
             var iconImage = CreateImage(icon, Color.white);
             iconImage.preserveAspect = true;
             iconImage.enabled = false;
 
-            var number = CreateLabel("Number", content, (index + 1).ToString(), 13f,
+            var number = CreateLabel("Number", content, (index + 1).ToString(), 12f,
                 TextAlignmentOptions.TopLeft, TextDim);
             number.rectTransform.anchorMin = new Vector2(0f, 1f);
             number.rectTransform.anchorMax = new Vector2(0f, 1f);
@@ -483,14 +660,56 @@ namespace Office.Editor
             return (RectTransform)created.transform;
         }
 
-        private static Image CreateImage(RectTransform rect, Color colour)
+        private static Image CreateImage(RectTransform rect, Color colour) =>
+            CreateImage(rect, colour, null);
+
+        private static Image CreateImage(RectTransform rect, Color colour, Sprite sprite)
         {
             var image = rect.gameObject.AddComponent<Image>();
             image.color = colour;
-
             image.raycastTarget = false;
 
+            // A null sprite leaves Unity's built-in white quad, which is what every plain
+            // block and rule in this HUD wants.
+            if (sprite != null) image.sprite = sprite;
+
             return image;
+        }
+
+        /// <summary>
+        /// One of the authored marks in <c>Art/UI</c>, or null with a warning.
+        /// </summary>
+        /// <remarks>
+        /// Null rather than an error, and the caller draws its plain-colour block instead: a
+        /// missing decoration should degrade to a readable HUD, not to no HUD. The warning
+        /// names the file so the reason is one line away.
+        /// </remarks>
+        private static Sprite Sprite(string assetName)
+        {
+            var path = $"{UiSpriteFolder}/{assetName}.png";
+            var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+
+            if (sprite == null)
+                Debug.LogWarning($"[Setup] '{path}' did not load as a sprite. The HUD falls " +
+                                 "back to a plain block. Check the texture's import type.");
+
+            return sprite;
+        }
+
+        private static void SetColour(Object target, string field, Color colour)
+        {
+            var serialized = new SerializedObject(target);
+            var property = serialized.FindProperty(field);
+
+            if (property == null)
+            {
+                Debug.LogError($"[Setup] '{target.GetType().Name}' has no colour field " +
+                               $"'{field}'. The builder and the component have drifted apart.");
+                return;
+            }
+
+            property.colorValue = colour;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
         private static TMP_Text CreateLabel(string name, Transform parent, string text, float size,

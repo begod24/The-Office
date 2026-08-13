@@ -1,4 +1,5 @@
 using Office.Data;
+using Office.Enemies;
 using Office.Gameplay;
 using UnityEditor;
 using UnityEngine;
@@ -9,6 +10,7 @@ namespace Office.Editor
     {
         private const string ItemDefinitionFolder = "Assets/Project/ScriptableObject/Items";
         private const string TargetDefinitionFolder = "Assets/Project/ScriptableObject/Props";
+        private const string EnemyDefinitionFolder = "Assets/Project/ScriptableObject/Enemies";
 
 
         private const float Module = 2f;
@@ -35,6 +37,7 @@ namespace Office.Editor
             BuildScaleReferences(root);
             BuildItemPlacements(root);
             BuildTargetPlacements(root);
+            BuildEnemyPlacements(root);
 
             // Last. The bake reads colliders that are already in the scene, so anything added
             // after this line is a hole in the mesh that nobody sees until an enemy walks into
@@ -78,6 +81,42 @@ namespace Office.Editor
             marker.transform.localPosition = position;
 
             var placement = marker.AddComponent<TargetPlacement>();
+
+            var serialized = new SerializedObject(placement);
+            serialized.FindProperty("definition").objectReferenceValue = definition;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        // Far corners, deliberately outside the stapler's 12m sight of the spawn area: the
+        // first read of the enemy should be it noticing you, not it already running. One sits
+        // behind the partition so hearing — not sight — is what pulls it in.
+        private static void BuildEnemyPlacements(Transform parent)
+        {
+            var group = new GameObject("EnemyPlacements").transform;
+            group.SetParent(parent, false);
+
+            PlaceEnemy(group, "Enemy_Stapler_A", "ENM_Stapler", new Vector3(-9f, 0f, 9f));
+            PlaceEnemy(group, "Enemy_Stapler_B", "ENM_Stapler", new Vector3(9f, 0f, -9f));
+        }
+
+        private static void PlaceEnemy(Transform parent, string name, string definitionName,
+            Vector3 position)
+        {
+            var definition = AssetDatabase.LoadAssetAtPath<EnemyDefinition>(
+                $"{EnemyDefinitionFolder}/{definitionName}.asset");
+
+            if (definition == null)
+            {
+                Debug.LogWarning($"[Setup] '{definitionName}' not found — run " +
+                                 "'Office/Content/Build Enemy Content'. Marker skipped.");
+                return;
+            }
+
+            var marker = new GameObject(name);
+            marker.transform.SetParent(parent, false);
+            marker.transform.localPosition = position;
+
+            var placement = marker.AddComponent<EnemyPlacement>();
 
             var serialized = new SerializedObject(placement);
             serialized.FindProperty("definition").objectReferenceValue = definition;

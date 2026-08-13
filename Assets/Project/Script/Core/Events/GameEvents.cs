@@ -168,4 +168,40 @@ namespace Office.Core
             Connected = connected;
         }
     }
+
+    /// <summary>
+    /// Something audible happened in the world, for whatever hunts by ear. GDD §8.1: fighting
+    /// is loud and pulls the office in.
+    /// </summary>
+    /// <remarks>
+    /// <b>Server-side only.</b> It is published where an action is ruled on and consumed where
+    /// enemy brains live, and both of those are the server — the event never crosses the wire.
+    /// What a remote client sees is the enemy's replicated behaviour changing, not the noise.
+    /// Publishing it on a client is not an error the bus can catch; it is simply a noise
+    /// nothing will ever hear.
+    /// <para>
+    /// This is a gameplay fact, not a sound. The audio layer has its own reasons to play
+    /// something and does not wait for this event; a silenced weapon would still publish it.
+    /// </para>
+    /// </remarks>
+    public readonly struct NoiseRaised
+    {
+        public readonly Vector3 Position;
+
+        /// <summary>
+        /// Metres this noise carries. A listener also caps it with its own hearing range —
+        /// the quieter of the two decides.
+        /// </summary>
+        public readonly float Radius;
+
+        /// <summary>Who made it, or <see cref="ulong.MaxValue"/> when the world did.</summary>
+        public readonly ulong SourceClientId;
+
+        public NoiseRaised(Vector3 position, float radius, ulong sourceClientId)
+        {
+            Position = position;
+            Radius = Mathf.Max(0f, radius);
+            SourceClientId = sourceClientId;
+        }
+    }
 }
