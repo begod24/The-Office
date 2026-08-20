@@ -3,16 +3,6 @@ using Office.Network;
 
 namespace Office.Tests.EditMode
 {
-    /// <summary>
-    /// The handshake gates every join, so its hash has to be boring and predictable.
-    /// </summary>
-    /// <remarks>
-    /// A hash that varies for any reason other than content would reject two machines running
-    /// the identical build — a worse failure than the desync it exists to prevent. That is why
-    /// the implementation writes FNV-1a out by hand instead of calling
-    /// <c>string.GetHashCode</c>, which is not stable across runtimes and, on some, not even
-    /// across processes. These cases pin that down.
-    /// </remarks>
     public sealed class ConnectionHandshakeTests
     {
         [Test]
@@ -26,8 +16,6 @@ namespace Office.Tests.EditMode
         [Test]
         public void KnownVectors_MatchTheFnv1aSpecification()
         {
-            // From the reference test vectors. If these drift, the algorithm changed and every
-            // client on an older build stops being able to join.
             Assert.AreEqual(2166136261u, ConnectionHandshake.Fnv1a(string.Empty));
             Assert.AreEqual(0xE40C292Cu, ConnectionHandshake.Fnv1a("a"));
             Assert.AreEqual(0xBF9CF968u, ConnectionHandshake.Fnv1a("foobar"));

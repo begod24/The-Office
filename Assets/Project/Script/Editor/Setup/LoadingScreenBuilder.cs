@@ -7,13 +7,6 @@ using UnityEngine.UI;
 
 namespace Office.Editor
 {
-    /// <summary>
-    /// Builds the terminal-boot screen that covers a load into a session.
-    /// </summary>
-    /// <remarks>
-    /// Lives in the boot scene, above everything else, and is the one canvas that must not be
-    /// in the scene it is covering. See <see cref="LoadingScreen"/>.
-    /// </remarks>
     internal static class LoadingScreenBuilder
     {
         private const string RootName = "[LoadingScreen]";
@@ -21,10 +14,6 @@ namespace Office.Editor
         private const string FontPath = "Assets/Project/Fonts/blockblueprint.asset";
         private const string ArtPath = "Assets/Project/Art/Loader/Image_Loader.png";
 
-        /// <summary>
-        /// Segments in the boot bar. Matched to the reference: dense enough that filling reads
-        /// as a meter rather than as a row of blocks.
-        /// </summary>
         private const int Segments = 44;
 
         private const float BarWidth = 620f;
@@ -70,8 +59,6 @@ namespace Office.Editor
             var canvas = root.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
 
-            // Above the HUD (10) and the pause overlay: this covers a scene swap, so it has to
-            // cover everything that might still be on screen from the scene being left.
             canvas.sortingOrder = 200;
 
             var scaler = root.AddComponent<CanvasScaler>();
@@ -111,8 +98,6 @@ namespace Office.Editor
             return root;
         }
 
-        // Behind everything, and opaque: the point of this screen is that nothing of the scene
-        // being torn down shows through it.
         private static void BuildBackdrop(Transform parent)
         {
             var fill = CreateRect("Backdrop", parent);
@@ -129,16 +114,10 @@ namespace Office.Editor
             image.sprite = sprite;
             image.raycastTarget = false;
 
-            // Envelope, not fit: a letterboxed loading screen looks like a broken aspect ratio.
-            // Cropping the edges of a dark, near-symmetric plate costs nothing.
             image.preserveAspect = false;
             image.type = Image.Type.Simple;
         }
 
-        /// <summary>
-        /// Loads the loader plate, importing it as a sprite first if it is still a plain
-        /// texture — the artist drops a PNG in and never has to know about import settings.
-        /// </summary>
         private static Sprite LoadArtSprite()
         {
             var existing = AssetDatabase.LoadAssetAtPath<Sprite>(ArtPath);
@@ -204,8 +183,6 @@ namespace Office.Editor
             var bar = track.gameObject.AddComponent<HudSegmentBar>();
             WireArray(bar, "segments", segments);
 
-            // The bar is not a health readout: a nearly empty one at the start of a load must
-            // not turn red as if something were wrong.
             var serialized = new SerializedObject(bar);
             SetColour(serialized, "filled", SegmentLit);
             SetColour(serialized, "drained", SegmentDark);
@@ -222,8 +199,6 @@ namespace Office.Editor
 
             return bar;
         }
-
-        // ------------------------------------------------------------------- helpers
 
         private static void PlaceTopLeft(RectTransform rect, Vector2 size, Vector2 offset)
         {

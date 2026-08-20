@@ -59,9 +59,6 @@ namespace Office.Tests.EditMode
             Assert.AreEqual(new ItemStack(Keycard, 2), remainder);
         }
 
-        // WorldItem compares the remainder with what it offered to decide whether anything
-        // moved. A full inventory must therefore hand the whole stack back untouched, or an
-        // item would be deleted from the floor without ever reaching a player.
         [Test]
         public void Distribute_LeavesAFullInventoryUnchanged()
         {
@@ -85,7 +82,6 @@ namespace Office.Tests.EditMode
             Assert.IsTrue(slots[0].IsEmpty);
         }
 
-        // Zero is "no content"; treating it as a real max stack would loop forever.
         [Test]
         public void Distribute_TreatsAnInvalidMaxStackAsOne()
         {
@@ -106,9 +102,6 @@ namespace Office.Tests.EditMode
             Assert.IsFalse(new ItemStack(Stapler, 1).IsEmpty);
         }
 
-        // A half-used tool merging into a fresh one would have to pick one of the two wear
-        // values, and either choice is a bug: keeping the lower one repairs the worn item,
-        // keeping the higher one damages the fresh one.
         [Test]
         public void Distribute_DoesNotMergeStacksAtDifferentWear()
         {
@@ -135,8 +128,6 @@ namespace Office.Tests.EditMode
             Assert.IsTrue(slots[1].IsEmpty);
         }
 
-        // Spilling into a new slot has to carry the wear across, or a stack of worn items
-        // splitting over two slots would come out half repaired.
         [Test]
         public void Distribute_CarriesWearIntoNewSlots()
         {
@@ -148,12 +139,6 @@ namespace Office.Tests.EditMode
             Assert.AreEqual(new ItemStack(Keycard, 2, 7), slots[1]);
             Assert.IsTrue(remainder.IsEmpty);
         }
-
-        // ---------------------------------------------------------------------------- Move
-        //
-        // What a player does when they drag a cell across the inventory screen. Every case
-        // below is a way a drag could quietly duplicate, erase or repair an item — none of
-        // which looks like a bug in a playtest, only like the inventory "acting strange".
 
         [Test]
         public void Move_FillsAnEmptySlot()
@@ -193,8 +178,6 @@ namespace Office.Tests.EditMode
             Assert.AreEqual(new ItemStack(Keycard, 3), slots[1]);
         }
 
-        // The overflow has to stay in the slot it came from. Anywhere else and the drag either
-        // deletes it or invents a slot the player did not have.
         [Test]
         public void Move_LeavesWhatDoesNotFitBehind()
         {
@@ -221,8 +204,6 @@ namespace Office.Tests.EditMode
             Assert.AreEqual(new ItemStack(Keycard, 1), slots[1]);
         }
 
-        // Merging these would pick a winner between two histories and hand out a free repair
-        // on the loser. Swapping keeps both.
         [Test]
         public void Move_KeepsItemsWornDifferentlyApart()
         {

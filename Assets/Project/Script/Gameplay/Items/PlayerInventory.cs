@@ -6,15 +6,6 @@ using UnityEngine;
 
 namespace Office.Gameplay
 {
-    /// <summary>
-    /// A player's slots, replicated to everyone and written only by the server.
-    /// </summary>
-    /// <remarks>
-    /// Contents are server-authoritative even though movement is not: two players reaching
-    /// for the same item in the same frame have to be resolved by one machine, and only
-    /// the server can do that. The selected slot is the exception — it is cosmetic, so the
-    /// owner writes it directly rather than paying a round trip to move the highlight.
-    /// </remarks>
     [DisallowMultipleComponent]
     public sealed class PlayerInventory : NetworkBehaviour
     {
@@ -26,16 +17,12 @@ namespace Office.Gameplay
         private readonly NetworkVariable<int> selected = new(
             0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
-        // Scratch for ServerAdd. Server only, reused so a pickup allocates nothing.
         private ItemStack[] buffer;
 
-        /// <summary>The local player's inventory, or null between runs.</summary>
         public static PlayerInventory Local { get; private set; }
 
-        /// <summary>Fires when <see cref="Local"/> starts or stops pointing at an inventory.</summary>
         public static event Action<PlayerInventory> LocalChanged;
 
-        /// <summary>Any change to the slots or the selection on this instance.</summary>
         public event Action Changed;
 
         public int Capacity => slots.Count;
@@ -53,8 +40,6 @@ namespace Office.Gameplay
 
         public override void OnNetworkSpawn()
         {
-            // Fixed-size from the start: a slot-based inventory needs stable indices, and
-            // the HUD hotbar is generated with exactly this many cells.
             if (IsServer && slots.Count == 0)
                 for (var i = 0; i < GameplayConstants.InventorySlots; i++)
                     slots.Add(ItemStack.Empty);
@@ -91,21 +76,16 @@ namespace Office.Gameplay
 
         private void OnSelectionChanged(int previous, int current) => Changed?.Invoke();
 
-        // ------------------------------------------------------------------ owner input
-
         private void Update()
         {
             if (!IsSpawned || !IsOwner || input == null) return;
 
-            // Keyboard picks a slot by number; the d-pad, having no number row, steps.
             if (input.HotbarSlot >= 0) Select(input.HotbarSlot);
             else if (input.HotbarStep != 0) Step(input.HotbarStep);
 
             if (input.DropPressedThisFrame) RequestDropRpc(selected.Value);
         }
 
-        // Wraps: stepping past the last hand slot lands on the first. A hotbar that stops
-        // dead at the ends makes the player look down to find out why.
         private void Step(int direction)
         {
             var count = Mathf.Min(GameplayConstants.HotbarSlots, slots.Count);
@@ -117,13 +97,6 @@ namespace Office.Gameplay
             selected.Value = next;
         }
 
-        /// <summary>Owner only. Moves the highlight; the server is not involved.</summary>
-        /// <remarks>
-        /// Hand slots only. The backpack half of the list can be rearranged and dropped from,
-        /// but never held: selecting into it would put the hotbar highlight on a cell the HUD
-        /// does not draw. The inventory screen equips a backpack item by moving it into the
-        /// selected hand slot instead.
-        /// </remarks>
         public void Select(int index)
         {
             if (!IsOwner || index < 0 || index >= slots.Count) return;
@@ -132,13 +105,6 @@ namespace Office.Gameplay
             selected.Value = index;
         }
 
-        /// <summary>Owner only. Asks the server to put one slot's contents on the floor.</summary>
-        /// <remarks>
-        /// The hotbar drops whatever is selected and needs no argument; the inventory screen
-        /// drops the slot the player is pointing at, which is the only reason this is not
-        /// private. It adds no trust: the RPC behind it still checks the sender and still
-        /// computes the landing spot from the server's copy of the body.
-        /// </remarks>
         public void RequestDrop(int index)
         {
             if (!IsSpawned || !IsOwner || !InRange(index)) return;
@@ -146,23 +112,6 @@ namespace Office.Gameplay
             RequestDropRpc(index);
         }
 
-        /// <summary>
-        /// Owner only. Asks the server to move one slot's contents onto another — merging into
-        /// a matching stack, swapping with anything else.
-        /// </summary>
-        /// <remarks>
-        /// Contents are server-authoritative, so a drag is a request like a pickup is, not a
-        /// local edit that gets replicated afterwards. There is deliberately no prediction: a
-        /// slot the client rearranged optimistically would have to be un-rearranged when the
-        /// server disagreed, and the one case where it disagrees — the server having just put a
-        /// picked-up item in that slot — is exactly the case where the flicker would be worst.
-        /// <para>
-        /// <b>The selection does not follow the item.</b> A slot is a place in the hand, not a
-        /// label on an object: dragging the equipped item elsewhere leaves the player holding
-        /// whatever now sits in the selected slot, which is what pressing the same number key
-        /// afterwards would give them.
-        /// </para>
-        /// </remarks>
         public void RequestMove(int from, int to)
         {
             if (!IsSpawned || !IsOwner || from == to) return;
@@ -173,12 +122,6 @@ namespace Office.Gameplay
 
         private bool InRange(int index) => index >= 0 && index < slots.Count;
 
-        // ------------------------------------------------------------------ server API
-
-        /// <summary>
-        /// Server only. Adds what it can and returns the remainder, which is
-        /// <see cref="ItemStack.Empty"/> when everything fit.
-        /// </summary>
         public ItemStack ServerAdd(ItemStack incoming)
         {
             if (!IsServer || incoming.IsEmpty) return incoming;
@@ -200,7 +143,6 @@ namespace Office.Gameplay
             for (var i = 0; i < slots.Count; i++) buffer[i] = slots[i];
         }
 
-        // Only what moved. Writing an unchanged element still costs a delta on the wire.
         private void FlushBuffer()
         {
             for (var i = 0; i < slots.Count; i++)
@@ -208,16 +150,6 @@ namespace Office.Gameplay
                     slots[i] = buffer[i];
         }
 
-        /// <summary>
-        /// Server only. Overwrites one slot outright. Returns false when nothing changed.
-        /// </summary>
-        /// <remarks>
-        /// Deliberately blunt, and deliberately not reachable from a client. It exists for the
-        /// transformations that <see cref="ServerAdd"/> cannot express — an item wearing down,
-        /// breaking, or turning into what it leaves behind — where the rules live in a tested
-        /// static class (<see cref="ItemWear"/>) and this component only publishes the result.
-        /// The early-out matters: writing an unchanged element still costs a delta on the wire.
-        /// </remarks>
         public bool ServerSet(int index, ItemStack stack)
         {
             if (!IsServer || index < 0 || index >= slots.Count) return false;
@@ -227,7 +159,6 @@ namespace Office.Gameplay
             return true;
         }
 
-        /// <summary>Server only. Empties a slot and returns what was in it.</summary>
         public ItemStack ServerTake(int index)
         {
             if (!IsServer || index < 0 || index >= slots.Count) return ItemStack.Empty;
@@ -242,15 +173,12 @@ namespace Office.Gameplay
         [Rpc(SendTo.Server)]
         private void RequestMoveRpc(int from, int to, RpcParams rpcParams = default)
         {
-            // Every client can see this object, so anyone could aim an RPC at it.
             if (rpcParams.Receive.SenderClientId != OwnerClientId) return;
 
             if (from == to || !InRange(from) || !InRange(to)) return;
 
             var source = slots[from];
 
-            // Read before the move: ResolveMaxStack logs an unresolvable id as a content bug,
-            // and an empty slot's id is not one.
             if (source.IsEmpty) return;
 
             LoadBuffer();
@@ -263,7 +191,6 @@ namespace Office.Gameplay
         [Rpc(SendTo.Server)]
         private void RequestDropRpc(int index, RpcParams rpcParams = default)
         {
-            // Every client can see this object, so anyone could aim an RPC at it.
             if (rpcParams.Receive.SenderClientId != OwnerClientId) return;
 
             if (WorldItemSpawner.Server == null)
@@ -275,8 +202,6 @@ namespace Office.Gameplay
             var taken = ServerTake(index);
             if (taken.IsEmpty) return;
 
-            // Placed from the server's copy of the body, never from a position the client
-            // sent: an owner-authoritative client could otherwise drop items across the map.
             var distance = config != null ? config.DropDistance : 0.9f;
             var position = transform.position
                            + transform.forward * distance
@@ -285,7 +210,6 @@ namespace Office.Gameplay
             if (WorldItemSpawner.Server.ServerSpawn(taken, position, transform.rotation) != null)
                 return;
 
-            // Spawning failed — put it back rather than deleting the player's item.
             ServerAdd(taken);
         }
 

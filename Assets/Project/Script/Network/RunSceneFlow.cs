@@ -25,10 +25,6 @@ namespace Office.Network
             if (director != null) director.PhaseChanged -= OnPhaseChanged;
         }
 
-        // A scene load takes many frames, and the session does not pause for it — the host
-        // can end a run while this client is still bringing the run scene up. Dropping the
-        // phase that arrives mid-load would strand the client in a scene the session has
-        // already left, so the latest one is remembered and applied once the load finishes.
         private async void OnPhaseChanged(GameState phase)
         {
             pending = phase;

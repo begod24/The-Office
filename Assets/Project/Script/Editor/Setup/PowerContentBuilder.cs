@@ -10,18 +10,6 @@ using UnityEngine.SceneManagement;
 
 namespace Office.Editor
 {
-    /// <summary>
-    /// Everything the power objective needs that is an asset: the switch a player presses, and
-    /// the two components on <c>PF_Session</c> that spawn it and judge the run.
-    /// </summary>
-    /// <remarks>
-    /// <b>Additive, not a regeneration.</b> The session prefab is built by
-    /// <c>Office/Setup/Build Session Prefab</c>, which writes it from nothing — and that resets
-    /// the player prefabs back to the greybox capsule, discarding whatever
-    /// <c>Office/Setup/Player Prefab</c> put there. So this adds the two components to the
-    /// prefab that already exists instead. Running it twice is safe: it finds what it added
-    /// last time and rewires it.
-    /// </remarks>
     internal static class PowerContentBuilder
     {
         private const string SessionPrefabPath = "Assets/Project/Prefab/Systems/PF_Session.prefab";
@@ -49,18 +37,12 @@ namespace Office.Editor
         public static GameObject LoadSwitchPrefab() =>
             AssetDatabase.LoadAssetAtPath<GameObject>(SwitchPrefabPath);
 
-        // ---------------------------------------------------------------- the switch
-
         private static GameObject BuildSwitchPrefab()
         {
             var root = new GameObject("PF_PowerSwitch") { layer = PhysicsLayers.Interactable };
 
             root.AddComponent<NetworkObject>();
 
-            // One collider, on the root, sized to the whole panel. The meshes below it are
-            // stripped of theirs: two colliders on one interactable means the probe can find
-            // the child, and GetComponentInParent then walks up to the same component twice
-            // for no gain — while a swing that clips the housing counts as a separate hit.
             var box = root.AddComponent<BoxCollider>();
             box.size = new Vector3(0.34f, 0.5f, 0.18f);
             box.center = new Vector3(0f, 0f, 0.04f);
@@ -90,8 +72,6 @@ namespace Office.Editor
 
             return saved;
         }
-
-        // ---------------------------------------------------------------- the session
 
         private static void WireSession(GameObject switchPrefab)
         {
@@ -136,16 +116,6 @@ namespace Office.Editor
             }
         }
 
-        // ---------------------------------------------------------------- the marker
-
-        /// <summary>
-        /// Drops a marker on the generator in whatever scene is open.
-        /// </summary>
-        /// <remarks>
-        /// A separate menu item, and it marks the scene dirty rather than saving it: the scene
-        /// this runs against is hand-authored, and a builder that writes to disk on someone
-        /// else's file is how hand-placed work disappears.
-        /// </remarks>
         [MenuItem("Office/Setup/Add Power Switch To Open Scene", priority = 44)]
         public static void AddMarkerToOpenScene()
         {
@@ -168,18 +138,11 @@ namespace Office.Editor
 
                 var bounds = BoundsOf(generator);
 
-                // On the generator's -X face at hand height, clear of the mesh by a quarter
-                // metre: the probe has to reach a collider, and a marker buried in the housing
-                // spawns a switch nothing can see and nothing can press.
                 marker.transform.position = new Vector3(
                     bounds.min.x - 0.25f,
                     bounds.min.y + 1.1f,
                     bounds.center.z);
 
-                // The prefab's lamp and lever sit on its local -Z, so that is the switch's
-                // face. Ninety degrees about Y maps local -Z onto world -X, which is the way
-                // this generator looks into its room. A different generator wants a different
-                // number, which is why this is a marker a designer can turn.
                 marker.transform.rotation = Quaternion.Euler(0f, 90f, 0f);
             }
             else
@@ -208,8 +171,6 @@ namespace Office.Editor
 
             return bounds;
         }
-
-        // ---------------------------------------------------------------- helpers
 
         private static GameObject Box(Transform parent, string name, Vector3 position,
             Vector3 size, Material material)
@@ -246,9 +207,6 @@ namespace Office.Editor
 
             if (emissive)
             {
-                // The keyword as well as the colour. Without it URP compiles the emission out
-                // and the property block the switch writes at runtime reaches a shader variant
-                // that does not read it — a lamp that is authored, wired, and never lit.
                 material.EnableKeyword("_EMISSION");
                 material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
                 material.SetColor("_EmissionColor", colour * 2f);

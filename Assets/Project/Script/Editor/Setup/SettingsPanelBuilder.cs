@@ -6,9 +6,6 @@ using UnityEngine.UI;
 
 namespace Office.Editor
 {
-    // Terminal-styled settings column, shared by the main menu and pause menu builders. The
-    // host screen owns showing/hiding it and the Back button; SettingsScreen owns what the
-    // rows do, and ISettingsService owns what they mean.
     internal static class SettingsPanelBuilder
     {
         private const string FontPath = "Assets/Project/Fonts/blockblueprint.asset";
@@ -76,13 +73,10 @@ namespace Office.Editor
             var flexibleElement = flexible.gameObject.AddComponent<LayoutElement>();
             flexibleElement.flexibleHeight = 1f;
 
-            // Says what Apply did, or why it could not. Above the buttons rather than beside
-            // them: the line grows and the row must not reflow when it does.
             var noteLabel = CreateLabel("NoteLabel", column, string.Empty, 22f,
                 TextAlignmentOptions.MidlineLeft, TextDim);
             AddLayoutElement(noteLabel.gameObject, preferredHeight: CaptionHeight);
 
-            // Bottom row: Back on the left, Apply on the right.
             var bottomRow = CreateRect("BottomRow", column);
             AddLayoutElement(bottomRow.gameObject, preferredHeight: 44f);
 
@@ -172,25 +166,12 @@ namespace Office.Editor
             return slider;
         }
 
-        /// <summary>
-        /// A slider drawn as a terminal readout: a hairline track, a lit fill and a block for
-        /// a handle.
-        /// </summary>
-        /// <remarks>
-        /// Built by hand rather than from Unity's default, whose sprites and 20px handle do
-        /// not belong on this screen. The geometry below is the same one uGUI expects —
-        /// <c>Slider</c> writes the anchors of the fill and the handle every time the value
-        /// moves, so both have to be children of rects it can drive rather than of the row's
-        /// layout group, which would fight it for the same numbers.
-        /// </remarks>
         private static Slider CreateSlider(string name, Transform parent)
         {
             var root = CreateRect(name, parent);
             AddLayoutElement(root.gameObject, preferredHeight: SliderHeight,
                 preferredWidth: SliderWidth);
 
-            // The whole bar takes the drag, not just the four pixels the track draws — the
-            // same invisible hit area the terminal buttons use.
             var hitArea = root.gameObject.AddComponent<Image>();
             hitArea.color = Color.clear;
 
@@ -207,8 +188,6 @@ namespace Office.Editor
             fillArea.anchorMin = new Vector2(0f, 0.5f);
             fillArea.anchorMax = new Vector2(1f, 0.5f);
 
-            // Inset by half a handle at each end so the fill stops under the handle rather
-            // than sticking out past it at the extremes.
             fillArea.sizeDelta = new Vector2(-HandleWidth, TrackThickness);
 
             var fill = CreateRect("Fill", fillArea);

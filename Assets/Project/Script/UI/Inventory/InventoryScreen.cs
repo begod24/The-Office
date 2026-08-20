@@ -10,23 +10,6 @@ using UnityEngine.UI;
 
 namespace Office.UI
 {
-    /// <summary>
-    /// The full-screen inventory, opened with Tab. Reads the same replicated slots the hotbar
-    /// draws and writes nothing but the selected slot, which the owner already owns.
-    /// </summary>
-    /// <remarks>
-    /// <b>Opening it does not pause anything.</b> The run is co-op, so the world keeps moving
-    /// while a player reads a label — the same rule the pause overlay follows. What it does own
-    /// is the cursor and this player's input, announced on the bus as
-    /// <see cref="LocalInventoryChanged"/> so the rig, the HUD and the pause menu can each
-    /// react without any of them holding a reference to this screen.
-    /// <para>
-    /// The keys are read from the device rather than through <c>PlayerInputReader</c> for the
-    /// reason <c>PauseScreen</c> reads Escape itself: freeing the cursor disables the Player
-    /// action map, so a key that lived in that map could open this screen and then never close
-    /// it again.
-    /// </para>
-    /// </remarks>
     public sealed class InventoryScreen : MonoBehaviour
     {
         private static readonly Color ConditionFine = new(0.86f, 0.86f, 0.84f, 1f);
@@ -78,10 +61,8 @@ namespace Office.UI
         private bool paused;
         private int cursor = InventoryGrid.None;
 
-        /// <summary>Slot the player is carrying from, or -1 when nothing is in hand.</summary>
         private int carrying = -1;
 
-        /// <summary>Cells the player actually has. The rest are drawn locked.</summary>
         private int LiveCount => inventory != null && inventory.IsSpawned && cells != null
             ? Mathf.Min(cells.Length, inventory.Capacity)
             : 0;
@@ -110,8 +91,6 @@ namespace Office.UI
 
             StopCarrying();
 
-            // A player object outlives no run, so this screen cannot hold one across a run
-            // boundary. Same binding the HUD uses.
             PlayerInventory.LocalChanged += BindInventory;
             BindInventory(PlayerInventory.Local);
 
@@ -147,11 +126,8 @@ namespace Office.UI
 
             bus?.Unsubscribe<LocalPauseChanged>(OnPauseChanged);
 
-            // The rig would otherwise be left with a free cursor and no input.
             if (open) bus?.Publish(new LocalInventoryChanged(false));
         }
-
-        // ------------------------------------------------------------------------- input
 
         private void Update()
         {
@@ -200,21 +176,14 @@ namespace Office.UI
         private static bool Pressed(ButtonControl control) =>
             control != null && control.wasPressedThisFrame;
 
-        // -------------------------------------------------------------------- open state
-
         private void SetOpen(bool value)
         {
-            // Nothing to show between runs, and freeing the cursor there would strand a
-            // player in a menu that cannot close itself. Paused counts as between runs: the
-            // pause overlay draws above this one, so opening underneath it is invisible.
             if (value && (paused || inventory == null || !inventory.IsSpawned)) return;
 
             if (open == value) return;
 
             open = value;
 
-            // Closing mid-drag would leave the ghost on screen with nothing sending it
-            // events: the panel it belongs to stops receiving them the moment it goes off.
             if (!value) StopCarrying();
 
             if (panelRoot != null) panelRoot.SetActive(value);
@@ -223,13 +192,9 @@ namespace Office.UI
 
             if (!value) return;
 
-            // Said out loud rather than left to the rig: the screen is built into scenes the
-            // rig may not have spawned into yet.
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
 
-            // Opens on what the player is holding, which is almost always what they came to
-            // look at.
             MoveCursor(InventoryGrid.Clamp(inventory.SelectedIndex, LiveCount));
         }
 
@@ -239,8 +204,6 @@ namespace Office.UI
 
             if (paused) SetOpen(false);
         }
-
-        // --------------------------------------------------------------------- selection
 
         private void MoveCursor(int index)
         {
@@ -255,8 +218,6 @@ namespace Office.UI
             MoveCursor(cell.Index);
         }
 
-        // ------------------------------------------------------------------------ carrying
-
         private void OnCellDragBegan(InventoryCell cell, PointerEventData eventData)
         {
             StopCarrying();
@@ -265,8 +226,6 @@ namespace Office.UI
 
             var stack = inventory[cell.Index];
 
-            // Dragging an empty cell is a gesture, not a move. No ghost, and the drop that
-            // follows finds nothing being carried and does nothing.
             if (stack.IsEmpty) return;
 
             carrying = cell.Index;
@@ -292,7 +251,6 @@ namespace Office.UI
             MoveGhost(eventData);
         }
 
-        // Raised after the drop, so this only ever tidies up.
         private void OnCellDragEnded(InventoryCell cell) => StopCarrying();
 
         private void OnCellDropped(InventoryCell source, InventoryCell target)
@@ -300,8 +258,6 @@ namespace Office.UI
             if (!open || carrying < 0 || inventory == null) return;
             if (!source.IsLive || !target.IsLive || source.Index == target.Index) return;
 
-            // A request, not an edit: the server owns the slots and answers by replicating
-            // them back, which is what redraws the grid.
             inventory.RequestMove(source.Index, target.Index);
 
             MoveCursor(target.Index);
@@ -311,8 +267,6 @@ namespace Office.UI
         {
             if (dragGhost == null || canvasRect == null || canvas == null) return;
 
-            // An overlay canvas has no camera, and passing one anyway puts the ghost a long
-            // way from the pointer.
             var pointerCamera = canvas.renderMode == RenderMode.ScreenSpaceOverlay
                 ? null
                 : canvas.worldCamera;
@@ -340,12 +294,6 @@ namespace Office.UI
             Equip(cell.Index);
         }
 
-        /// <remarks>
-        /// Two different requests behind one verb. A hand slot equips by selection, which the
-        /// owner already owns. A backpack slot cannot be selected — the hotbar does not draw
-        /// it — so equipping from there means moving the item into the selected hand slot,
-        /// which swaps whatever was held into the bag. Same server rules as any drag.
-        /// </remarks>
         private void Equip(int index)
         {
             if (inventory == null || index < 0 || index >= LiveCount) return;
@@ -367,8 +315,6 @@ namespace Office.UI
 
             inventory.RequestDrop(index);
         }
-
-        // ------------------------------------------------------------------------ vitals
 
         private void BindHealth(Health next)
         {
@@ -433,8 +379,6 @@ namespace Office.UI
             conditionLabel.color = colour;
         }
 
-        // --------------------------------------------------------------------- inventory
-
         private void BindInventory(PlayerInventory next)
         {
             if (ReferenceEquals(inventory, next)) return;
@@ -445,7 +389,6 @@ namespace Office.UI
 
             if (inventory != null) inventory.Changed += Refresh;
 
-            // The run ended underneath an open screen.
             if (inventory == null) SetOpen(false);
 
             Refresh();
@@ -514,10 +457,6 @@ namespace Office.UI
             detail.Show(Resolve(stack.DefinitionId), stack);
         }
 
-        /// <summary>
-        /// Life left in the item, or a negative number for one that never wears out — the
-        /// cell hides its bar rather than drawing a full one it would never spend.
-        /// </summary>
         private static float Condition(ItemDefinition definition, in ItemStack stack)
         {
             if (definition == null) return -1f;
@@ -528,8 +467,6 @@ namespace Office.UI
             return ItemWear.NormalisedCondition(stack, profile.MaxUses);
         }
 
-        // A missing definition is a content bug, not a reason to blank the cell: the count
-        // still draws, so the player can see they are carrying something.
         private ItemDefinition Resolve(int definitionId) =>
             definitions != null && definitions.TryGet<ItemDefinition>(definitionId, out var found)
                 ? found

@@ -4,14 +4,6 @@ using Office.Gameplay;
 
 namespace Office.Tests.EditMode
 {
-    /// <summary>
-    /// The guards a weapon's numbers carry regardless of what an asset says.
-    /// </summary>
-    /// <remarks>
-    /// A profile is built independently on the owner and on the server, and both have to reach
-    /// the same answer or an honest client loses swings it should have had. Clamping inside the
-    /// constructor rather than at the call sites is what makes that true by construction.
-    /// </remarks>
     public sealed class WeaponProfileTests
     {
         private static WeaponProfile Profile(float cooldown = 0.5f, int durabilityCost = 1,
@@ -19,8 +11,6 @@ namespace Office.Tests.EditMode
             new(damage: 10f, DamageType.Blunt, cooldown, range: 2.2f, staminaCost: 5f,
                 noiseRadius: 8f, durabilityCost, maxUses, ContentDefinition.NoId);
 
-        // A zero cooldown is a weapon that fires every frame — on the server too, where the
-        // rate check is the only thing standing between a modified client and infinite damage.
         [Test]
         public void Cooldown_IsNeverZero()
         {
@@ -48,9 +38,6 @@ namespace Office.Tests.EditMode
             Assert.Greater(profile.Range, 0f, "A zero range weapon can never connect with anything.");
         }
 
-        // Both halves are needed. A cost with no ceiling wears towards a limit that does not
-        // exist; a ceiling with no cost never gets closer to it. Either one alone is a content
-        // mistake that must not silently break or preserve a weapon.
         [Test]
         public void Wears_NeedsBothACeilingAndACost()
         {

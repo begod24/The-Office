@@ -9,7 +9,6 @@ namespace Office.Tests.EditMode
         [Test]
         public void ReportedModes_AreDeduplicated()
         {
-            // A desktop reports one entry per refresh rate, so the same size arrives repeatedly.
             var options = ResolutionCatalogue.Build(new[]
             {
                 new Vector2Int(1920, 1080),
@@ -91,8 +90,6 @@ namespace Office.Tests.EditMode
                 new Vector2Int(1920, 1080)
             });
 
-            // A monitor the player unplugged: the stored size is gone from the list, and the
-            // picker still has to open on something recognisable rather than on entry zero.
             var index = ResolutionCatalogue.NearestIndex(options, new Vector2Int(1900, 1060));
 
             Assert.AreEqual(1, index);

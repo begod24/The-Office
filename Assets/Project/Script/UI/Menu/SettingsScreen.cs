@@ -7,28 +7,8 @@ using UnityEngine.UI;
 
 namespace Office.UI
 {
-    /// <summary>
-    /// The settings column, shared by the main menu and the pause menu.
-    /// </summary>
-    /// <remarks>
-    /// Both copies are views of one <see cref="ISettingsService"/>, and neither keeps state of
-    /// its own beyond the display choice it is staging. That is what makes the pause menu
-    /// agree with the main menu: the two are built by the same builder into different scenes,
-    /// so anything either remembered locally would be a second answer to a question the
-    /// service already answers — and they would disagree the first time one of them changed
-    /// something.
-    /// <para>
-    /// <b>Volume applies as it is dragged; display waits for Apply.</b> The player is
-    /// listening to the thing the slider sets, so a round trip through a button would be a
-    /// worse way to choose a level. A resolution is the opposite: the wrong one is only
-    /// recoverable while the screen is still readable, so nothing may set one on the way past.
-    /// </para>
-    /// </remarks>
     public sealed class SettingsScreen : MonoBehaviour
     {
-        // Screen.SetResolution is accepted and ignored in play mode — the Game view owns the
-        // size there. Without this line the picker looks broken to the only person who ever
-        // tests it in the editor.
         private const string EditorNote = "// EDITOR IGNORES RESOLUTION — TEST IT IN A BUILD";
 
         [Header("Display")]
@@ -77,8 +57,6 @@ namespace Office.UI
             if (musicSlider != null) musicSlider.onValueChanged.AddListener(OnMusicChanged);
         }
 
-        // Every time the panel opens, not once: the other copy of this screen may have moved
-        // something since, and so may anything else that ever writes a setting.
         private void OnEnable()
         {
             if (settings == null && !ServiceLocator.TryGet(out settings))
@@ -98,8 +76,6 @@ namespace Office.UI
         {
             var current = settings.Current;
 
-            // Nothing stored yet means the picker starts on whatever is already on screen,
-            // rather than on the first entry in the list.
             var target = current.HasResolution
                 ? current.Resolution
                 : new Vector2Int(Screen.width, Screen.height);
@@ -107,8 +83,6 @@ namespace Office.UI
             resolutionIndex = Mathf.Max(0, ResolutionCatalogue.NearestIndex(resolutions, target));
             displayModeIndex = DisplayModes.IndexOf(current.DisplayMode);
 
-            // Without notification: these are the values the service already holds, and
-            // echoing them back through the setters would write over a change still in flight.
             if (masterSlider != null) masterSlider.SetValueWithoutNotify(current.MasterVolume);
             if (musicSlider != null) musicSlider.SetValueWithoutNotify(current.MusicVolume);
 
@@ -173,8 +147,6 @@ namespace Office.UI
 
             RefreshVolumeLabels();
 
-            // Nothing staged means nothing to apply. It also tells the player which of the two
-            // halves of this screen has already taken effect and which has not.
             if (applyButton != null) applyButton.interactable = HasPendingDisplayChange();
         }
 

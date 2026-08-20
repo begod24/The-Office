@@ -2,11 +2,6 @@ using UnityEngine;
 
 namespace Office.Data
 {
-    /// <summary>
-    /// Scenery the player can look at and sometimes operate, but never carry: doors,
-    /// switches, lockers, printers. Behaviour comes from the component on the prefab;
-    /// this asset carries only the numbers and strings that a designer should own.
-    /// </summary>
     [CreateAssetMenu(menuName = "Office/Content/Prop", fileName = "PRP_Prop")]
     public class PropDefinition : ContentDefinition
     {

@@ -4,14 +4,6 @@ using Office.Gameplay;
 
 namespace Office.Tests.EditMode
 {
-    /// <summary>
-    /// Pins down what happens to an item as it is used up.
-    /// </summary>
-    /// <remarks>
-    /// The arithmetic is small, but every one of these cases is a way an item could quietly
-    /// duplicate itself, repair itself, or vanish from a player's hand — and none of them
-    /// would look like a bug in a playtest, only like the inventory "acting strange".
-    /// </remarks>
     public sealed class ItemWearTests
     {
         private const int Stapler = 1;
@@ -19,10 +11,8 @@ namespace Office.Tests.EditMode
 
         private const int MaxUses = 10;
 
-        /// <summary>What an item with no DurabilityModule resolves to.</summary>
         private const int Everlasting = 0;
 
-        /// <summary>Nothing is left behind when it breaks.</summary>
         private const int ContentNoId = ContentDefinition.NoId;
 
         [Test]
@@ -51,8 +41,6 @@ namespace Office.Tests.EditMode
             Assert.AreEqual(stack, ItemWear.Spend(stack, MaxUses, 0, ContentNoId));
         }
 
-        // The last use is a use. Reaching the ceiling exactly has to break the item, or every
-        // weapon in the game quietly gets one more swing than it was authored with.
         [Test]
         public void Spend_BreaksOnReachingTheCeiling()
         {
@@ -70,8 +58,6 @@ namespace Office.Tests.EditMode
             Assert.AreEqual(new ItemStack(BrokenStapler, 1), after);
         }
 
-        // A stack of spares loses one and the next comes up fresh. Not resetting the wear
-        // would break the whole stack at once; not consuming one would repair it for free.
         [Test]
         public void Spend_ConsumesOneOfAStackAndTheNextIsPristine()
         {
@@ -80,8 +66,6 @@ namespace Office.Tests.EditMode
             Assert.AreEqual(new ItemStack(Stapler, 2, ItemWear.Pristine), after);
         }
 
-        // A cost big enough to wrap a ushort would otherwise land back near zero and hand the
-        // player a repaired weapon.
         [Test]
         public void Spend_DoesNotWrapOnAnAbsurdCost()
         {
@@ -110,8 +94,6 @@ namespace Office.Tests.EditMode
                 ItemWear.RemainingUses(new ItemStack(Stapler, 1, 900), Everlasting));
         }
 
-        // The HUD divides by this. An everlasting item reporting anything but a full bar would
-        // draw a coffee mug as if it were about to break.
         [Test]
         public void NormalisedCondition_IsFullForAnEverlastingItem()
         {

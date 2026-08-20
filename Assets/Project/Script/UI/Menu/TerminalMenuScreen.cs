@@ -4,8 +4,6 @@ using UnityEngine.EventSystems;
 
 namespace Office.UI
 {
-    // Shared behaviour for the terminal-styled menus (main menu, pause menu):
-    // focus tracking, the blinking block cursor and the transient hint line.
     public abstract class TerminalMenuScreen : MonoBehaviour
     {
         [Header("Items")]
@@ -94,8 +92,6 @@ namespace Office.UI
             if (hintTimer <= 0f) hintLabel.text = string.Empty;
         }
 
-        // Clicking empty space clears the EventSystem selection, which would kill
-        // keyboard navigation until the mouse hovers an item again.
         private void KeepSelection()
         {
             var eventSystem = EventSystem.current;

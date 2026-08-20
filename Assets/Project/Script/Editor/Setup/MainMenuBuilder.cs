@@ -6,10 +6,6 @@ using UnityEngine.UI;
 
 namespace Office.Editor
 {
-    // The menu scene ships no music and no AudioListener. Both live on the boot object now
-    // (AudioServiceInstaller): a track that restarts every time the player walks back into
-    // the menu, and goes silent the moment the lobby is the only scene up, is what owning
-    // them here bought. Regenerate the boot scene, not this one, to change either.
     internal static class MainMenuBuilder
     {
         private const string FontPath = "Assets/Project/Fonts/blockblueprint.asset";
@@ -44,7 +40,6 @@ namespace Office.Editor
 
             var canvas = BuildCanvas();
 
-            // Placeholder — swap the colour for the office-render background art later.
             var backdrop = CreateRect("Background", canvas.transform);
             Stretch(backdrop);
             var backdropImage = backdrop.gameObject.AddComponent<Image>();
@@ -274,9 +269,6 @@ namespace Office.Editor
             camera.backgroundColor = Backdrop;
             camera.cullingMask = 0;
 
-            // No AudioListener here on purpose. AudioListenerGuard in the boot scene supplies
-            // one wherever nothing else does, and a second live listener during the overlap of
-            // an additive load is a warning every frame with an undefined winner.
         }
 
         private static Canvas BuildCanvas()
@@ -289,8 +281,6 @@ namespace Office.Editor
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
 
-            // Match height so the vertical layout is identical on every aspect ratio;
-            // wider screens only gain horizontal breathing room.
             scaler.matchWidthOrHeight = 1f;
 
             canvasObject.AddComponent<GraphicRaycaster>();

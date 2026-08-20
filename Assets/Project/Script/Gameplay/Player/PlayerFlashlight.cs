@@ -6,26 +6,6 @@ using UnityEngine;
 
 namespace Office.Gameplay
 {
-    /// <summary>
-    /// The light every player carries, toggled with one key and paid for with a battery.
-    /// </summary>
-    /// <remarks>
-    /// GDD §14 makes darkness the default and light the resource that buys information back.
-    /// This is the baseline supply of it — enough to move, never enough to feel safe.
-    /// <para>
-    /// <b>The on/off state is replicated; the battery is not authoritative.</b> Whether the beam
-    /// is lit has to be a fact everyone agrees on, because a teammate's light is the main way
-    /// you know where they are. The charge left in it follows the same trade
-    /// <see cref="PlayerMovement"/> makes with stamina: written by the owner, replicated
-    /// outward for display. The worst a modified client buys is a battery that never dies,
-    /// which costs the group nothing and the server nothing to ignore.
-    /// </para>
-    /// <para>
-    /// The optics come from a <see cref="LightSourceModule"/> asset rather than from fields
-    /// here, so the built-in light and a flashlight the player picks up off a desk are tuned in
-    /// the same place and can share an asset.
-    /// </para>
-    /// </remarks>
     [DisallowMultipleComponent]
     public sealed class PlayerFlashlight : NetworkBehaviour
     {
@@ -65,7 +45,6 @@ namespace Office.Gameplay
         private float charge;
         private bool paused;
 
-        /// <summary>Fires on every machine when this player's beam goes on or off.</summary>
         public event Action<bool> LitChanged;
 
         public bool IsLit => lit.Value;
@@ -93,8 +72,6 @@ namespace Office.Gameplay
         {
             lit.OnValueChanged -= OnLitChanged;
 
-            // Left dark. This component is on a pooled, respawning player object, and a beam
-            // still burning on a despawned body is a light source nobody owns.
             ApplyBeam(false);
 
             if (!IsOwner) return;
@@ -112,9 +89,6 @@ namespace Office.Gameplay
             LitChanged?.Invoke(current);
         }
 
-        // Pushed onto the Light once, from the asset. Doing it here rather than authoring the
-        // component means retuning every flashlight in the game is one asset, not one prefab
-        // per light.
         private void ApplyOptics()
         {
             if (beam == null || optics == null) return;
@@ -147,7 +121,6 @@ namespace Office.Gameplay
                 return;
             }
 
-            // A flat battery must not click on for one frame and die again.
             if (charge < relightThreshold) return;
 
             lit.Value = true;
@@ -175,9 +148,6 @@ namespace Office.Gameplay
             PublishCharge();
         }
 
-        // Whole points only, plus the two ends. A bar drawn from this cannot show more
-        // resolution than that, and a NetworkVariable written every frame is a message every
-        // tick for the length of the run.
         private void PublishCharge()
         {
             var atEnd = (charge <= 0f && replicatedCharge.Value > 0f) ||

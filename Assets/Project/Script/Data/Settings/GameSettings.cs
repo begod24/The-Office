@@ -3,19 +3,6 @@ using UnityEngine;
 
 namespace Office.Data
 {
-    /// <summary>
-    /// Every setting the player owns, as one immutable value.
-    /// </summary>
-    /// <remarks>
-    /// One struct rather than a field per setting, for the same reason <c>VitalsState</c>
-    /// travels as one variable: the change event carries a complete picture, so no listener
-    /// can observe a new volume next to a resolution that has not landed yet.
-    /// <para>
-    /// Volumes are <b>slider positions</b> in 0..1, never gain — see <see cref="VolumeCurve"/>
-    /// for why those are not the same number. A zero resolution means "nothing stored yet",
-    /// which is the state a fresh install is in and is not the same as a resolution of zero.
-    /// </para>
-    /// </remarks>
     public readonly struct GameSettings : IEquatable<GameSettings>
     {
         public const float DefaultMasterVolume = 1f;
@@ -39,7 +26,6 @@ namespace Office.Data
 
         public Vector2Int Resolution => new(Width, Height);
 
-        /// <summary>False until the player has applied a resolution at least once.</summary>
         public bool HasResolution => Width > 0 && Height > 0;
 
         public GameSettings WithResolution(Vector2Int resolution) =>
@@ -54,8 +40,6 @@ namespace Office.Data
         public GameSettings WithMusicVolume(float slider) =>
             new(Resolution, DisplayMode, MasterVolume, slider);
 
-        // Hand-written so that "did anything actually change" costs no boxing: the settings
-        // service asks it on every slider frame, and ValueType.Equals answers by reflection.
         public bool Equals(GameSettings other) =>
             Width == other.Width &&
             Height == other.Height &&

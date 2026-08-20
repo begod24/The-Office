@@ -4,22 +4,6 @@ using UnityEngine.UI;
 
 namespace Office.UI
 {
-    /// <summary>
-    /// One teammate in the squad readout: their seat, their name, and how alive they are.
-    /// </summary>
-    /// <remarks>
-    /// This is also where the <em>local</em> player reads their own health. GDD §14 wants a
-    /// minimal HUD with no dedicated health bar, and a co-op game already has to draw everyone
-    /// — so a second readout for the player themselves would be the same number twice.
-    /// <para>
-    /// Which only works if their own row is unmistakable. It is marked four ways at once —
-    /// an accent stripe down the left, a filled seat chip with the tint inverted out of it,
-    /// the word YOU on the name line, and a brighter lit colour in the bar itself — because
-    /// this readout is glanced at from the corner of the eye while something is walking
-    /// towards the player. One subtle cue is a cue that gets missed at exactly the moment it
-    /// matters, and the earlier version had only a slightly paler grey to offer.
-    /// </para>
-    /// </remarks>
     public sealed class HudPlayerRow : MonoBehaviour
     {
         private static readonly Color Accent = new(0.45f, 0.83f, 0.40f, 1f);
@@ -56,7 +40,6 @@ namespace Office.UI
 
         public bool IsBound { get; private set; }
 
-        /// <summary>Whether this row belongs to the player looking at it.</summary>
         public bool IsLocal => isLocal;
 
         public void Bind(ulong clientId, string tag, string displayName, bool local)
@@ -86,7 +69,6 @@ namespace Office.UI
             gameObject.SetActive(false);
         }
 
-        /// <summary>Draws the bar. The normal case: someone is standing and can be hurt.</summary>
         public void SetHealth(float normalised)
         {
             ShowBar();
@@ -94,10 +76,6 @@ namespace Office.UI
             if (health != null) health.SetValue(normalised);
         }
 
-        /// <summary>
-        /// Draws the seconds left instead of a bar, because a downed teammate's health is no
-        /// longer the useful number — how long there is to reach them is.
-        /// </summary>
         public void SetDowned(float bleedOutRemaining)
         {
             if (health != null) health.gameObject.SetActive(false);
@@ -125,10 +103,6 @@ namespace Office.UI
             if (nameLabel != null) nameLabel.color = NameDim;
         }
 
-        /// <summary>
-        /// Connected, but with no body to read — between runs, or before this client's player
-        /// object has spawned. Distinct from dead: nothing has happened to them yet.
-        /// </summary>
         public void SetOffline()
         {
             if (health != null) health.gameObject.SetActive(false);
@@ -160,15 +134,9 @@ namespace Office.UI
                 tagLabel.color = local ? TagTextLocal : TagTextRemote;
             }
 
-            // Filled rather than tinted. A solid chip with dark text out of it is the one
-            // treatment on this HUD that cannot be mistaken for "slightly brighter".
             if (tagBackground != null)
                 tagBackground.color = local ? Accent : TagBackRemote;
 
-            // Hidden by disabling the graphic, never by deactivating the object. An inactive
-            // child drops out of the horizontal layout, so the three remote rows would start
-            // eleven pixels to the left of the local one and the seat chips would stop lining
-            // up in a column — the panel would look broken by the very thing meant to mark it.
             if (accentStripe != null)
             {
                 accentStripe.color = Accent;

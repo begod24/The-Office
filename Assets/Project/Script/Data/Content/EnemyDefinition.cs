@@ -2,28 +2,6 @@ using UnityEngine;
 
 namespace Office.Data
 {
-    /// <summary>
-    /// Something in the office that hunts: a stapler swarm, a printer, a shredder blocking a
-    /// corridor.
-    /// </summary>
-    /// <remarks>
-    /// Everything that makes one enemy different from another is here rather than on a prefab,
-    /// so a designer authors "the stapler" and "the shredder" as two assets sharing one
-    /// registered network prefab. Same arrangement as <see cref="ItemDefinition"/> and
-    /// <see cref="TargetDefinition"/>, and for the same reason: with <c>ForceSamePrefabs</c> on,
-    /// a forgotten registry entry fails only on the remote client.
-    /// <para>
-    /// <b>Not a subclass of <see cref="TargetDefinition"/>.</b> The two share a health value and
-    /// a response table and nothing else — a target respawns and never moves, an enemy moves and
-    /// never respawns. Inheriting would put <c>RespawnSeconds</c> on every enemy asset as a field
-    /// that must stay zero, which is the kind of number nobody remembers to check.
-    /// </para>
-    /// <para>
-    /// The response table is the same shape the targets already use, so GDD §9.2's rule —
-    /// digital entities shrug off physical weapons — arrives with the first enemy for free and
-    /// is still not an <c>if</c> anywhere in the combat code.
-    /// </para>
-    /// </remarks>
     [CreateAssetMenu(menuName = "Office/Content/Enemy", fileName = "ENM_Enemy")]
     public class EnemyDefinition : ContentDefinition
     {
@@ -149,7 +127,6 @@ namespace Office.Data
 
         public float CorpseSeconds => corpseSeconds;
 
-        /// <summary>True when the body is cleaned up on a timer rather than at the end of the run.</summary>
         public bool CorpseExpires => corpseSeconds > 0f;
     }
 }

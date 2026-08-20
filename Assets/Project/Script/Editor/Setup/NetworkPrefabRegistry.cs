@@ -4,15 +4,6 @@ using UnityEngine;
 
 namespace Office.Editor
 {
-    /// <summary>
-    /// The one way project tooling touches <c>DefaultNetworkPrefabs.asset</c>.
-    /// </summary>
-    /// <remarks>
-    /// <c>ForceSamePrefabs</c> is on, so client and server must carry identical lists and a
-    /// forgotten entry fails only on the remote machine — never on the host that added it.
-    /// Registration therefore has to be explicit and in one place, rather than relying on
-    /// Unity's auto-add editor preference, which is per-machine.
-    /// </remarks>
     internal static class NetworkPrefabRegistry
     {
         private const string ListPath = "Assets/DefaultNetworkPrefabs.asset";

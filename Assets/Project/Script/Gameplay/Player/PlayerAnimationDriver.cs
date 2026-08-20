@@ -3,11 +3,6 @@ using UnityEngine;
 
 namespace Office.Gameplay
 {
-    /// <summary>
-    /// Owner-side bridge from movement state to Animator parameters. Remote
-    /// instances receive the parameters through the OwnerNetworkAnimator, so
-    /// this component only writes on the owning client.
-    /// </summary>
     public sealed class PlayerAnimationDriver : NetworkBehaviour
     {
         private static readonly int MoveXHash = Animator.StringToHash("MoveX");

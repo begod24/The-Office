@@ -6,14 +6,6 @@ using UnityEngine;
 
 namespace Office.Tests.EditMode
 {
-    /// <summary>
-    /// Guards the lookup that composition rests on.
-    /// </summary>
-    /// <remarks>
-    /// Every combat decision starts with "does the held item have a MeleeModule". If that
-    /// question ever answers wrongly, a stapler swings like a fist and nobody gets an error —
-    /// the same silent class of failure the definition registry tests exist for.
-    /// </remarks>
     public sealed class ItemModuleTests
     {
         private readonly List<Object> created = new();
@@ -35,8 +27,6 @@ namespace Office.Tests.EditMode
             return instance;
         }
 
-        // The array is private and serialized, which is how it should stay — an authored
-        // list is not something runtime code assembles.
         private static void SetModules(ItemDefinition definition, params ItemModule[] modules)
         {
             var serialized = new SerializedObject(definition);
@@ -87,8 +77,6 @@ namespace Office.Tests.EditMode
         [Test]
         public void GetModule_FindsEachTypeOnAMultiRoleItem()
         {
-            // The laser pointer from GDD §8.3: a weapon and a light source and consumable,
-            // which is the combination inheritance cannot express.
             var definition = New<ItemDefinition>();
             var melee = New<MeleeModule>();
             var light = New<LightSourceModule>();
@@ -104,7 +92,6 @@ namespace Office.Tests.EditMode
         [Test]
         public void GetModule_SurvivesAnEmptySlotInTheList()
         {
-            // An inspector list with a cleared row is a normal state to be in mid-edit.
             var definition = New<ItemDefinition>();
             var melee = New<MeleeModule>();
 

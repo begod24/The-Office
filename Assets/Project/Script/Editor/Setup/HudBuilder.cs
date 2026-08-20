@@ -21,19 +21,14 @@ namespace Office.Editor
         private const int SquadRows = 4;
         private const int ObjectiveRows = 3;
 
-        // Five, not twelve. The bar is read at a glance from the corner of the eye while
-        // something is chasing the player, and at that size a fine bar is a smear — what has
-        // to survive is "how many blocks are left", which needs them countable.
         private const int HealthSegments = 5;
 
-        // One cell per hand slot. Shared with PlayerInventory so the two cannot drift.
         private const int HotbarSlots = GameplayConstants.HotbarSlots;
 
         private const float SlotSize = 56f;
         private const float SlotSpacing = 6f;
         private const float ScreenMargin = 28f;
 
-        // Below the crosshair, clear of the stamina rule that sits just under it.
         private const float PromptOffset = 54f;
 
         private static readonly Color Frame = new(0.80f, 0.81f, 0.79f, 0.55f);
@@ -43,24 +38,16 @@ namespace Office.Editor
         private static readonly Color Rule = new(1f, 1f, 1f, 0.12f);
         private static readonly Color Crosshair = new(0.90f, 0.90f, 0.88f, 0.55f);
 
-        // Green, and only here. GDD §12.2 keeps the office grey so that the few saturated
-        // things carry meaning — a teammate's health is exactly the reading that has to be
-        // findable without looking straight at it.
         private static readonly Color SegmentFilled = new(0.45f, 0.83f, 0.40f, 1f);
         private static readonly Color SegmentDrained = new(0.45f, 0.83f, 0.40f, 0.13f);
         private static readonly Color SegmentCritical = new(0.85f, 0.25f, 0.20f, 1f);
 
-        // The local player's lit segments, a shade brighter and cooler than a teammate's.
         private static readonly Color SegmentLocal = new(0.62f, 1f, 0.55f, 1f);
 
         private static readonly Color Danger = new(0.85f, 0.25f, 0.20f, 1f);
 
-        // The accent that says "this row is yours". The same green the health segments use,
-        // so the mark and the thing it marks read as one object rather than as two decisions.
         private static readonly Color Accent = new(0.45f, 0.83f, 0.40f, 1f);
 
-        // The blue out of death-screen-bsod.png. Painted behind the image so an ultrawide
-        // monitor shows more stop screen rather than two black bars and a letterbox.
         private static readonly Color BsodBlue = new(0.043f, 0.078f, 0.44f, 1f);
 
         private static readonly Color OutcomeBackdrop = new(0.02f, 0.02f, 0.03f, 0.86f);
@@ -103,12 +90,8 @@ namespace Office.Editor
             var scaler = root.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
 
-            // Smaller reference than the menus (1920x1080) renders the whole HUD
-            // ~20% larger on screen without touching individual element sizes.
             scaler.referenceResolution = new Vector2(1600f, 900f);
 
-            // Match height so corner panels keep the same size relative to the screen
-            // on every aspect ratio; ultrawide monitors only gain horizontal space.
             scaler.matchWidthOrHeight = 1f;
 
             var group = root.AddComponent<CanvasGroup>();
@@ -126,7 +109,6 @@ namespace Office.Editor
             var downed = BuildDownedBanner(root.transform, out var downedLabel);
             BuildStamina(root.transform);
 
-            // Last, so they are the last children drawn: both cover everything above.
             var death = BuildDeathScreen(root.transform, out var deathLabel);
             var outcome = BuildOutcomeScreen(root.transform, out var outcomeLabel);
 
@@ -147,16 +129,6 @@ namespace Office.Editor
             return true;
         }
 
-        /// <summary>
-        /// The stop screen a dead player watches the rest of the shift through. GDD §15.
-        /// </summary>
-        /// <remarks>
-        /// The artwork carries its own copy — the sad face, the diagnosis, the error code —
-        /// so nothing is drawn over it except the one line the image cannot know: that the
-        /// player is still in the run and can watch a colleague. Painting the sprite's own
-        /// blue behind it means an aspect ratio the image was not cut for extends the screen
-        /// instead of letterboxing it.
-        /// </remarks>
         private static GameObject BuildDeathScreen(Transform parent, out TMP_Text hint)
         {
             var root = CreateRect("Death", parent);
@@ -184,9 +156,6 @@ namespace Office.Editor
             return root.gameObject;
         }
 
-        /// <summary>
-        /// How the shift ended, for the one tick the terminal state exists.
-        /// </summary>
         private static GameObject BuildOutcomeScreen(Transform parent, out TMP_Text label)
         {
             var root = CreateRect("Outcome", parent);
@@ -206,10 +175,6 @@ namespace Office.Editor
             return root.gameObject;
         }
 
-        /// <summary>
-        /// The one thing on this HUD that is allowed to shout. Everything else is a readout;
-        /// this is a state the player cannot be left to infer from a bar going empty.
-        /// </summary>
         private static GameObject BuildDownedBanner(Transform parent, out TMP_Text label)
         {
             var root = CreateRect("Downed", parent);
@@ -287,9 +252,6 @@ namespace Office.Editor
             layout.childForceExpandWidth = false;
             layout.childForceExpandHeight = true;
 
-            // The empty box is always drawn and the filled one sits on top of it, rather than
-            // swapping one sprite for another: an objective that is not started still has to
-            // show *where* its mark will go, or a pending list reads as an empty list.
             var holder = CreateRect("Box", row);
             AddLayoutElement(holder.gameObject, preferredWidth: 18f, flexibleWidth: 0f);
 
@@ -314,10 +276,6 @@ namespace Office.Editor
 
         private static HudSquadPanel BuildSquad(Transform parent)
         {
-            // 40, not 34. A row carries two lines — the name above the bar — and at 34 the
-            // pair needed 31 of them, which left one pixel of air above and below and made
-            // the block read as one smudged line at a glance. The panel is measured from
-            // these two numbers, so raising them cannot leave the frame the wrong size.
             const float rowHeight = 40f;
             const float spacing = 8f;
 
@@ -329,7 +287,6 @@ namespace Office.Editor
             panel.Root.pivot = Vector2.zero;
             panel.Root.anchoredPosition = new Vector2(ScreenMargin, ScreenMargin);
 
-            // Padding (12+12) + title (20) + the gap under it (spacing) + the rows.
             panel.Root.sizeDelta = new Vector2(304f,
                 SquadRows * rowHeight + SquadRows * spacing + 44f);
 
@@ -355,19 +312,11 @@ namespace Office.Editor
             return component;
         }
 
-        /// <remarks>
-        /// Two lines in the space of one: the seat and the name on top, the bar underneath.
-        /// A single row would have to choose between a readable name and a readable bar, and
-        /// the name is what tells a player *whose* bar is emptying — which is the entire
-        /// reason a co-op HUD draws teammates at all.
-        /// </remarks>
         private static HudPlayerRow BuildSquadRow(RectTransform parent, int index, float height)
         {
             var row = CreateRect($"Player_{index + 1}", parent);
             AddLayoutElement(row.gameObject, preferredHeight: height);
 
-            // Behind the row and outside the layout: a tint that marks the local player has
-            // to cover the whole row including its padding, which a layout child cannot do.
             var background = CreateRect("Background", row);
             Stretch(background);
             var rowBackground = CreateImage(background, new Color(0f, 0f, 0f, 0f));
@@ -382,18 +331,11 @@ namespace Office.Editor
             layout.childForceExpandWidth = false;
             layout.childForceExpandHeight = true;
 
-            // The stripe is the cue that survives peripheral vision. It is a solid vertical
-            // edge where the other three rows have none, which the eye picks up without
-            // being pointed at it — unlike a colour difference, which it does not.
             var accent = CreateRect("Accent", row);
             AddLayoutElement(accent.gameObject, preferredWidth: 3f, flexibleWidth: 0f);
-            // Left active and drawn off instead: the space it takes has to exist on every row
-            // or the four seat chips stop forming a column. HudPlayerRow toggles the graphic.
             var accentStripe = CreateImage(accent, Accent);
             accentStripe.enabled = false;
 
-            // The seat tag in its own box, so P1..P4 reads as a column even when the names
-            // beside it are different lengths.
             var tagHolder = CreateRect("Tag", row);
             AddLayoutElement(tagHolder.gameObject, preferredWidth: 32f, flexibleWidth: 0f);
 
@@ -421,8 +363,6 @@ namespace Office.Editor
 
             var bar = BuildHealthBar(body);
 
-            // Occupies the bar's place rather than sitting beside it: a downed teammate has no
-            // health worth drawing, and the seconds left are what replaces it.
             var status = CreateLabel("Status", body, "OFFLINE", 14f,
                 TextAlignmentOptions.MidlineLeft, Danger);
             AddLayoutElement(status.gameObject, preferredHeight: 13f);
@@ -450,18 +390,11 @@ namespace Office.Editor
             layout.spacing = 3f;
             layout.childAlignment = TextAnchor.MiddleLeft;
 
-            // Control on, expand off. A LayoutElement's preferredWidth is only read when the
-            // group controls the width — with it off the group leaves each segment at its own
-            // rect size and they run off the side of the panel. Expand stays off so the
-            // segments keep that preferred width instead of sharing the row.
             layout.childControlWidth = true;
             layout.childControlHeight = true;
             layout.childForceExpandWidth = false;
             layout.childForceExpandHeight = false;
 
-            // Fixed-width blocks rather than a bar that shares the row: a segment has to be the
-            // same size on every player, or a four-person squad and a two-person one would
-            // report the same health at different scales.
             var segments = new Object[HealthSegments];
 
             for (var i = 0; i < HealthSegments; i++)
@@ -488,9 +421,6 @@ namespace Office.Editor
             return component;
         }
 
-        /// <summary>
-        /// Bottom right: what is in the hand, and how much of it is left. GDD §14.
-        /// </summary>
         private static HudHeldItem BuildHeldItem(Transform parent)
         {
             var panel = CreateFrame("HeldItem", parent);
@@ -556,11 +486,6 @@ namespace Office.Editor
             return component;
         }
 
-        /// <remarks>
-        /// The slots sit inside one bordered panel rather than floating as separate boxes, so
-        /// the hand reads as a single object the eye can find in the dark — the same framing
-        /// the objectives and the squad use.
-        /// </remarks>
         private static HudHotbar BuildHotbar(Transform parent)
         {
             const float padding = 10f;
@@ -638,8 +563,6 @@ namespace Office.Editor
             return component;
         }
 
-        // Thin white line just below the crosshair. HudStaminaBar keeps it invisible
-        // until stamina is actually being spent.
         private static void BuildStamina(Transform parent)
         {
             var root = CreateRect("Stamina", parent);
@@ -667,8 +590,6 @@ namespace Office.Editor
             Wire(component, ("group", group), ("fill", fillRect));
         }
 
-        // Sits below the crosshair, where the eye already is. HudScreen disables the label
-        // when there is nothing to say, so an empty prompt costs no layout pass.
         private static TMP_Text BuildInteractPrompt(Transform parent)
         {
             var label = CreateLabel("InteractPrompt", parent, string.Empty, 15f,
@@ -776,21 +697,11 @@ namespace Office.Editor
             image.color = colour;
             image.raycastTarget = false;
 
-            // A null sprite leaves Unity's built-in white quad, which is what every plain
-            // block and rule in this HUD wants.
             if (sprite != null) image.sprite = sprite;
 
             return image;
         }
 
-        /// <summary>
-        /// One of the authored marks in <c>Art/UI</c>, or null with a warning.
-        /// </summary>
-        /// <remarks>
-        /// Null rather than an error, and the caller draws its plain-colour block instead: a
-        /// missing decoration should degrade to a readable HUD, not to no HUD. The warning
-        /// names the file so the reason is one line away.
-        /// </remarks>
         private static Sprite Sprite(string assetName)
         {
             var path = $"{UiSpriteFolder}/{assetName}.png";

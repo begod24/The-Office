@@ -34,11 +34,6 @@ namespace Office.UI
             Apply();
         }
 
-        /// <summary>
-        /// Marks this bar as the local player's. Critical still wins — running out of health
-        /// has to look the same on every row, or the player learns to read one warning colour
-        /// for themselves and another for everyone else.
-        /// </summary>
         public void SetHighlighted(bool isLocal)
         {
             if (highlight == isLocal) return;

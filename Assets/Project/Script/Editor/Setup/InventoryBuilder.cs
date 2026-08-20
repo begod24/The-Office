@@ -10,35 +10,17 @@ using UnityEngine.UI;
 
 namespace Office.Editor
 {
-    /// <summary>
-    /// The full-screen inventory, generated the way the HUD and the pause menu are.
-    /// </summary>
-    /// <remarks>
-    /// Same reference resolution as the menus rather than the HUD's: this is a screen the
-    /// player reads standing still, not a corner they glance at, and matching the pause overlay
-    /// keeps the two the same size when one replaces the other.
-    /// </remarks>
     internal static class InventoryBuilder
     {
         private const string RootName = "[Inventory]";
 
         private const string FontPath = "Assets/Project/Fonts/blockblueprint.asset";
 
-        // The grid's shape belongs to InventoryGrid, next to the cursor arithmetic that has to
-        // agree with it and where a test can reach it — see InventoryCapacityTests. The layout
-        // here is the only thing that draws it, but it is not the only thing that has an
-        // opinion about it.
-        //
-        // With Columns at four and GameplayConstants.HotbarSlots also at four, the top row *is*
-        // the hand and everything under it is the backpack: the whole visual explanation of the
-        // split, for free, as long as those two agree. The legend below says so out loud rather
-        // than relying on a player noticing.
         private const int Columns = InventoryGrid.Columns;
         private const int Rows = InventoryGrid.Rows;
 
         private const int Cells = InventoryGrid.Cells;
 
-        // How many of the drawn cells the player actually owns. The rest are drawn locked.
         private const int LiveCells = GameplayConstants.InventorySlots;
 
         private const int ConditionSegments = 12;
@@ -88,20 +70,11 @@ namespace Office.Editor
                 return false;
             }
 
-            // A grid smaller than the player's capacity would hide real slots, and hide them
-            // silently. That invariant is not checked here: both numbers are compile-time
-            // constants, so the compiler folds the comparison and the guard becomes code it can
-            // prove will never run — a permanent warning that protects nothing. It lives in
-            // InventoryCapacityTests, which is a better place for it anyway, because the suite
-            // runs on every change rather than only when someone clicks this menu item.
-
             var root = new GameObject(RootName);
 
             var canvas = root.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
 
-            // Over the HUD (10) and under the pause overlay (30) — pausing has to be able to
-            // cover this, never the other way round.
             canvas.sortingOrder = 20;
 
             var scaler = root.AddComponent<CanvasScaler>();
@@ -116,8 +89,6 @@ namespace Office.Editor
 
             var veil = CreateImage(panel, Veil);
 
-            // The veil swallows clicks rather than letting them reach the HUD canvas below,
-            // which is still there, just invisible.
             veil.raycastTarget = true;
 
             var objectives = BuildObjectives(panel);
@@ -128,8 +99,6 @@ namespace Office.Editor
 
             panel.gameObject.SetActive(false);
 
-            // Outside the panel and after it, so it draws over the grid it is being carried
-            // across, and so closing the panel cannot take it down mid-drag.
             var ghost = BuildDragGhost(root.transform);
 
             var screen = root.AddComponent<InventoryScreen>();
@@ -149,8 +118,6 @@ namespace Office.Editor
             return true;
         }
 
-        // ------------------------------------------------------------------------- grid
-
         private static Object[] BuildGrid(RectTransform parent)
         {
             const float gridHeight = Rows * CellSize + (Rows - 1) * CellSpacing;
@@ -161,9 +128,6 @@ namespace Office.Editor
             panel.Root.anchorMax = new Vector2(1f, 1f);
             panel.Root.pivot = new Vector2(1f, 1f);
             panel.Root.anchoredPosition = new Vector2(-ScreenMargin, -ScreenMargin);
-            // The legend row is only built while the hand is smaller than the grid, so the
-            // frame has to grow by exactly what that row and its spacing take — a fixed
-            // height here would crop the bottom row of cells the day the legend appears.
             var legendHeight = GameplayConstants.HotbarSlots < LiveCells ? 28f : 0f;
 
             panel.Root.sizeDelta = new Vector2(
@@ -183,9 +147,6 @@ namespace Office.Editor
             title.characterSpacing = 10f;
             AddLayoutElement(title.gameObject, preferredHeight: 24f);
 
-            // Which row can be held is the one rule this screen has to teach, and the numbers
-            // on the cells only imply it. Drawn only while the split is real — if the hand
-            // ever grows to fill the grid there is nothing left to distinguish.
             if (GameplayConstants.HotbarSlots < LiveCells)
             {
                 var legend = CreateLabel("Legend", panel.Content,
@@ -220,8 +181,6 @@ namespace Office.Editor
             var cell = CreateFrame($"Cell_{index + 1}", parent);
             var content = cell.Content;
 
-            // The one raycast target in the cell, so hovering anywhere inside it — icon,
-            // number, empty space — is the same event.
             var hit = CreateRect("Hit", cell.Root);
             Stretch(hit);
             var hitImage = CreateImage(hit, Color.clear);
@@ -276,8 +235,6 @@ namespace Office.Editor
             return component;
         }
 
-        // A thin rule along the bottom of the cell. Hidden by InventoryCell on anything that
-        // never wears out, which is most of what the player picks up.
         private static GameObject BuildWearBar(RectTransform parent, out RectTransform fillRect,
             out Image fillImage)
         {
@@ -300,8 +257,6 @@ namespace Office.Editor
             return root.gameObject;
         }
 
-        // Corner to corner: a 140 cell has a 198 diagonal, so each bar ends exactly on a
-        // corner and nothing spills into the neighbouring cell.
         private static GameObject BuildLockedMark(RectTransform parent)
         {
             var root = CreateRect("Locked", parent);
@@ -320,9 +275,6 @@ namespace Office.Editor
             return root.gameObject;
         }
 
-        // The item under the cursor while it is being dragged between slots. Anchored to the
-        // centre of the canvas because that is where ScreenPointToLocalPointInRectangle puts
-        // its origin — the screen writes the result straight into anchoredPosition.
         private static Image BuildDragGhost(Transform parent)
         {
             var root = CreateRect("DragGhost", parent);
@@ -331,15 +283,11 @@ namespace Office.Editor
             var icon = CreateImage(root, new Color(1f, 1f, 1f, 0.9f));
             icon.preserveAspect = true;
 
-            // CreateImage already leaves this off, and here it is the whole point: an icon
-            // sitting under the pointer would be what every drop landed on.
             icon.raycastTarget = false;
 
             root.gameObject.SetActive(false);
             return icon;
         }
-
-        // ----------------------------------------------------------------------- detail
 
         private static InventoryDetailPanel BuildDetail(RectTransform parent)
         {
@@ -397,8 +345,6 @@ namespace Office.Editor
 
             return component;
         }
-
-        // -------------------------------------------------------------------- condition
 
         private static HudSegmentBar BuildCondition(RectTransform parent, out TMP_Text valueLabel)
         {
@@ -458,11 +404,6 @@ namespace Office.Editor
             return component;
         }
 
-        // ------------------------------------------------------------------- objectives
-
-        // The same two components the HUD draws its objectives with, at reading size. The HUD
-        // itself is hidden while this screen is up, so without this the objective would vanish
-        // exactly when the player stopped to think about it.
         private static HudObjectivesPanel BuildObjectives(RectTransform parent)
         {
             var panel = CreateFrame("Objectives", parent);
@@ -533,8 +474,6 @@ namespace Office.Editor
             return component;
         }
 
-        // ------------------------------------------------------------------------ hints
-
         private static void BuildHints(RectTransform parent)
         {
             var row = CreateRect("Hints", parent);
@@ -589,8 +528,6 @@ namespace Office.Editor
             AddLayoutElement(label.gameObject, preferredHeight: 30f,
                 preferredWidth: action.Length * 13f + 6f, flexibleWidth: 0f);
         }
-
-        // ---------------------------------------------------------------------- helpers
 
         private readonly struct Panel
         {

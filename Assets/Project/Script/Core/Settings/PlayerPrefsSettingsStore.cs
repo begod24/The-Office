@@ -2,14 +2,6 @@ using UnityEngine;
 
 namespace Office.Core
 {
-    /// <summary>
-    /// The shipping store: Unity's per-user preferences.
-    /// </summary>
-    /// <remarks>
-    /// Enough for a handful of numbers, and it needs no file format, no schema and no
-    /// migration. When settings grow past that — key bindings, per-player profiles — this is
-    /// the one class that changes.
-    /// </remarks>
     public sealed class PlayerPrefsSettingsStore : ISettingsStore
     {
         public bool Has(string key) => PlayerPrefs.HasKey(key);

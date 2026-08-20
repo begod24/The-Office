@@ -12,7 +12,6 @@ namespace Office.Editor
         private const string TargetDefinitionFolder = "Assets/Project/ScriptableObject/Props";
         private const string EnemyDefinitionFolder = "Assets/Project/ScriptableObject/Enemies";
 
-
         private const float Module = 2f;
         private const float WallHeight = 3f;
         private const float WallThickness = 0.25f;
@@ -39,18 +38,9 @@ namespace Office.Editor
             BuildTargetPlacements(root);
             BuildEnemyPlacements(root);
 
-            // Last. The bake reads colliders that are already in the scene, so anything added
-            // after this line is a hole in the mesh that nobody sees until an enemy walks into
-            // it.
-            // The path comes from NavigationSetup so that a full rebuild and a
-            // 'Bake Navigation In Open Scene' write the same asset. Two paths would leave a
-            // stale mesh behind that nothing points at and nobody notices.
             NavigationSetup.BuildSurface(root, NavigationSetup.DataPathFor(SceneNames.Sandbox));
         }
 
-        // The Gate 4 harness, and the first place the physical/digital rule is playable. The
-        // two are deliberately side by side: a player who hits both with the same stapler
-        // learns more in five seconds than any prompt could tell them.
         private static void BuildTargetPlacements(Transform parent)
         {
             var group = new GameObject("TargetPlacements").transform;
@@ -59,7 +49,6 @@ namespace Office.Editor
             PlaceTarget(group, "Target_Cabinet_A", "TGT_FilingCabinet", new Vector3(-2f, 0f, 9f));
             PlaceTarget(group, "Target_Cabinet_B", "TGT_FilingCabinet", new Vector3(2f, 0f, 9f));
 
-            // Immune to everything in the build except the laser pointer.
             PlaceTarget(group, "Target_Anomaly", "TGT_Anomaly", new Vector3(0f, 0f, 10.5f));
         }
 
@@ -87,9 +76,6 @@ namespace Office.Editor
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        // Far corners, deliberately outside the stapler's 12m sight of the spawn area: the
-        // first read of the enemy should be it noticing you, not it already running. One sits
-        // behind the partition so hearing — not sight — is what pulls it in.
         private static void BuildEnemyPlacements(Transform parent)
         {
             var group = new GameObject("EnemyPlacements").transform;
@@ -123,16 +109,11 @@ namespace Office.Editor
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        // Markers only. They hold a definition reference and nothing networked — the server
-        // turns them into spawned carriers when the run starts, because with scene management
-        // off an in-scene NetworkObject cannot resolve on a remote client.
         private static void BuildItemPlacements(Transform parent)
         {
             var group = new GameObject("ItemPlacements").transform;
             group.SetParent(parent, false);
 
-            // On the desk, on the floor by the crates, and down the corridor: three reads of
-            // reach, height and lighting rather than three of the same test.
             Place(group, "Place_Stapler", "ITM_Stapler", new Vector3(4f, 1.4f, 2f), 1);
             Place(group, "Place_Keycards", "ITM_Keycard", new Vector3(8f, 0.6f, -4f), 3);
             Place(group, "Place_Coffee", "ITM_CoffeeCup", new Vector3(-7f, 0f, -8f), 2);

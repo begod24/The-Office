@@ -150,9 +150,6 @@ namespace Office.Tests.EditMode
         [Test]
         public void NestedPublish_StillReachesTheRemainingHandlers()
         {
-            // Asserts on the values, not on "was reached at all": the nested Publish notifies
-            // the second handler too, so a plain bool stays true even when the outer loop is
-            // truncated. Only the missing outer value (1) exposes the failure.
             var received = new List<int>();
             var republished = false;
 

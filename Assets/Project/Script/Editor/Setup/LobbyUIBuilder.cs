@@ -263,7 +263,6 @@ namespace Office.Editor
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
 
-            // Match height so the column always fits vertically, on any aspect ratio.
             scaler.matchWidthOrHeight = 1f;
 
             canvasObject.AddComponent<GraphicRaycaster>();
@@ -323,9 +322,6 @@ namespace Office.Editor
             return label;
         }
 
-        // Terminal-styled button: "> Label" text only, no face. The content label is
-        // the tint target so runtime code can overwrite its text ("READY" and so on)
-        // while the "> " prefix stays put.
         private static Button CreateTerminalButton(string name, Transform parent, string text,
             out TMP_Text contentLabel, float height, float size)
         {

@@ -19,7 +19,6 @@ namespace Office.Network
 
         private readonly List<NetworkObject> spawned = new(4);
 
-        // Seat per client, kept across runs so a player keeps their character.
         private readonly Dictionary<ulong, int> seats = new(4);
 
         private GameState lastPhase = GameState.Lobby;
@@ -86,11 +85,6 @@ namespace Office.Network
                     SpawnFor(clientId);
         }
 
-        /// <summary>
-        /// A client that reported its scene ready while the run was already going. Spawning
-        /// hangs off the InRun edge, and a late joiner never produces one — without this they
-        /// sit in the run scene as a camera with no body.
-        /// </summary>
         private void OnClientReadyDuringRun(ulong clientId)
         {
             if (!IsServer || !IsSpawned) return;
@@ -106,8 +100,6 @@ namespace Office.Network
             SpawnFor(clientId);
         }
 
-        // Connected and bodiless. The connection half matters for the late-join path: a
-        // client can disconnect between reporting its scene ready and this running.
         private bool NeedsBody(ulong clientId) =>
             NetworkManager.ConnectedClients.TryGetValue(clientId, out var client) &&
             client.PlayerObject == null;
@@ -132,8 +124,6 @@ namespace Office.Network
             spawned.Add(networkObject);
         }
 
-        // Seats alternate man / woman, so a four player session reads man, woman,
-        // man, woman. The host holds seat 0; a seat freed by a leaver is reused.
         private int TakeSeat(ulong clientId)
         {
             if (seats.TryGetValue(clientId, out var seat)) return seat;

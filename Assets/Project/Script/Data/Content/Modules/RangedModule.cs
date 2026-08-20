@@ -2,21 +2,6 @@ using UnityEngine;
 
 namespace Office.Data
 {
-    /// <summary>
-    /// Makes an item shoot. The staple gun, and later anything else fired rather than swung.
-    /// </summary>
-    /// <remarks>
-    /// <b>There is deliberately no stamina cost here.</b> Stamina is physical effort — GDD §7.2
-    /// spends it on sprinting and on swinging something heavy — and pulling a trigger is
-    /// neither. Leaving the field out rather than authoring it as zero means a ranged weapon
-    /// <em>cannot</em> be given one by mistake: the rule lives in the shape of the data instead
-    /// of in a number someone has to remember to keep at zero.
-    /// <para>
-    /// An item carrying this is resolved as ranged even if it also carries a
-    /// <see cref="MeleeModule"/> — see <c>WeaponResolver</c>. That ordering is what lets a
-    /// future weapon have a bayonet without every shot costing stamina.
-    /// </para>
-    /// </remarks>
     [CreateAssetMenu(menuName = "Office/Modules/Ranged", fileName = "MOD_Ranged")]
     public sealed class RangedModule : ItemModule
     {

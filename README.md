@@ -22,11 +22,11 @@ The lobby still does not lock during a run, so a mid-run join is allowed and get
 wherever the spawn points put it. Remaining findings are tracked in
 [Docs/CodeReview.md](Docs/CodeReview.md) §8.
 
-The PS1 look is the screen half only — low internal resolution, limited palette, worn tape,
-all from `Office/Setup/Build Retro Render` ([Docs/Architecture.md](Docs/Architecture.md) §14).
-Vertex jitter and affine texture mapping are not built, so the geometry itself is still
-perfectly stable. **The effect shows in the Game view, never the Scene view**, so building a
-level is unaffected by it.
+Rendering is stock URP. The PS1 screen layer was removed on 20 August 2026 — the custom pass,
+its shader and the builder that wired them together are gone, and nothing in the project renders
+through shader code of its own any more. What is left on `PC_Renderer` is URP's own ambient
+occlusion, and post-processing is still a generated URP volume profile
+([Docs/Architecture.md](Docs/Architecture.md) §14).
 
 **Two players on different builds cannot connect** — that is deliberate. The handshake compares
 `Application.version` and a fingerprint of `REG_Definitions`, so after changing content both

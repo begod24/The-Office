@@ -337,7 +337,6 @@ Collision matrix, configured by `Office/Setup/Configure Collision Matrix`:
 | `Office/Setup/Build Lobby Scene` | Regenerates `PF_LobbyRow` and `SCN_Lobby` |
 | `Office/Setup/Build Main Menu Scene` | Regenerates `SCN_MainMenu` |
 | `Office/Setup/Build Boot Scene` | Regenerates `SCN_Boot`, including the music clip on `AudioServiceInstaller` |
-| `Office/Setup/Build Retro Render` | Render scale + point upscale on `PC_RPAsset`, the retro pass on `PC_Renderer` |
 | `Office/Setup/Configure Build Settings` | Scene list, `SCN_Boot` at index 0 |
 | `Office/Content/Build All` | Everything below, in order |
 | `Office/Content/Build Sample Items` | Greybox item definitions, view prefabs and icons |
@@ -839,49 +838,22 @@ agent type is the part both paths share.
 
 ## 14. Rendering
 
-The screen half of GDD §12.1 is built: a genuinely low-resolution picture, a limited palette
-with ordered dithering, and a worn tape over the top. `Office/Setup/Build Retro Render` owns all
-of it and is idempotent like every other builder.
+Stock URP, with no project-owned shader or render pass anywhere in it. `PC_RPAsset` renders at
+full scale with the automatic upscaling filter, and the only feature on `PC_Renderer` is URP's
+own screen-space ambient occlusion. Post-processing is a generated volume profile — tonemapping,
+colour grading, bloom, vignette and film grain, every one of them a stock URP component —
+authored by `Office/Setup/Build Post Process Profile` (§7.1).
 
-**Two halves, one menu item, because they share a number.** The pipeline asset carries the
-render scale (0.55) and — the setting that decides whether any of this works — a **point**
-upscale, since a linear one turns a low-resolution image into a blurry high-resolution one
-rather than into pixels. `RetroFilmFeature` on `PC_Renderer` carries the rest, and has to be
-told how tall the picture actually is: the wobble and the scanlines are measured in picture
-rows, so that they stay locked to the pixels instead of changing size with the player's window.
-Working that height out twice by hand is how they end up half a pixel apart.
+**The PS1 screen layer was removed on 20 August 2026.** The custom pass (`PixelArtFeature`), its
+shader (`S_PixelArt`) and the builder that wired the two together (`PixelRenderBuilder`, menu
+item `Office/Setup/Build Pixel Render`) are gone from the project; commit `8f5cc2a` is the last
+one that carries them, and `Office.Rendering` is an empty assembly again.
 
-**The scale is deliberately far above the 320×240 that GDD §12.1 quotes.** That number describes
-the hardware being referenced, not the look: a true quarter-scale buffer makes a stapler across
-an unlit office four pixels wide, and a player cannot be frightened by a shape they cannot
-resolve. The grid should be felt, not read — and the same applies to the tape. Every artefact is
-tuned to sit under notice: the chromatic bleed only shows on high-contrast edges, the scanlines
-are barely on, and the tracking tear is narrow and gated to arrive every twenty seconds or so,
-because a permanent one is wallpaper the player stops seeing inside a minute while still paying
-for it in legibility for the rest of a thirty-minute run.
-
-Two things in the shader are load-bearing and neither is obvious:
-
-- **The palette is quantised in gamma space, not linear.** Evenly spaced steps on a linear value
-  put nearly the whole palette in the highlights, leaving an unlit office described by two or
-  three of them — the dither then has nothing to blend between and becomes a visible plaid over
-  the entire picture. This was not a subtle degradation; it made the effect unusable.
-- **Everything hashed on time takes a wrapped clock.** `_Time.y` is seconds since launch, and
-  the hash loses its precision once its input reaches the hundreds, so the grain would decay
-  into fixed vertical bars a few minutes into a run — correct in every short test, broken by the
-  time anyone finished a session.
-
-The pass runs at `AfterRenderingPostProcessing`, so the volume profile's grade, bloom and
-vignette are inside the signal being degraded, while the screen-space UI — composited after URP
-entirely — stays sharp. It also runs for game cameras only: the scene view is where the level
-gets built, and a dithered, wobbling picture is in the way of the person placing walls.
-
-Anti-aliasing is off in both places that could reintroduce it (the pipeline's MSAA, the camera's
-FXAA). A visible pixel grid and edge smoothing are the same argument from opposite sides.
-
-**Not built:** the per-object half — vertex jitter and affine texture mapping. Those need a
-custom lit shader that every material switches to, which is a larger job than the screen layer
-was, and it is why the geometry here is still perfectly stable while the picture around it is not.
+One thing the removal left behind on purpose: the volume profile is still graded the way it was
+tuned to sit *underneath* that pass — exposure up, contrast and vignette low, so the palette
+quantisation had readable mid-tones to work with. Grading is stock URP, so it was left alone
+rather than reverted. If the picture now reads as too flat or too bright, the darker pre-effect
+numbers are in `PostProcessBuilder` at commit `072d658`.
 
 ---
 
@@ -913,6 +885,6 @@ Known gaps in what does exist:
   phase transition and spawning otherwise hangs off the `InRun` edge alone. Untested with two
   machines, and the lobby still does not lock — connection approval could refuse a mid-run join
   outright, which may turn out to be the better answer than spawning one.
-- **The lobby look is placeholder.** GDD §14 wants a retro terminal HUD. The screen effect does
-  not reach it — the UI is composited after URP and stays sharp on purpose (§14) — so that pass
-  is its own piece of work rather than something the render layer will deliver.
+- **The lobby look is placeholder.** GDD §14 wants a retro terminal HUD, and no render layer
+  will deliver one: screen-space UI is composited after URP entirely. That pass is its own piece
+  of work, in the UI rather than in rendering.

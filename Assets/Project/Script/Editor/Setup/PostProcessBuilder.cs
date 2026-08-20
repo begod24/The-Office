@@ -32,12 +32,6 @@ namespace Office.Editor
             var tonemapping = Add<Tonemapping>(profile);
             tonemapping.mode.Override(TonemappingMode.Neutral);
 
-            // Graded for a picture that is legible first and moody second. The reference
-            // frames this look is chasing are dark, but nothing in them is *lost*: floors,
-            // walls and props all keep readable mid-tones, and the darkness is atmosphere
-            // rather than absence. The previous grade sat a stop and a half down with heavy
-            // contrast on top, which the palette pass then quantised — and a dark mid-tone
-            // that lands on the first palette step is not dark, it is gone.
             var colour = Add<ColorAdjustments>(profile);
             colour.postExposure.Override(0.45f);
             colour.contrast.Override(6f);
@@ -50,17 +44,11 @@ namespace Office.Editor
             bloom.scatter.Override(0.6f);
             bloom.tint.Override(new Color(0.9f, 0.93f, 1f));
 
-            // Present, not crushing. A heavy vignette and a low internal resolution fight each
-            // other: the corners lose their few pixels entirely instead of getting darker.
             var vignette = Add<Vignette>(profile);
             vignette.color.Override(Color.black);
             vignette.intensity.Override(0.22f);
             vignette.smoothness.Override(0.5f);
 
-            // Low. This runs before the palette pass and at the internal resolution, so what
-            // grain survives arrives as noise on the blocks themselves — which is the texture
-            // the reference frames have. Turned up, it stops being texture and starts being a
-            // second, moving dither fighting the ordered one.
             var grain = Add<FilmGrain>(profile);
             grain.type.Override(FilmGrainLookup.Medium1);
             grain.intensity.Override(0.12f);
@@ -92,9 +80,6 @@ namespace Office.Editor
             var data = camera.GetUniversalAdditionalCameraData();
             data.renderPostProcessing = true;
 
-            // No anti-aliasing, deliberately. GDD §12.1 wants a visible pixel grid, and
-            // smoothing the edges is the exact opposite request — FXAA would spend frame time
-            // undoing what the render scale and the retro pass are for.
             data.antialiasing = AntialiasingMode.None;
         }
 

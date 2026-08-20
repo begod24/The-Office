@@ -104,7 +104,6 @@ namespace Office.Tests.EditMode
             settings.SetMusicVolume(0.4f);
             settings.SetMusicVolume(0.4f);
 
-            // A dragged slider reports every frame, and most of those carry the same number.
             Assert.AreEqual(1, announced);
         }
 
@@ -121,8 +120,6 @@ namespace Office.Tests.EditMode
         {
             Create().ApplyDisplay(new Vector2Int(3440, 1440), FullScreenMode.Windowed);
 
-            // The player stored an ultrawide, then started the game on a different monitor
-            // that never reported one. Both still have to be in the picker.
             display.CurrentResolution = new Vector2Int(1600, 900);
 
             var reloaded = Create();

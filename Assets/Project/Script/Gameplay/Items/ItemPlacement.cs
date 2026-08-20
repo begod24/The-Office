@@ -4,17 +4,6 @@ using UnityEngine;
 
 namespace Office.Gameplay
 {
-    /// <summary>
-    /// A level-authored "an item goes here" marker.
-    /// </summary>
-    /// <remarks>
-    /// Deliberately a plain MonoBehaviour with no NetworkObject. With
-    /// <c>EnableSceneManagement</c> off, NGO cannot resolve an in-scene placed NetworkObject
-    /// on a remote client — it arrives as an ordinary spawn, the client finds no matching
-    /// prefab and logs <c>NetworkPrefab could not be found</c>, while the host sees nothing
-    /// wrong. So the marker stays inert scene data on every machine and the server spawns
-    /// the real, registered <c>PF_WorldItem</c> from it when the run starts.
-    /// </remarks>
     [DisallowMultipleComponent]
     public sealed class ItemPlacement : MonoBehaviour
     {
@@ -37,9 +26,6 @@ namespace Office.Gameplay
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics() => Active.Clear();
 
-        // Registering here rather than scanning the scene keeps the spawner free of a
-        // FindObjectsByType sweep on every run start, and works the same way
-        // PlayerSpawnPoints already does.
         private void OnEnable() => Active.Add(this);
 
         private void OnDisable() => Active.Remove(this);

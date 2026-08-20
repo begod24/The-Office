@@ -2,13 +2,6 @@ using UnityEngine;
 
 namespace Office.Data
 {
-    /// <summary>
-    /// Numbers that belong to the player's arm rather than to whatever is in their hand.
-    /// </summary>
-    /// <remarks>
-    /// Per-weapon values live on <see cref="MeleeModule"/>. Splitting it this way means a
-    /// new weapon is an asset, while retuning how far everyone can reach is one config.
-    /// </remarks>
     [CreateAssetMenu(menuName = "Office/Config/Combat", fileName = "CFG_Combat")]
     public sealed class CombatConfig : ScriptableObject
     {
@@ -56,17 +49,8 @@ namespace Office.Data
 
         public float ServerRangeTolerance => serverRangeTolerance;
 
-        /// <summary>
-        /// How far the server will allow a weapon of <paramref name="weaponRange"/> to connect.
-        /// </summary>
-        /// <remarks>
-        /// Takes the weapon's own reach rather than reading <see cref="Range"/>, because reach
-        /// belongs to the weapon and only the tolerance belongs to the network. A staple gun
-        /// and a coffee mug get the same slack on top of very different ranges.
-        /// </remarks>
         public float ServerReachFor(float weaponRange) => weaponRange * serverRangeTolerance;
 
-        /// <summary>The unarmed reach, already carrying the server's tolerance.</summary>
         public float ServerReach => ServerReachFor(range);
 
         public float CooldownTolerance => cooldownTolerance;

@@ -16,7 +16,6 @@ namespace Office.Tests.EditMode
         [Test]
         public void Curve_IsQuieterThanTheSliderPosition()
         {
-            // The whole point: a linear slider spends its top half doing nothing audible.
             Assert.Less(VolumeCurve.ToGain(0.5f), 0.5f);
         }
 
@@ -68,8 +67,6 @@ namespace Office.Tests.EditMode
         [Test]
         public void DisplayModes_ExclusiveFullscreenReadsAsFullscreen()
         {
-            // macOS has no exclusive mode and silently substitutes the borderless one, which
-            // is why only one of the two is offered.
             Assert.AreEqual(DisplayModes.Label(FullScreenMode.FullScreenWindow),
                 DisplayModes.Label(FullScreenMode.ExclusiveFullScreen));
         }

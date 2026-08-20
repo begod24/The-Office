@@ -221,8 +221,6 @@ namespace Office.UI
             }
             finally
             {
-                // This scene is usually gone by now, but a failed swap would otherwise leave
-                // every button in the lobby permanently disabled.
                 busy = false;
                 if (this != null) Refresh();
             }

@@ -2,14 +2,6 @@ using UnityEngine;
 
 namespace Office.Data
 {
-    /// <summary>
-    /// Shared identity and presentation for one piece of authored content.
-    /// </summary>
-    /// <remarks>
-    /// A definition is never sent over the network — an asset reference means nothing to
-    /// the other machine. <see cref="Id"/> travels instead, and both ends resolve it
-    /// through the same <see cref="DefinitionRegistry"/>.
-    /// </remarks>
     public abstract class ContentDefinition : ScriptableObject
     {
         [Header("Identity")]
@@ -29,7 +21,6 @@ namespace Office.Data
         [Tooltip("Hotbar icon. Optional — an empty slot draws the frame and the count only.")]
         [SerializeField] private Sprite icon;
 
-        /// <summary>Zero is reserved: it means "no content", so ids start at one.</summary>
         public const int NoId = 0;
 
         public int Id => id;

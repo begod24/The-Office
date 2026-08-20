@@ -15,20 +15,8 @@ namespace Office.Network
 
         private readonly HashSet<ulong> sceneReady = new();
 
-        // A tick at 30 Hz is two frames at 60 fps. The budget is deliberately far larger so
-        // that a stalled frame never turns into a run that refuses to end.
         private const int MaxFramesPerTick = 120;
 
-        /// <summary>
-        /// How long a finished run sits in its terminal state before the lobby takes over.
-        /// </summary>
-        /// <remarks>
-        /// A tick was enough for the state to replicate and far too little for anyone to read
-        /// it: measured, RunComplete existed for about thirty milliseconds, so the shift's own
-        /// result flashed past faster than a frame the player would notice. The HUD's outcome
-        /// screen is the reason this needs a duration at all — the run is already decided, and
-        /// these seconds only decide whether the squad finds out what happened.
-        /// </remarks>
         private const float TerminalDwellSeconds = 3.5f;
 
         private IGameStateService gameState;
@@ -41,16 +29,6 @@ namespace Office.Network
 
         public event Action<GameState> PhaseChanged;
 
-        /// <summary>
-        /// Server only. A client finished loading the run scene while the run was already
-        /// under way — it has no body and needs one.
-        /// </summary>
-        /// <remarks>
-        /// Separate from <see cref="PhaseChanged"/> because a late joiner produces no phase
-        /// transition at all: the run is already <see cref="GameState.InRun"/> and stays
-        /// there. Anything that spawns per-player has to listen here as well, or it only ever
-        /// serves the players who were present when the run started.
-        /// </remarks>
         public event Action<ulong> ClientReadyDuringRun;
 
         public override void OnNetworkSpawn()
@@ -119,8 +97,6 @@ namespace Office.Network
 
             sceneReady.Add(clientId);
 
-            // Already running: this is a late joiner, not the last of the starting group.
-            // The phase does not move, so nobody would hear about them without this.
             if (phase.Value == GameState.InRun)
             {
                 ClientReadyDuringRun?.Invoke(clientId);
@@ -141,16 +117,6 @@ namespace Office.Network
             ServerEndRun(GameState.RunFailed);
         }
 
-        /// <summary>
-        /// Server only. Ends the run through <paramref name="terminal"/>. Returns false when
-        /// there is no run to end, or one is already ending.
-        /// </summary>
-        /// <remarks>
-        /// The seam every way a run can stop goes through: the host abandoning it, the squad
-        /// being wiped out, and the objective being finished all arrive here, so the ordering
-        /// rules below are written once. Callers are server-side systems — a client asking
-        /// travels <see cref="RequestEndRunRpc"/> and is checked there.
-        /// </remarks>
         public bool ServerEndRun(GameState terminal)
         {
             if (!IsServer || !IsSpawned) return false;
@@ -168,25 +134,12 @@ namespace Office.Network
             return true;
         }
 
-        /// <summary>
-        /// A run must pass through a terminal state — <see cref="GameState"/> has no direct
-        /// InRun to Lobby edge, so that a run can never end without reaching one.
-        /// </summary>
-        /// <remarks>
-        /// Which means the two writes cannot share a tick. A NetworkVariable sends the value
-        /// it holds when the tick fires, not every value it held during it, so writing
-        /// RunFailed and Lobby back to back would reach clients as Lobby alone and the
-        /// terminal state would exist on the server only. Nothing reads RunFailed yet; the
-        /// results screen will.
-        /// </remarks>
         private async Awaitable EndRunAsync(GameState terminal)
         {
             ending = true;
 
             try
             {
-                // Only InRun has an edge to a terminal state. A run abandoned while it is
-                // still generating never became one, so it returns to the lobby directly.
                 if (phase.Value == GameState.InRun)
                 {
                     TrySetPhase(terminal);
@@ -195,9 +148,6 @@ namespace Office.Network
 
                     if (this == null || !IsSpawned || !IsServer) return;
 
-                    // Held, not just ticked past. Every client is drawing the outcome screen
-                    // off this state, and the bodies are still standing in the run scene
-                    // behind it — which is the only moment a squad gets to see how it ended.
                     await Awaitable.WaitForSecondsAsync(TerminalDwellSeconds);
 
                     if (this == null || !IsSpawned || !IsServer) return;
@@ -224,8 +174,6 @@ namespace Office.Network
 
             var start = tickSystem.LocalTime.Tick;
 
-            // Bounded: a shutdown mid-wait must not spin forever. At any sane tick rate a
-            // tick lands well inside this budget.
             for (var frame = 0; frame < MaxFramesPerTick; frame++)
             {
                 if (tickSystem.LocalTime.Tick != start) return;

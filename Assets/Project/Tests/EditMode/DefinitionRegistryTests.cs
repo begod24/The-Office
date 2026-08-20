@@ -7,11 +7,6 @@ using UnityEngine;
 
 namespace Office.Tests.EditMode
 {
-    /// <summary>
-    /// Guards the contract the whole item pipeline rests on: an id resolves to exactly one
-    /// definition, on every machine. A duplicate or a missing id fails only on the remote
-    /// client at runtime, so it has to be caught here instead.
-    /// </summary>
     public sealed class DefinitionRegistryTests
     {
         private const string RegistryPath =
@@ -102,9 +97,6 @@ namespace Office.Tests.EditMode
         [Test]
         public void AnIdDoesNotResolveAsTheWrongType()
         {
-            // Ids are shared across every kind of content, so asking for the wrong type has
-            // to fail rather than hand back something the caller will misuse. Without this,
-            // a stale id that now belongs to a prop would come back from a TryGet for an item.
             var registry = LoadRegistry();
 
             foreach (var prop in registry.All.OfType<PropDefinition>())

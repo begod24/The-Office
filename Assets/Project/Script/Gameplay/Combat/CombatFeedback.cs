@@ -3,23 +3,6 @@ using UnityEngine;
 
 namespace Office.Gameplay
 {
-    /// <summary>
-    /// Turns a confirmed swing into something the player can see and hear.
-    /// </summary>
-    /// <remarks>
-    /// Sits on the player and listens to <see cref="PlayerAttacker.Swung"/>, which fires on
-    /// every machine with the server's ruling already in it. Nothing here talks to the network
-    /// or decides anything — that separation is what lets the feel of combat be retuned
-    /// without touching a line of authority code.
-    /// <para>
-    /// <b>Three outcomes, three reactions.</b> GDD §9.2 asks a player to work out that
-    /// physical weapons do nothing to digital things, and Gate 10 asks them to do it in five
-    /// minutes without being told. That is only possible if bouncing off something
-    /// (<see cref="WeaponOutcome.Absorbed"/>) neither looks nor sounds like swinging through
-    /// air (<see cref="WeaponOutcome.Missed"/>). Everything else in this file exists to serve
-    /// that one distinction.
-    /// </para>
-    /// </remarks>
     [DisallowMultipleComponent]
     public sealed class CombatFeedback : MonoBehaviour
     {
@@ -81,8 +64,6 @@ namespace Office.Gameplay
 
         private void OnSwung(WeaponOutcome outcome, Vector3 point)
         {
-            // Resolved late rather than cached in Awake: on a client the player object can
-            // spawn before the boot installers have finished registering services.
             if (pool == null && !ServiceLocator.TryGet(out pool)) return;
 
             var effect = outcome switch
@@ -99,9 +80,6 @@ namespace Office.Gameplay
                 _ => missedClip
             };
 
-            // Facing back towards the player, so sparks come off the surface rather than
-            // through it. The swing direction is the only normal available without asking the
-            // server for one, and for a melee arc it is a good enough approximation.
             var normal = point - transform.position;
             normal.y = 0f;
 

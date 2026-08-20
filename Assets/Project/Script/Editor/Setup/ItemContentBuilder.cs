@@ -9,15 +9,6 @@ using UnityEngine;
 
 namespace Office.Editor
 {
-    /// <summary>
-    /// Content pipeline for items: the carrier prefab, the greybox sample assets, and the
-    /// registry rebuild that hands out network ids.
-    /// </summary>
-    /// <remarks>
-    /// The point of this file is that adding an item should never require touching netcode.
-    /// A definition plus a view prefab is the whole job; 'Rebuild Definition Registry' picks
-    /// the asset up, gives it an id and both machines resolve it from the same table.
-    /// </remarks>
     internal static class ItemContentBuilder
     {
         private const string ItemDefinitionFolder = "Assets/Project/ScriptableObject/Items";
@@ -36,9 +27,6 @@ namespace Office.Editor
         {
             BuildSampleItems();
 
-            // After the items exist and before the registry: combat content attaches modules
-            // to those definitions and adds targets of its own, and every one of them needs an
-            // id from the rebuild that follows.
             CombatContentBuilder.BuildAll();
 
             BuildWorldItemPrefab();
@@ -48,8 +36,6 @@ namespace Office.Editor
             Debug.Log("[Content] Done. Rebuild the session prefab and the boot scene to pick it up.");
         }
 
-        // ------------------------------------------------------------------- carrier
-
         [MenuItem("Office/Content/Build World Item Prefab", priority = 20)]
         public static void BuildWorldItemPrefab()
         {
@@ -57,9 +43,6 @@ namespace Office.Editor
 
             var networkObject = root.AddComponent<NetworkObject>();
 
-            // No NetworkTransform on purpose. NGO already ships position and rotation in the
-            // spawn payload while SynchronizeTransform is on, and a floor item never moves —
-            // adding one would replicate a constant to every client, every tick.
             networkObject.SynchronizeTransform = true;
 
             root.AddComponent<WorldItem>();
@@ -80,13 +63,9 @@ namespace Office.Editor
         public static GameObject LoadWorldItemPrefab() =>
             AssetDatabase.LoadAssetAtPath<GameObject>(WorldItemPrefabPath);
 
-        // ------------------------------------------------------------------- registry
-
         [MenuItem("Office/Content/Rebuild Definition Registry", priority = 30)]
         public static void RebuildRegistry()
         {
-            // Every subclass at once. A new kind of content therefore needs no edit here —
-            // that is the point of the registry holding one array.
             var all = LoadAll<ContentDefinition>();
 
             AssignIds(all);
@@ -114,8 +93,6 @@ namespace Office.Editor
         public static DefinitionRegistry LoadRegistry() =>
             AssetDatabase.LoadAssetAtPath<DefinitionRegistry>(RegistryPath);
 
-        // Ids are handed out once and then left alone. Renaming or moving an asset must not
-        // change its id — a saved run or a connected client would be holding the old one.
         private static void AssignIds(ContentDefinition[] definitions)
         {
             var taken = new Dictionary<int, ContentDefinition>(definitions.Length);
@@ -159,8 +136,6 @@ namespace Office.Editor
         private static T[] LoadAll<T>() where T : ContentDefinition =>
             AssetDatabase.FindAssets($"t:{typeof(T).Name}")
                 .Select(AssetDatabase.GUIDToAssetPath)
-                // Ordered by path so the arrays are stable between machines and the asset
-                // does not churn in version control on every rebuild.
                 .OrderBy(path => path, System.StringComparer.Ordinal)
                 .Select(AssetDatabase.LoadAssetAtPath<T>)
                 .Where(asset => asset != null)
@@ -182,8 +157,6 @@ namespace Office.Editor
                 property.GetArrayElementAtIndex(i).objectReferenceValue = values[i];
         }
 
-        // ------------------------------------------------------------------- samples
-
         [MenuItem("Office/Content/Build Sample Items", priority = 10)]
         public static void BuildSampleItems()
         {
@@ -199,8 +172,6 @@ namespace Office.Editor
                 PrimitiveType.Cylinder, new Vector3(0.09f, 0.06f, 0.09f),
                 new Color(0.86f, 0.82f, 0.74f));
 
-            // Unstackable, because it wears out: two laser pointers in one slot would have to
-            // share a single wear value. See ItemStacking for what that costs.
             BuildSampleItem("ITM_LaserPointer", "LASER", "TAKE", 1,
                 PrimitiveType.Cylinder, new Vector3(0.025f, 0.06f, 0.025f),
                 new Color(0.18f, 0.72f, 0.42f));
@@ -224,20 +195,14 @@ namespace Office.Editor
             serialized.FindProperty("maxStack").intValue = maxStack;
             serialized.FindProperty("pickupVerb").stringValue = verb;
 
-            // Lift the mesh by its own half height so it rests on the marker rather than
-            // sinking into it. Unity's cylinder is two units tall, every other primitive one.
             serialized.FindProperty("groundOffset").floatValue =
                 shape == PrimitiveType.Cylinder ? size.y : size.y * 0.5f;
 
-            // 'id' is deliberately untouched: only the registry rebuild hands ids out, and it
-            // must never renumber an asset that already has one.
             serialized.ApplyModifiedPropertiesWithoutUndo();
 
             EditorUtility.SetDirty(definition);
         }
 
-        // The collider lives here rather than on the carrier, so each item gets a shape that
-        // matches its mesh. WorldItem forces the layer at spawn, so authors cannot get that wrong.
         private static GameObject BuildViewPrefab(string assetName, PrimitiveType shape,
             Vector3 size, Color colour)
         {
@@ -257,9 +222,6 @@ namespace Office.Editor
             return saved;
         }
 
-        // A native texture asset with the sprite as a sub-asset: no PNG on disk and no
-        // TextureImporter settings to get wrong. Real art replaces these by reassigning the
-        // icon field, nothing else.
         private static Sprite BuildIcon(string assetName, Color colour)
         {
             var path = $"{IconFolder}/ICO_{assetName}.asset";
@@ -302,14 +264,10 @@ namespace Office.Editor
             AssetDatabase.CreateAsset(texture, path);
             AssetDatabase.AddObjectToAsset(sprite, texture);
 
-            // Reimporting here would race the sub-asset that was just added and log
-            // "generated inconsistent result". The in-memory sprite is already the asset.
             AssetDatabase.SaveAssets();
 
             return sprite;
         }
-
-        // ------------------------------------------------------------------- helpers
 
         private static T CreateOrLoad<T>(string path) where T : ScriptableObject
         {

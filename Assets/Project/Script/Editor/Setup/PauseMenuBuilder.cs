@@ -47,13 +47,11 @@ namespace Office.Editor
         {
             font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontPath);
 
-
             var root = new GameObject(RootName);
 
             var canvas = root.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
 
-            // Above the HUD (sortingOrder 10).
             canvas.sortingOrder = 30;
 
             var scaler = root.AddComponent<CanvasScaler>();

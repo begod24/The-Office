@@ -9,9 +9,6 @@ using UnityEngine.UI;
 
 namespace Office.UI
 {
-    // Local pause overlay for the run scenes. The game is co-op, so pausing never
-    // freezes the simulation — it only frees the cursor and mutes this player's
-    // input (via LocalPauseChanged, handled by PlayerRig).
     public sealed class PauseScreen : TerminalMenuScreen
     {
         [Header("Panel")]
@@ -63,12 +60,6 @@ namespace Office.UI
         {
             base.Update();
 
-            // The inventory closes on Escape too, and both screens read the key straight from
-            // the device rather than through an action map that is disabled while either is
-            // open. The frame check is what makes the outcome independent of script execution
-            // order: if this ran first it sees the screen still open, and if it ran second it
-            // sees the frame the screen closed on. Without it, the same press that closes the
-            // inventory opens the pause menu — on some machines, some of the time.
             if (busy || inventoryOpen || Time.frameCount == inventoryChangedFrame) return;
 
             var keyboard = Keyboard.current;

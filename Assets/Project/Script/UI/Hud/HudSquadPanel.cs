@@ -2,10 +2,6 @@ using UnityEngine;
 
 namespace Office.UI
 {
-    /// <summary>
-    /// The squad readout. Rows are addressed by seat when they are bound and by client id
-    /// afterwards, because health arrives from the network knowing only who it belongs to.
-    /// </summary>
     public sealed class HudSquadPanel : MonoBehaviour
     {
         [SerializeField] private HudPlayerRow[] rows;
@@ -61,10 +57,6 @@ namespace Office.UI
             return true;
         }
 
-        /// <summary>
-        /// Marks a bound seat as having no body to read. Called for everyone before the run
-        /// starts, so a row never sits at a full bar for a player who has not spawned.
-        /// </summary>
         public bool SetOffline(ulong clientId)
         {
             if (!TryFind(clientId, out var row)) return false;
@@ -73,7 +65,6 @@ namespace Office.UI
             return true;
         }
 
-        /// <summary>Every bound row, so a caller can mark them all before filling some in.</summary>
         public void SetAllOffline()
         {
             if (rows == null) return;

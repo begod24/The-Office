@@ -4,15 +4,6 @@ using Office.Gameplay;
 
 namespace Office.Tests.EditMode
 {
-    /// <summary>
-    /// The rules behind dying, kept honest without a running session.
-    /// </summary>
-    /// <remarks>
-    /// These are the transitions GDD §15 specifies — zero health is downed rather than dead,
-    /// a teammate has sixty seconds — and getting one of them wrong shows up as a player who
-    /// cannot be revived or one who never dies. Both are far cheaper to catch here than in a
-    /// four-player test.
-    /// </remarks>
     public sealed class VitalsTests
     {
         private const float Max = GameplayConstants.MaxPlayerHealth;

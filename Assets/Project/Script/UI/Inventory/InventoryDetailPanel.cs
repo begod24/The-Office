@@ -6,20 +6,6 @@ using UnityEngine;
 
 namespace Office.UI
 {
-    /// <summary>
-    /// What the cell under the cursor actually is: its name, what kind of thing it is, and
-    /// the numbers behind it.
-    /// </summary>
-    /// <remarks>
-    /// The numbers come from <see cref="WeaponResolver"/> rather than from the modules
-    /// directly, so what the player reads here and what the server rules on a swing are the
-    /// same resolution. A readout that computed damage its own way would start lying the
-    /// first time an item carried two modules.
-    /// <para>
-    /// Definitions have no prose field and this does not invent one. Every line below is
-    /// authored data, upper case because the terminal font has no lower case.
-    /// </para>
-    /// </remarks>
     public sealed class InventoryDetailPanel : MonoBehaviour
     {
         [Tooltip("Everything except the frame. Hidden while the cursor is on an empty slot.")]
@@ -36,7 +22,6 @@ namespace Office.UI
 
         private void Awake() => Clear();
 
-        /// <summary>Nothing under the cursor, or a slot the player does not have.</summary>
         public void Clear()
         {
             if (content != null) content.SetActive(false);
@@ -59,11 +44,6 @@ namespace Office.UI
             if (bodyLabel != null) bodyLabel.text = BuildBody(definition, stack);
         }
 
-        /// <summary>
-        /// The kind of thing this is, in one word. Module presence only — the numbers still
-        /// come from the resolver, so this cannot disagree with them about anything that
-        /// matters.
-        /// </summary>
         private static string ResolveClass(ItemDefinition definition)
         {
             if (definition.HasModule<RangedModule>()) return "RANGED WEAPON";
@@ -97,8 +77,6 @@ namespace Office.UI
 
             if (definition.MaxStack > 1) Line($"STACK    {stack.Count} / {definition.MaxStack}");
 
-            // Nothing authored says anything about this item. Better an honest line than a
-            // panel that looks like it failed to load.
             if (builder.Length == 0) builder.Append("NO RECORDED PROPERTIES.");
 
             return builder.ToString();

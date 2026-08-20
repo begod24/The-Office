@@ -4,8 +4,6 @@ using UnityEngine;
 
 namespace Office.UI
 {
-    // Thin stamina line under the crosshair. Fades in while stamina is being spent
-    // and fades back out once it refills, so it never fights for attention.
     public sealed class HudStaminaBar : MonoBehaviour
     {
         [SerializeField] private CanvasGroup group;
@@ -24,7 +22,6 @@ namespace Office.UI
 
             if (group != null) group.alpha = 0f;
 
-            // The player may have spawned before this HUD was loaded.
             TryBindLocalPlayer();
         }
 

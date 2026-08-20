@@ -32,22 +32,12 @@ namespace Office.Gameplay
         private bool inventoryOpen;
         private bool standing = true;
 
-        /// <summary>
-        /// Where this player is looking from. Used by a spectator watching them, which is why
-        /// it is public: a dead player's camera has to go somewhere that still sees the run.
-        /// </summary>
         public Transform EyeAnchor => playerCamera != null ? playerCamera.transform : transform;
 
-        /// <summary>The owner's camera, active on this machine only for the local player.</summary>
         public Camera PlayerCamera => playerCamera;
 
-        // Two overlays and a set of vitals, one input reader. Tracked separately so that
-        // closing either overlay cannot hand control back to a player who is on the floor.
         private bool InputSuspended => paused || inventoryOpen || !standing;
 
-        // Being down is not being in a menu. The view stays locked and first-person — what
-        // the player has lost is the ability to act, and taking the mouse away as well would
-        // read as the game having crashed at the exact moment they need to see the room.
         private bool CursorFree => paused || inventoryOpen;
 
         public override void OnNetworkSpawn()
@@ -106,29 +96,18 @@ namespace Office.Gameplay
             SetCursorLocked(false);
         }
 
-        // The pause overlay owns the cursor and input while it is open. The game keeps
-        // running — co-op never freezes for the other players.
         private void OnPauseChanged(LocalPauseChanged evt)
         {
             paused = evt.IsPaused;
             ApplyState();
         }
 
-        // The inventory takes the same two things for the same reason, and is not a pause:
-        // the body stands there while the player reads, in front of everyone else.
         private void OnInventoryChanged(LocalInventoryChanged evt)
         {
             inventoryOpen = evt.IsOpen;
             ApplyState();
         }
 
-        /// <remarks>
-        /// The gate that makes being downed mean something. Before this, zero health took the
-        /// swing away and left everything else: a downed player walked, looked, picked things
-        /// up and opened their inventory, which reads as a bug rather than as a state. One
-        /// switch here covers all of it, because every one of those systems reads its input
-        /// from the same reader.
-        /// </remarks>
         private void OnVitalsChanged(VitalsState state)
         {
             if (!IsOwner) return;

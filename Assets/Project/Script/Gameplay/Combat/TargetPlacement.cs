@@ -4,14 +4,6 @@ using UnityEngine;
 
 namespace Office.Gameplay
 {
-    /// <summary>
-    /// A level-authored "something breakable goes here" marker.
-    /// </summary>
-    /// <remarks>
-    /// Inert scene data on every machine, exactly like <see cref="ItemPlacement"/> — see
-    /// <see cref="RunScopedSpawner{TPlacement}"/> for why in-scene NetworkObjects are not an
-    /// option while scene management is off.
-    /// </remarks>
     [DisallowMultipleComponent]
     public sealed class TargetPlacement : MonoBehaviour
     {
@@ -27,8 +19,6 @@ namespace Office.Gameplay
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics() => Active.Clear();
 
-        // Registering here rather than scanning the scene keeps the spawner free of a
-        // FindObjectsByType sweep on every run start, the same way ItemPlacement does.
         private void OnEnable() => Active.Add(this);
 
         private void OnDisable() => Active.Remove(this);

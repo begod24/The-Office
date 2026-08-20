@@ -10,20 +10,6 @@ using UnityEngine.AI;
 
 namespace Office.Editor
 {
-    /// <summary>
-    /// Content pipeline for enemies: the one networked carrier every enemy shares, and the
-    /// greybox definitions that make it into something in particular.
-    /// </summary>
-    /// <remarks>
-    /// Same shape as <see cref="CombatContentBuilder"/>'s target half, because an enemy is the
-    /// same arrangement with a brain attached: one registered prefab, a definition per kind, a
-    /// local view built from the definition. Adding the second enemy is an asset and a mesh.
-    /// <para>
-    /// The greybox capsule here is meant to be replaced. What is not throwaway is that replacing
-    /// it means assigning a different <c>viewPrefab</c> on the definition and nothing else — no
-    /// prefab surgery, no registry entry, no netcode change.
-    /// </para>
-    /// </remarks>
     internal static class EnemyContentBuilder
     {
         private const string DefinitionFolder = "Assets/Project/ScriptableObject/Enemies";
@@ -40,8 +26,6 @@ namespace Office.Editor
 
             AssetDatabase.SaveAssets();
 
-            // Ids come from the registry, and an enemy with id 0 resolves to nothing on every
-            // machine including the one that authored it.
             ItemContentBuilder.RebuildRegistry();
 
             Debug.Log("[Enemy] Enemy content built. EnemySpawner reads EnemyPlacement markers " +
@@ -53,11 +37,6 @@ namespace Office.Editor
         public static GameObject LoadEnemyPrefab() =>
             AssetDatabase.LoadAssetAtPath<GameObject>(EnemyPrefabPath);
 
-        // ------------------------------------------------------------------- carrier
-
-        /// <summary>
-        /// The single network prefab every enemy is. One entry in the prefab list, forever.
-        /// </summary>
         [MenuItem("Office/Content/Build Enemy Prefab", priority = 21)]
         public static void BuildEnemyPrefab()
         {
@@ -66,10 +45,6 @@ namespace Office.Editor
             var networkObject = root.AddComponent<NetworkObject>();
             networkObject.SynchronizeTransform = true;
 
-            // Server authority, unlike the player's. An enemy is decided by the machine that
-            // runs its brain, and owner authority on a server-owned object would still be the
-            // server — right up until someone changes ownership and quietly hands a client the
-            // ability to walk an enemy wherever they like.
             var networkTransform = root.AddComponent<NetworkTransform>();
             networkTransform.AuthorityMode = NetworkTransform.AuthorityModes.Server;
             networkTransform.Interpolate = true;
@@ -77,16 +52,11 @@ namespace Office.Editor
             networkTransform.SyncScaleY = false;
             networkTransform.SyncScaleZ = false;
 
-            // Sized from the definition at spawn. The numbers here only decide what the prefab
-            // looks like in the inspector.
             var body = root.AddComponent<CapsuleCollider>();
             body.radius = 0.25f;
             body.height = 0.9f;
             body.center = new Vector3(0f, 0.45f, 0f);
 
-            // Kinematic, and only so the capsule counts as a moving collider. Without it every
-            // step an enemy takes rebuilds the static collision tree, which is a cost paid by
-            // a swarm and nobody else.
             var rigidbody = root.AddComponent<Rigidbody>();
             rigidbody.isKinematic = true;
             rigidbody.useGravity = false;
@@ -96,18 +66,12 @@ namespace Office.Editor
             agent.autoBraking = false;
             agent.stoppingDistance = 0f;
 
-            // Off in the prefab. Enabling an agent that is not standing on a navigation mesh
-            // logs and leaves it inert, and an instantiated prefab is at the world origin —
-            // Enemy.ApplyAgent turns it on once the position is real and the server is the one
-            // asking.
             agent.enabled = false;
 
             var health = root.AddComponent<Health>();
             var enemy = root.AddComponent<Enemy>();
             var brain = root.AddComponent<EnemyBrain>();
 
-            // GDD §7.1 gives the downed state to players. An enemy at zero is destroyed, and
-            // leaving this on would give every stapler a sixty-second bleed-out instead.
             SetBool(health, "canBeDowned", false);
 
             Wire(enemy, ("health", health), ("body", body), ("agent", agent));
@@ -125,21 +89,6 @@ namespace Office.Editor
             Debug.Log($"[Enemy] Carrier prefab written to {EnemyPrefabPath}.");
         }
 
-        // ------------------------------------------------------------------- definitions
-
-        /// <summary>
-        /// The first enemy: GDD §9.1 #13, a fast melee swarm.
-        /// </summary>
-        /// <remarks>
-        /// Chosen to be first because it needs the least. Melee means no projectile behaviour,
-        /// small means no rig, and a swarm exercises the object pool that was built for exactly
-        /// this and has had nothing to recycle since.
-        /// <para>
-        /// Its chase speed sits under the player's sprint on purpose. An enemy that cannot be
-        /// outrun turns every encounter into a fight, and GDD §8.1 wants combat to be the last
-        /// resort rather than the only answer.
-        /// </para>
-        /// </remarks>
         private static void BuildEnemyDefinitions()
         {
             var view = BuildGreyboxView("VIEW_ENM_Stapler", new Color(0.62f, 0.16f, 0.14f),
@@ -161,8 +110,6 @@ namespace Office.Editor
             serialized.FindProperty("acceleration").floatValue = 16f;
             serialized.FindProperty("turnSpeed").floatValue = 900f;
 
-            // No face, so a wide cone. Breaking line of sight still works — that is the counter
-            // GDD §9.1 hands the player, and it is geometry rather than angle.
             serialized.FindProperty("sightRadius").floatValue = 12f;
             serialized.FindProperty("sightAngle").floatValue = 140f;
             serialized.FindProperty("memorySeconds").floatValue = 4f;
@@ -174,18 +121,12 @@ namespace Office.Editor
             serialized.FindProperty("attackWindup").floatValue = 0.3f;
             serialized.FindProperty("attackCooldown").floatValue = 0.9f;
 
-            // Short. A swarm that leaves its dead behind fills a corridor with bodies the player
-            // has to walk through, and the pool never gets them back.
             serialized.FindProperty("corpseSeconds").floatValue = 6f;
 
             serialized.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(stapler);
         }
 
-        /// <summary>
-        /// A box standing in for a mesh. Colliders are stripped — the carrier owns the one the
-        /// swing connects with, so art can arrive with whatever collision it likes.
-        /// </summary>
         private static GameObject BuildGreyboxView(string assetName, Color color, Vector3 size)
         {
             var path = $"{PrefabFolder}/{assetName}.prefab";
@@ -207,13 +148,8 @@ namespace Office.Editor
 
             AssetDatabase.SaveAssets();
 
-            // Reloaded from the path rather than reused: the wrapper returned above goes stale
-            // on the next import, and a stale wrapper assigned to a SerializedProperty writes a
-            // silent null. Architecture §7.1 names this trap.
             return AssetDatabase.LoadAssetAtPath<GameObject>(path) ?? prefab;
         }
-
-        // ------------------------------------------------------------------- helpers
 
         private static Material Material(string assetName, Color color)
         {

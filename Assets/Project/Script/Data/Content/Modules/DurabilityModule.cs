@@ -2,14 +2,6 @@ using UnityEngine;
 
 namespace Office.Data
 {
-    /// <summary>
-    /// Gives an item a finite number of uses.
-    /// </summary>
-    /// <remarks>
-    /// Only the ceiling lives here. How much of it <em>this</em> stapler has left is
-    /// per-instance state and travels in <c>ItemStack.Durability</c> — an asset is shared by
-    /// every copy of the item, so writing wear into it would wear down all of them at once.
-    /// </remarks>
     [CreateAssetMenu(menuName = "Office/Modules/Durability", fileName = "MOD_Durability")]
     public sealed class DurabilityModule : ItemModule
     {

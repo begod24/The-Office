@@ -3,17 +3,6 @@ using UnityEngine;
 
 namespace Office.Data
 {
-    /// <summary>
-    /// A carryable item. Adding one is an asset plus a view prefab — no code, no netcode,
-    /// no new entry in the network prefab list.
-    /// </summary>
-    /// <remarks>
-    /// What an item <em>is</em> lives in these fields; what it <em>does</em> lives in
-    /// <see cref="Modules"/>. The class is unsealed so a genuinely new kind of content can
-    /// subclass it, but reach for a module first — behaviour that arrives as a subclass
-    /// cannot be combined with another subclass, and GDD §8.3 is full of items that need
-    /// exactly that combination.
-    /// </remarks>
     [CreateAssetMenu(menuName = "Office/Content/Item", fileName = "ITM_Item")]
     public class ItemDefinition : ContentDefinition
     {
@@ -53,18 +42,9 @@ namespace Office.Data
 
         public Quaternion HeldRotation => Quaternion.Euler(heldEulerAngles);
 
-        /// <summary>Every capability on this item. Never null.</summary>
         public IReadOnlyList<ItemModule> Modules =>
             modules ?? (IReadOnlyList<ItemModule>)System.Array.Empty<ItemModule>();
 
-        /// <summary>
-        /// The first module of type <typeparamref name="T"/>, or null when the item has none.
-        /// </summary>
-        /// <remarks>
-        /// A linear scan over a list that is realistically two or three entries long beats a
-        /// per-definition dictionary: it allocates nothing, and the attack path calls this
-        /// once per swing, not once per frame.
-        /// </remarks>
         public T GetModule<T>() where T : ItemModule
         {
             if (modules == null) return null;

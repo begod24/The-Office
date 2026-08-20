@@ -8,25 +8,10 @@ using UnityEngine;
 
 namespace Office.UI
 {
-    /// <summary>
-    /// The in-run HUD. Draws the objectives, the squad, the hotbar and the held item, and
-    /// nothing else — GDD §14 keeps it minimal so that the BSOD enemy taking it away is worth
-    /// something.
-    /// </summary>
-    /// <remarks>
-    /// <b>Everything here is a view of state that already exists somewhere else.</b> The squad
-    /// reads each player's replicated <see cref="Health"/>, the hotbar reads the replicated
-    /// <see cref="PlayerInventory"/>, and this component keeps no copy of either. That is why
-    /// it can be destroyed and rebuilt by the editor tooling between runs without losing
-    /// anything.
-    /// </remarks>
     public sealed class HudScreen : MonoBehaviour
     {
         private const int MaxPlayers = 4;
 
-        // The vertical slice has exactly one objective (GDD §16). It is written here rather
-        // than authored on the panel because the panel is generated, and a generated string is
-        // one nobody can edit into disagreeing with the switch that completes it.
         private const string PowerObjective = "RESTORE POWER";
 
         [SerializeField] private HudObjectivesPanel objectives;
@@ -69,8 +54,6 @@ namespace Office.UI
         private DefinitionRegistry definitions;
         private PlayerInventory inventory;
 
-        // Every player's vitals this HUD is currently listening to. Held so the subscriptions
-        // can be dropped again — a body despawns at the end of every run.
         private readonly List<Health> tracked = new(MaxPlayers);
 
         public HudObjectivesPanel Objectives => objectives;
@@ -85,9 +68,6 @@ namespace Office.UI
 
             if (ServiceLocator.TryGet(out lobby)) lobby.Changed += Refresh;
 
-            // The pause overlay and the inventory each replace the HUD for the local player —
-            // both draw the same information larger, and leaving it underneath them reads as
-            // two hotbars.
             if (ServiceLocator.TryGet(out bus))
             {
                 bus.Subscribe<LocalPauseChanged>(OnPauseChanged);
@@ -99,13 +79,9 @@ namespace Office.UI
 
             ServiceLocator.TryGet(out definitions);
 
-            // The player object outlives no run, so the HUD cannot hold a reference across
-            // one. It binds whenever the local inventory appears and lets go when it goes.
             PlayerInventory.LocalChanged += BindInventory;
             BindInventory(PlayerInventory.Local);
 
-            // Same for vitals, except that the squad needs every player's and not only the
-            // local one's — see Health.SpawnedPlayerList.
             Health.SpawnedPlayersChanged += BindVitals;
             BindVitals();
 
@@ -137,8 +113,6 @@ namespace Office.UI
             UntrackAll();
         }
 
-        // ------------------------------------------------------------------- interaction
-
         private void OnPromptChanged(InteractionPromptChanged evt) => SetPrompt(evt.Prompt);
 
         private void SetPrompt(string prompt)
@@ -149,25 +123,10 @@ namespace Office.UI
             interactPrompt.enabled = !string.IsNullOrEmpty(prompt);
         }
 
-        // ------------------------------------------------------------------------ vitals
-
-        /// <summary>
-        /// Subscribes to every spawned player's vitals and drops the ones that have gone.
-        /// </summary>
-        /// <remarks>
-        /// This is the wiring that was missing: the panel and its setters existed, and nothing
-        /// ever called them, so damage changed the numbers on the network and the HUD went on
-        /// drawing full bars. Bound per instance rather than through the event bus because the
-        /// bus carries only the local player's vitals — <c>LocalVitalsChanged</c> has no client
-        /// id on it and cannot grow one without <c>Office.Core</c> learning what a player is.
-        /// </remarks>
         private void BindVitals()
         {
             UntrackAll();
 
-            // A seat with no body reads as OFFLINE rather than as a full bar. Between runs
-            // that is the truth, and during one it is the half-second before a late joiner's
-            // player object arrives.
             if (squad != null) squad.SetAllOffline();
 
             var players = Health.SpawnedPlayerList;
@@ -193,8 +152,6 @@ namespace Office.UI
             tracked.Clear();
         }
 
-        // The state arrives without saying who it belongs to, so every tracked player is
-        // redrawn. There are at most four, and this only runs when someone is hurt.
         private void OnVitalsChanged(VitalsState state)
         {
             foreach (var health in tracked)
@@ -218,9 +175,6 @@ namespace Office.UI
 
             if (!ReferenceEquals(health, Health.Local)) return;
 
-            // Two states, two screens. The banner is a countdown a teammate can still stop;
-            // the death screen is what is left when it ran out, and showing the banner for
-            // both told a dead player they had time they no longer had.
             SetDownedBanner(state.IsDowned, state.BleedOutRemaining);
             SetDeathScreen(state.IsDead);
         }
@@ -231,8 +185,6 @@ namespace Office.UI
 
             if (deathLabel == null || !visible) return;
 
-            // The artwork already carries the stop screen's own copy. The only thing added is
-            // what it cannot know: that the run is still going and there is something to do.
             deathLabel.text = "[ LMB ]  or  [ A / D ]   watch a colleague";
         }
 
@@ -245,14 +197,6 @@ namespace Office.UI
             if (outcomeLabel != null && visible) outcomeLabel.text = message;
         }
 
-        // ---------------------------------------------------------------------- the run
-
-        /// <remarks>
-        /// The HUD is the only thing that reads the terminal states. They exist for exactly
-        /// one network tick — <c>SessionDirector</c> has to pass through one before it can
-        /// write Lobby — which is enough to put a screen up and let the scene change take it
-        /// away again.
-        /// </remarks>
         private void OnGameStateChanged(GameStateChanged evt)
         {
             switch (evt.Current)
@@ -302,12 +246,6 @@ namespace Office.UI
                 ? $"DOWNED   {Mathf.CeilToInt(bleedOutRemaining)}"
                 : "DOWNED";
         }
-
-        // No Update here, deliberately. The server ticks the bleed-out clock into the
-        // replicated state every frame (Health.Update), so the countdown arrives as ordinary
-        // state changes and redrawing it locally would be a second, disagreeing clock.
-
-        // --------------------------------------------------------------------- inventory
 
         private void BindInventory(PlayerInventory next)
         {
@@ -381,8 +319,6 @@ namespace Office.UI
             heldItem.Show(Resolve(stack.DefinitionId), stack);
         }
 
-        // A missing definition is a content bug, not a reason to blank the slot: the count
-        // still draws, so the player can see they are carrying something.
         private Sprite IconFor(int definitionId)
         {
             var definition = Resolve(definitionId);
@@ -394,8 +330,6 @@ namespace Office.UI
             definitions.TryGet<ItemDefinition>(definitionId, out var definition)
                 ? definition
                 : null;
-
-        // ------------------------------------------------------------------- visibility
 
         private void OnPauseChanged(LocalPauseChanged evt)
         {
@@ -409,7 +343,6 @@ namespace Office.UI
             ApplyVisibility();
         }
 
-        // Two overlays can hide the HUD, and either can close while the other is still up.
         private void ApplyVisibility()
         {
             if (group != null) group.alpha = paused || inventoryOpen ? 0f : 1f;
@@ -419,8 +352,6 @@ namespace Office.UI
         {
             if (crosshair != null) crosshair.SetActive(visible);
         }
-
-        // ------------------------------------------------------------------------ squad
 
         private void Refresh()
         {
@@ -445,8 +376,6 @@ namespace Office.UI
 
             squad.HideFrom(shown);
 
-            // The roster just replaced every row, so whatever health they were showing went
-            // with it. Re-reading the vitals is what puts it back.
             BindVitals();
         }
     }

@@ -22,8 +22,6 @@ namespace Office.Tests.EditMode
         [Test]
         public void AnAuthoredLevelIsGameplayWithoutBeingListed()
         {
-            // The point of asking from the front-end side: levels are authored, named by
-            // whoever adds them, and must not need a code change to go quiet.
             Assert.IsTrue(SceneNames.IsGameplay("SCN_Level_1"));
             Assert.IsTrue(SceneNames.IsGameplay("SCN_Floor_Accounting"));
             Assert.IsTrue(SceneNames.IsGameplay(SceneNames.RunBase));

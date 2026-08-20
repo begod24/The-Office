@@ -73,21 +73,6 @@ namespace Office.Network
             manager.OnClientStopped += OnClientStopped;
         }
 
-        /// <summary>
-        /// Turns on approval and fixes both sides of it, here at boot.
-        /// </summary>
-        /// <remarks>
-        /// Both the payload a client presents and the value a server expects come from
-        /// <see cref="ConnectionHandshake.Build"/>, so an identical build always agrees with
-        /// itself. It has to happen before anything connects, and the Multiplayer Services SDK
-        /// starts the NetworkManager from inside its own create-or-join call — by then it is
-        /// too late.
-        /// <para>
-        /// The flag is also written into the scene by the boot builder. Setting it again here
-        /// costs nothing and means a boot scene that was not regenerated fails closed rather
-        /// than silently accepting anyone.
-        /// </para>
-        /// </remarks>
         private void ConfigureConnectionApproval(NetworkManager manager)
         {
             manager.NetworkConfig.ConnectionApproval = true;
@@ -106,8 +91,6 @@ namespace Office.Network
 
             response.Approved = presented == expected;
 
-            // Players are spawned by PlayerSpawner when the run starts, not by NGO on
-            // connection — the lobby has no bodies in it.
             response.CreatePlayerObject = false;
             response.Reason = response.Approved ? string.Empty : ConnectionHandshake.MismatchReason;
 
@@ -128,16 +111,6 @@ namespace Office.Network
                       "already under way.");
         }
 
-        /// <summary>
-        /// Whether a joiner may still come in. False once the run has started.
-        /// </summary>
-        /// <remarks>
-        /// Read from <see cref="IGameStateService"/> rather than from
-        /// <c>SessionDirector</c>: approval runs on a host that may not have spawned the
-        /// session object yet, and the state service exists from boot. The host's own
-        /// connection travels this callback too and must never be refused by it — it is the
-        /// one client whose arrival cannot be mid-run, because the run cannot exist before it.
-        /// </remarks>
         private bool IsLobbyOpenTo(ulong clientId)
         {
             var manager = Manager;
@@ -150,9 +123,6 @@ namespace Office.Network
                 or GameState.FloorTransition or GameState.RunComplete or GameState.RunFailed);
         }
 
-        // NetworkManager.PrefabHandler does not exist until the manager initialises, which is
-        // why this cannot happen in Install. Both callbacks fire on a host, and registration
-        // is idempotent for exactly that reason.
         private void RegisterPooledPrefabs()
         {
             var manager = Manager;
@@ -164,19 +134,6 @@ namespace Office.Network
 
         private void OnClientStarted() => RegisterPooledPrefabs();
 
-        /// <summary>
-        /// The local client's connection ended — cleanly, or because the host went away.
-        /// </summary>
-        /// <remarks>
-        /// GDD §15: a host disconnect ends the session for everyone and returns them to the
-        /// menu. Without this the client sits in the run scene with a dead session, no
-        /// message and no way out: the session object is despawned, so nothing that lives on
-        /// it can react — which is exactly why this handler is in the boot scene.
-        /// <para>
-        /// The host is skipped. It stopped its own server, and <see cref="OnServerStopped"/>
-        /// has already run for it.
-        /// </para>
-        /// </remarks>
         private void OnClientStopped(bool wasHost)
         {
             pool?.Clear();
@@ -193,8 +150,6 @@ namespace Office.Network
             if (ServiceLocator.TryGet<IGameStateService>(out var state))
                 state.SetFromAuthority(GameState.MainMenu);
 
-            // Whatever is loaded goes, because which run scene it was depends on the level.
-            // Boot survives — it is the composition root and never unloads.
             if (ServiceLocator.TryGet<ISceneLoader>(out var loader))
                 _ = loader.ReturnToAsync(SceneNames.MainMenu, SceneNames.Boot);
         }
@@ -250,8 +205,6 @@ namespace Office.Network
                 manager.OnClientStarted -= OnClientStarted;
                 manager.OnClientStopped -= OnClientStopped;
 
-                // The callback holds a reference to this installer; a torn-down composition
-                // root must not stay reachable from the NetworkManager.
                 manager.ConnectionApprovalCallback = null;
             }
 

@@ -7,11 +7,6 @@ using UnityEngine;
 
 namespace Office.Editor
 {
-    /// <summary>
-    /// Builds the animated character player prefabs: fills the man/woman animator
-    /// controllers, creates PF_Player_Man / PF_Player_Woman variants with the
-    /// rigged models, and wires the PlayerSpawner and network prefab list.
-    /// </summary>
     internal static class CharacterPlayerBuilder
     {
         private const string AnimFolder = "Assets/Project/Art/Animations/Charachters";
@@ -22,8 +17,6 @@ namespace Office.Editor
         private const string WomanVariantPath = "Assets/Project/Prefab/Player/PF_Player_Woman.prefab";
         private const string SessionPrefabPath = "Assets/Project/Prefab/Systems/PF_Session.prefab";
 
-        // Walk speed / sprint speed from CFG_PlayerMovement (3.2 / 5.6): the blend
-        // position where the walk cycle sits on the normalized velocity axes.
         private const float WalkRatio = 0.571f;
 
         [MenuItem("Office/Setup/Build Character Players", priority = 46)]
@@ -46,9 +39,6 @@ namespace Office.Editor
 
             AssetDatabase.SaveAssets();
 
-            // Building the variants no longer decides who spawns. That choice is one of
-            // the two menu items below, so re-running this cannot quietly swap the player
-            // out from under a session that is being tested with the greybox capsule.
             Debug.Log("[Setup] Character players built. Use 'Office/Setup/Player Prefab/...' " +
                       "to choose which prefab the spawner uses.");
         }
@@ -64,8 +54,6 @@ namespace Office.Editor
                 return;
             }
 
-            // Both seats get the same prefab: the spawner falls back to the man prefab
-            // whenever the woman prefab is empty.
             if (!WireSpawner(greybox, null)) return;
 
             NetworkPrefabRegistry.Register(greybox);
@@ -74,7 +62,6 @@ namespace Office.Editor
             Debug.Log("[Setup] Every player now spawns as PF_Player (greybox capsule).");
         }
 
-        // No '/' in the leaf name — Unity reads it as another submenu level.
         [MenuItem("Office/Setup/Player Prefab/Use Character Models", priority = 48)]
         public static void UseCharacterPlayers()
         {
@@ -94,8 +81,6 @@ namespace Office.Editor
 
             Debug.Log("[Setup] Players now spawn as the animated character variants.");
         }
-
-        // ----------------------------------------------------------------- animator
 
         private static void BuildController(string path)
         {
@@ -124,7 +109,6 @@ namespace Office.Editor
             foreach (var child in stateMachine.states)
                 stateMachine.RemoveState(child.state);
 
-            // Re-runs leave the previous blend tree behind as an orphaned sub-asset.
             foreach (var subAsset in AssetDatabase.LoadAllAssetsAtPath(path))
                 if (subAsset is BlendTree stale)
                     Object.DestroyImmediate(stale, true);
@@ -169,7 +153,6 @@ namespace Office.Editor
             tree.AddChild(Clip("Right_Run"), new Vector2(1f, 0f));
             tree.AddChild(Clip("Walking"), new Vector2(0f, -WalkRatio));
 
-            // The last child is the backpedal: the walk cycle played in reverse.
             var children = tree.children;
             children[children.Length - 1].timeScale = -1f;
             tree.children = children;
@@ -193,8 +176,6 @@ namespace Office.Editor
             return clip;
         }
 
-        // ----------------------------------------------------------------- prefabs
-
         private static GameObject BuildVariant(string fbxPath, string controllerPath, string variantPath)
         {
             var basePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(BasePlayerPath);
@@ -207,8 +188,6 @@ namespace Office.Editor
                 return null;
             }
 
-            // The shared clips are humanoid muscle clips, so they only retarget onto a
-            // model imported with Rig > Animation Type = Humanoid.
             var avatar = LoadAvatar(fbxPath);
 
             if (avatar == null || !avatar.isHuman || !avatar.isValid)
@@ -270,7 +249,6 @@ namespace Office.Editor
             }
         }
 
-        // The avatar is a sub-asset of the FBX, so it needs the full asset list.
         private static Avatar LoadAvatar(string fbxPath)
         {
             foreach (var asset in AssetDatabase.LoadAllAssetsAtPath(fbxPath))
@@ -286,10 +264,6 @@ namespace Office.Editor
             if (child != null) child.gameObject.SetActive(active);
         }
 
-        // ----------------------------------------------------------------- wiring
-
-        // A null woman prefab is legal — the spawner then uses the man prefab for every
-        // seat. A null man prefab is not: nothing would spawn.
         private static bool WireSpawner(GameObject man, GameObject woman)
         {
             if (man == null)

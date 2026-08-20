@@ -141,22 +141,6 @@ namespace Office.Gameplay
             }
         }
 
-        /// <summary>
-        /// Owner only. Spends stamina on something other than sprinting — a melee swing —
-        /// and returns false when there is not enough.
-        /// </summary>
-        /// <remarks>
-        /// Owner-authoritative on purpose, because stamina already is: the value is computed
-        /// here and replicated outward for display only, so there is no server-side copy to
-        /// validate against. That is a deliberate trade. Stamina gates how a swing
-        /// <em>feels</em>, while the things a modified client could actually abuse — reach,
-        /// rate of fire and damage — are all re-checked by the server in
-        /// <see cref="PlayerAttacker"/>. The worst a cheat buys here is swinging while tired.
-        /// <para>
-        /// Draining past zero locks sprinting through the same path exhaustion does, so
-        /// fighting and running compete for one resource rather than two.
-        /// </para>
-        /// </remarks>
         public bool TrySpendStamina(float amount)
         {
             if (!IsOwner || config == null) return false;

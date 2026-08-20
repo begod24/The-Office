@@ -35,19 +35,10 @@ namespace Office.Gameplay
         public bool InteractPressedThisFrame { get; private set; }
         public bool DropPressedThisFrame { get; private set; }
 
-        /// <summary>Toggle, not hold: a light the player has to keep a finger on is a chore.</summary>
         public bool FlashlightPressedThisFrame { get; private set; }
 
-        /// <summary>
-        /// Zero-based slot the player asked for by number this frame, or -1 for none.
-        /// Keyboard selection is direct: key 1 is slot 1, and nothing steps or wraps.
-        /// </summary>
         public int HotbarSlot { get; private set; } = -1;
 
-        /// <summary>
-        /// One step through the hotbar this frame, from the gamepad d-pad. Negative is
-        /// towards slot one. A pad has no number row, so it is the only stepping input.
-        /// </summary>
         public int HotbarStep { get; private set; }
 
         public bool LookIsPointerDelta { get; private set; } = true;
@@ -85,10 +76,6 @@ namespace Office.Gameplay
             previousAction = Resolve("Previous");
             nextAction = Resolve("Next");
 
-            // One action per slot rather than one clever action: a designer rebinding this
-            // sees five named rows in the Input Actions window instead of scale processors.
-            // Hand slots only: the backpack has no number keys, and a Hotbar5 action would
-            // select a slot the HUD does not draw.
             slotActions = new InputAction[GameplayConstants.HotbarSlots];
             for (var i = 0; i < slotActions.Length; i++) slotActions[i] = Resolve($"Hotbar{i + 1}");
         }
@@ -116,8 +103,6 @@ namespace Office.Gameplay
             SprintHeld = sprintAction?.IsPressed() ?? false;
             CrouchHeld = crouchAction?.IsPressed() ?? false;
             JumpPressedThisFrame = jumpAction?.WasPressedThisFrame() ?? false;
-            // WasPressedThisFrame reads the raw actuation, so the 'Hold' interaction the
-            // template put on Interact does not delay it. Interact stays press-to-use.
             InteractPressedThisFrame = interactAction?.WasPressedThisFrame() ?? false;
             DropPressedThisFrame = dropAction?.WasPressedThisFrame() ?? false;
             FlashlightPressedThisFrame = flashlightAction?.WasPressedThisFrame() ?? false;

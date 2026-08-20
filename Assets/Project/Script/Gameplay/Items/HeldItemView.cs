@@ -3,20 +3,6 @@ using UnityEngine;
 
 namespace Office.Gameplay
 {
-    /// <summary>
-    /// Shows the selected item in the player's hand, on every machine that can see them.
-    /// </summary>
-    /// <remarks>
-    /// This component sends nothing and receives nothing. The two facts it needs are already
-    /// replicated by <see cref="PlayerInventory"/> — the slots as a server-written
-    /// NetworkList, the selected index as an owner-written NetworkVariable — so every peer
-    /// can work out what every player is holding from state it already has. Replicating the
-    /// held item separately would be a second source of truth for the same fact, and the two
-    /// would disagree the first time a pickup and a slot change landed in the same tick.
-    ///
-    /// It runs identically on the owner and on remote instances, which is the whole reason
-    /// the holder and everyone else see the same thing.
-    /// </remarks>
     [DisallowMultipleComponent]
     public sealed class HeldItemView : MonoBehaviour
     {
@@ -29,7 +15,6 @@ namespace Office.Gameplay
         private int shownDefinitionId = ContentDefinition.NoId;
         private GameObject view;
 
-        /// <summary>The item currently in hand, or null. Presentation only.</summary>
         public ItemDefinition Held { get; private set; }
 
         private void Awake()
@@ -42,9 +27,6 @@ namespace Office.Gameplay
                 return;
             }
 
-            // Before PlayerInventory.OnNetworkSpawn, which raises Changed once the initial
-            // slot data has arrived — that first raise is what builds the view on a client
-            // joining a run already in progress.
             inventory.Changed += Refresh;
         }
 
@@ -61,7 +43,6 @@ namespace Office.Gameplay
                 ? inventory[index]
                 : ItemStack.Empty;
 
-            // The count changes as a stack is topped up; the mesh in the hand does not.
             if (stack.DefinitionId == shownDefinitionId) return;
 
             shownDefinitionId = stack.DefinitionId;

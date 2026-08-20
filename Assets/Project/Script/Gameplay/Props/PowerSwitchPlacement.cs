@@ -3,16 +3,6 @@ using UnityEngine;
 
 namespace Office.Gameplay
 {
-    /// <summary>
-    /// A level-authored "the switch for this zone goes here" marker.
-    /// </summary>
-    /// <remarks>
-    /// Inert scene data on every machine, exactly like <see cref="ItemPlacement"/> and
-    /// <see cref="TargetPlacement"/> — see <see cref="RunScopedSpawner{TPlacement}"/> for why
-    /// an in-scene NetworkObject is not an option while scene management is off. Which also
-    /// means the button a player presses is spawned at run start and taken away at the end,
-    /// rather than standing in the scene as a prop that only works for the host.
-    /// </remarks>
     [DisallowMultipleComponent]
     public sealed class PowerSwitchPlacement : MonoBehaviour
     {

@@ -9,49 +9,16 @@ using UnityEngine.SceneManagement;
 
 namespace Office.Editor
 {
-    /// <summary>
-    /// The navigation agent the office is built for, and the bake that answers it.
-    /// </summary>
-    /// <remarks>
-    /// <b>Unity's built-in Humanoid agent cannot be used here.</b> It is half a metre wide, and a
-    /// baked mesh is eroded by the agent's radius on both sides of every obstacle — so a doorway
-    /// has to be wider than a metre before any of it survives. Real office doors are 0.8–0.9 m
-    /// and the greybox partition's is exactly one; baking with Humanoid produces a mesh with no
-    /// connection through the only door in the sandbox, and the failure is silent. An enemy just
-    /// stands there.
-    /// <para>
-    /// So the project owns an agent type of its own. One type, not one per enemy: every agent
-    /// sizes its own radius and height from its <see cref="EnemyDefinition"/>, but they all walk
-    /// the same baked mesh, and the mesh has to be baked for the tightest thing that uses it.
-    /// A crawling enemy that wants under a desk needs a second type and a second bake — that is
-    /// the day to add one, not before.
-    /// </para>
-    /// <para>
-    /// The id is a fixed constant rather than the hash Unity assigns through the Navigation
-    /// window, because it has to match on every machine and in every scene. A surface baked
-    /// against one id and an agent asking for another produce a mesh nothing can stand on, and
-    /// nothing is logged.
-    /// </para>
-    /// </remarks>
     internal static class NavigationSetup
     {
-        /// <summary>
-        /// The office agent's type id. Humanoid is 0; the Navigation window hands out large
-        /// negative hashes, so a small positive number cannot collide with either.
-        /// </summary>
         public const int OfficeAgentTypeId = 1;
 
         public const string OfficeAgentName = "Office";
 
-        // Enough to pass a 1 m doorway with room on both sides, which Humanoid's 0.5 is not.
         private const float AgentRadius = 0.25f;
 
-        // Head height for anything that walks upright. Deliberately not an enemy's own height:
-        // this is the clearance the mesh guarantees, and it has to hold for the tallest user.
         private const float AgentHeight = 1.8f;
 
-        // The player's step offset, from CFG_PlayerMovement. Anything a player can walk up, an
-        // enemy has to be able to follow them up, or a chase ends on a 0.3 m riser.
         private const float AgentClimb = 0.35f;
 
         private const float AgentSlope = 45f;
@@ -126,30 +93,14 @@ namespace Office.Editor
             Set(element, "ledgeDropHeight", 0f);
             Set(element, "maxJumpAcrossDistance", 0f);
 
-            // Square metres. Below this an island is dropped, which is what keeps desktops and
-            // window sills out of the mesh.
             Set(element, "minRegionArea", 2f);
 
-            // Everything else in the record — buildHeightMesh, maxJobWorkers,
-            // preserveTilesOutsideBounds — is left at Unity's default on purpose. The set of
-            // fields moves between versions (serializedVersion 3 dropped accuratePlacement), and
-            // Set warns rather than throws when one is gone.
-
-            // Derived from the radius rather than typed: a cell wider than a third of the agent
-            // rounds a doorway shut again, which is the failure this whole file exists to avoid.
             Set(element, "manualCellSize", 0f);
             Set(element, "cellSize", AgentRadius / 3f);
             Set(element, "manualTileSize", 0f);
             Set(element, "tileSize", 256f);
         }
 
-        /// <remarks>
-        /// One setter that reads the property's own type rather than two overloads that assume
-        /// it. NavMeshAreas.asset is an internal Unity format: several of these fields are
-        /// written as integers in the YAML and are booleans in the object model, and assigning
-        /// through the wrong accessor logs an error and leaves the value alone — which would
-        /// produce a bake that silently ignored half of what was asked for.
-        /// </remarks>
         private static void Set(SerializedProperty element, string name, float value)
         {
             var property = element.FindPropertyRelative(name);
@@ -182,22 +133,6 @@ namespace Office.Editor
             }
         }
 
-        // ------------------------------------------------------------------ baking
-
-        /// <summary>
-        /// Re-bakes the open scene's navigation without regenerating the rest of it.
-        /// </summary>
-        /// <remarks>
-        /// The same escape hatch the HUD, inventory and pause menu already have, and it exists
-        /// for the same reason: a full <c>Build ... Scene</c> opens an empty scene and saves over
-        /// the file, which is the right move when the builder changed and much too large a move
-        /// when only the floor did. Moving a wall and re-baking is a thing that happens all day.
-        /// <para>
-        /// Reuses whatever surface the scene already has rather than adding a second. Two
-        /// surfaces over the same floor bake two overlapping meshes, and an agent placed on the
-        /// pair picks one — which looks like an enemy that ignores a wall on some spawns only.
-        /// </para>
-        /// </remarks>
         [MenuItem("Office/Setup/Bake Navigation In Open Scene", priority = 43)]
         public static void BakeInOpenScene()
         {
@@ -233,24 +168,9 @@ namespace Office.Editor
             Debug.Log($"[Setup] Navigation re-baked in {scene.name} and the scene saved.");
         }
 
-        /// <summary>Where a scene's baked mesh lives. Beside the scenes, never inside one.</summary>
         public static string DataPathFor(string sceneName) =>
             $"Assets/Project/Scenes/Navigation/NavMesh_{sceneName}.asset";
 
-        /// <summary>
-        /// Adds a baked <see cref="NavMeshSurface"/> to the open scene and returns it.
-        /// </summary>
-        /// <remarks>
-        /// The data is written to its own asset and then <b>reloaded from that path</b> before it
-        /// is assigned. Architecture §7.1: a reference to an asset created moments earlier goes
-        /// stale on the next import, and assigning the stale wrapper writes a silent null — which
-        /// here means a scene that saves with a surface holding no mesh at all.
-        /// <para>
-        /// Baking at edit time is right while levels are hand-built. Procedural floors cannot be
-        /// baked ahead of knowing their shape, so <c>Office.LevelGen</c> will bake on the server
-        /// at run start instead; the agent type above is the part both paths share.
-        /// </para>
-        /// </remarks>
         public static NavMeshSurface BuildSurface(Transform parent, string dataAssetPath)
         {
             var host = new GameObject("Navigation");
@@ -262,7 +182,6 @@ namespace Office.Editor
             return surface;
         }
 
-        /// <summary>Configures one surface the way the office needs it and bakes it to disk.</summary>
         private static void Bake(NavMeshSurface surface, string dataAssetPath)
         {
             EnsureOfficeAgentType();
@@ -270,8 +189,6 @@ namespace Office.Editor
             surface.agentTypeID = OfficeAgentTypeId;
             surface.collectObjects = CollectObjects.All;
 
-            // Colliders, not renderers: the mesh has to agree with what a player actually walks
-            // on, and PhysicsLayers.WalkableMask is expressed in layers a collider carries.
             surface.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
             surface.layerMask = PhysicsLayers.WalkableMask;
 
@@ -288,8 +205,6 @@ namespace Office.Editor
 
             if (!string.IsNullOrEmpty(folder) && !AssetDatabase.IsValidFolder(folder))
             {
-                // Refreshed, not just created: CreateAsset writes into the AssetDatabase, and
-                // a folder it has not imported yet is a folder it will refuse to write to.
                 Directory.CreateDirectory(folder);
                 AssetDatabase.Refresh();
             }

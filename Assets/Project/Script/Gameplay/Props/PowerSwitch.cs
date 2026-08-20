@@ -5,18 +5,6 @@ using UnityEngine;
 
 namespace Office.Gameplay
 {
-    /// <summary>
-    /// The switch that puts a power zone back on — and, for the one that carries the run's
-    /// objective, the thing that ends the shift. GDD §10.2 and §16.
-    /// </summary>
-    /// <remarks>
-    /// <b>The first thing to publish <c>PowerStateChanged</c>.</b> The event and its zone state
-    /// were authored long before anything raised them; this is the other end. It is published
-    /// from the replicated value's change callback rather than from
-    /// <see cref="Interact"/>, so every machine raises it from the same fact at the same
-    /// moment — a server-side publish would leave every client's lights, doors and HUD reading
-    /// a zone that is still off.
-    /// </remarks>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(NetworkObject))]
     public sealed class PowerSwitch : NetworkBehaviour, IInteractable
@@ -40,9 +28,6 @@ namespace Office.Gameplay
         private readonly NetworkVariable<bool> completesRun = new(
             false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
-        // Replicated rather than applied on the server alone: the collider is what every
-        // client's own crosshair probes against, and the hidden art is what every client
-        // draws. Both are per-machine facts that have to arrive with the spawn.
         private readonly NetworkVariable<Vector3> volumeSize = new(
             new Vector3(0.34f, 0.5f, 0.18f),
             NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
@@ -55,36 +40,20 @@ namespace Office.Gameplay
 
         private MaterialPropertyBlock block;
 
-        // Server only, consumed at spawn. Held in plain fields rather than written straight
-        // into the NetworkVariables above for the same reason Health.ServerConfigure defers:
-        // a value written before the spawn rides the spawn payload, and one written after
-        // arrives as a delta a client that was still loading can miss.
         private int pendingZone;
         private bool pendingCompletesRun;
         private FixedString64Bytes pendingLabel;
         private Vector3 pendingVolume = new(0.34f, 0.5f, 0.18f);
         private bool pendingUseLevelArt;
 
-        /// <inheritdoc />
         public string Prompt => isOn.Value ? string.Empty : label.Value.ToString();
 
-        /// <inheritdoc />
         public bool IsAvailable => IsSpawned && !isOn.Value;
 
-        /// <summary>Whether this zone is powered. Replicated, so every machine agrees.</summary>
         public bool IsOn => isOn.Value;
 
         public int ZoneId => zone.Value;
 
-        /// <summary>
-        /// Server only, before <c>Spawn()</c>. Everything the marker authored, plus the judge
-        /// to tell when the objective is done.
-        /// </summary>
-        /// <remarks>
-        /// Written before the spawn on purpose: these ride the spawn payload, so a late joiner
-        /// reads the same prompt and the same zone as everyone else instead of receiving them
-        /// as a delta it may have missed.
-        /// </remarks>
         public void ServerInitialise(PowerSwitchPlacement placement, RunOutcome judge)
         {
             outcome = judge;
@@ -105,8 +74,6 @@ namespace Office.Gameplay
         {
             if (IsServer)
             {
-                // Assigned unconditionally, never topped up: this carrier is pooled, and a
-                // returning instance still holds the last marker's zone and prompt.
                 zone.Value = pendingZone;
                 completesRun.Value = pendingCompletesRun;
                 label.Value = pendingLabel;
@@ -129,7 +96,6 @@ namespace Office.Gameplay
 
             ApplyIndicator(isOn.Value);
 
-            // A late joiner walks into a zone that is already on and has to see it that way.
             if (isOn.Value) Publish(true);
         }
 
@@ -141,7 +107,6 @@ namespace Office.Gameplay
             outcome = null;
         }
 
-        /// <inheritdoc />
         public void Interact(ulong clientId)
         {
             if (!IsServer || !IsAvailable) return;
@@ -157,10 +122,6 @@ namespace Office.Gameplay
                                   "will not end.", this);
         }
 
-        /// <summary>
-        /// Sizes the volume the crosshair finds, and hides this carrier's own art when the
-        /// level already draws the switch.
-        /// </summary>
         private void ApplyVolume()
         {
             var box = GetComponent<BoxCollider>();
@@ -196,9 +157,6 @@ namespace Office.Gameplay
 
             var colour = powered ? onColour : offColour;
 
-            // Both, because URP's lit shader reads _BaseColor and the emission that makes this
-            // readable in an unlit room reads _EmissionColor. A property block rather than a
-            // material instance: one switch must not leak a material per spawn.
             block.SetColor(BaseColour, colour);
             block.SetColor(EmissionColour, colour * (powered ? 1.6f : 2.2f));
 

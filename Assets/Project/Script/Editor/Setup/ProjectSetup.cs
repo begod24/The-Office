@@ -26,14 +26,10 @@ namespace Office.Editor
         private const string PlayerBodyMaterialPath =
             MaterialFolder + "/Charachters/MAT_Cylinder.mat";
 
-        // The one background track. It sits in the SFX folder because that is where it was
-        // imported; move it and this constant, not one without the other.
         private const string MenuTrackPath = "Assets/Project/Audio/SFX/SFX_BackMainMenu.mp3";
 
         private const string ScenesFolder = "Assets/Project/Scenes";
 
-        // Authored levels live here and nothing regenerates them. Build settings pick up
-        // whatever is in this folder, so adding a level never means editing this file.
         private const string LevelsFolder = ScenesFolder + "/Level";
 
         private const string MovementConfigPath = ConfigFolder + "/CFG_PlayerMovement.asset";
@@ -41,8 +37,6 @@ namespace Office.Editor
         private const string InteractionConfigPath = ConfigFolder + "/CFG_Interaction.asset";
         private const string CombatConfigPath = ConfigFolder + "/CFG_Combat.asset";
 
-        // Right hand height, slightly forward. Authored by hand in the prefab first; moving
-        // it means editing this line, not the asset, or the next rebuild reverts it.
         private static readonly Vector3 SocketLocalPosition = new(0.256f, 1.251f, 0.437f);
 
         private static string BootScenePath => $"{ScenesFolder}/{SceneNames.Boot}.unity";
@@ -58,8 +52,6 @@ namespace Office.Editor
             ConfigureCollisionMatrix();
             CreateConfigAssets();
 
-            // Content first: the session prefab needs the item carrier, and the boot scene
-            // needs the registry. Both are silent nulls if they are built afterwards.
             ItemContentBuilder.BuildAll();
 
             BuildPlayerPrefab();
@@ -98,11 +90,6 @@ namespace Office.Editor
 
             Disable(masks, PhysicsLayers.Player, PhysicsLayers.Player);
 
-            // A stapler on the floor must not shove a running player off course. Queries take
-            // a layer mask and ignore this matrix entirely, so the interaction probe still
-            // finds these colliders. Anything that should physically block — a closed door —
-            // puts its blocking collider on LevelGeometry and keeps only its interaction
-            // collider here.
             Disable(masks, PhysicsLayers.Player, PhysicsLayers.Interactable);
 
             var serialized = new SerializedObject(assets[0]);
@@ -181,10 +168,6 @@ namespace Office.Editor
 
             var body = BuildGreyboxBody(root.transform);
 
-            // Where a carried item hangs. Authored by hand first, kept here so regenerating
-            // the prefab no longer wipes it — a rig point is exactly the kind of thing that
-            // must survive a rebuild. Under the body rather than the camera: the item has to
-            // sit in one place for the holder and for everyone watching them.
             var socket = new GameObject("Socket") { layer = PhysicsLayers.Player };
             socket.transform.SetParent(root.transform, false);
             socket.transform.localPosition = SocketLocalPosition;
@@ -193,9 +176,6 @@ namespace Office.Editor
             pivot.transform.SetParent(root.transform, false);
             pivot.transform.localPosition = new Vector3(0f, 1.62f, 0f);
 
-            // A sibling of the camera under the pivot, never a child of it: PlayerRig switches
-            // the camera object off on remote instances, and a beam parented to it would be
-            // invisible on exactly the machines that need to see a teammate's light.
             var flashlightObject = new GameObject("Flashlight");
             flashlightObject.transform.SetParent(pivot.transform, false);
             flashlightObject.transform.localPosition = new Vector3(0.18f, -0.1f, 0.2f);
@@ -205,8 +185,6 @@ namespace Office.Editor
             beam.shadows = LightShadows.Soft;
             beam.color = new Color(0.95f, 0.94f, 0.86f);
 
-            // Off in the prefab. PlayerFlashlight owns the state and turns it on from the
-            // replicated value, so a freshly spawned body is never lit for one frame.
             beam.enabled = false;
 
             var cameraObject = new GameObject("PlayerCamera") { tag = "MainCamera" };
@@ -236,10 +214,6 @@ namespace Office.Editor
             var feedback = root.AddComponent<CombatFeedback>();
             var flashlight = root.AddComponent<PlayerFlashlight>();
 
-            // A body on the floor is something a teammate walks up to and presses Interact on,
-            // which makes it an interactable like any other — and the spectator is what the
-            // sixty seconds running out leaves behind. Both live on the player's own
-            // NetworkObject, which is exactly what IInteractable asks for.
             var downed = root.AddComponent<DownedPlayer>();
             var spectator = root.AddComponent<SpectatorCamera>();
 
@@ -257,17 +231,11 @@ namespace Office.Editor
                 ("beam", beam),
                 ("optics", optics));
 
-            // Greybox effects. They exist so the three outcomes the server reports are
-            // distinguishable today; B replaces the prefabs without touching this wiring.
             Wire(feedback,
                 ("attacker", attacker),
                 ("connectedEffect", CombatContentBuilder.LoadImpactEffect("PF_FX_Impact_Hit")),
                 ("absorbedEffect", CombatContentBuilder.LoadImpactEffect("PF_FX_Impact_Absorbed")),
                 ("missedEffect", CombatContentBuilder.LoadImpactEffect("PF_FX_Impact_Miss")));
-
-            // Health needs no wiring: its defaults are already the player's numbers, and it
-            // keeps an empty response table on purpose — a player takes damage as authored,
-            // and resistances are an enemy and prop concern.
 
             Wire(attacker,
                 ("config", combatConfig),
@@ -321,8 +289,6 @@ namespace Office.Editor
         {
             var accent = CreateOrLoadMaterial("M_Greybox_Accent", new Color(0.78f, 0.29f, 0.22f));
 
-            // MAT_Cylinder is the look the player ships with today. Regenerating the prefab
-            // must not silently replace it with a fresh grey material.
             var bodyMaterial = AssetDatabase.LoadAssetAtPath<Material>(PlayerBodyMaterialPath)
                                ?? CreateOrLoadMaterial("M_Greybox_Player",
                                    new Color(0.62f, 0.66f, 0.72f));
@@ -448,8 +414,6 @@ namespace Office.Editor
 
             networkManager.NetworkConfig.EnableSceneManagement = false;
 
-            // NetworkServiceInstaller supplies the callback and the payload at boot. Writing
-            // it here too keeps the inspector honest about what the scene actually does.
             networkManager.NetworkConfig.ConnectionApproval = true;
 
             var bootstrapObject = new GameObject("[Bootstrap]");
@@ -492,12 +456,6 @@ namespace Office.Editor
                 ("networkManager", networkManager),
                 ("sessionPrefab", sessionPrefab));
 
-            // The item carrier is the first thing through the pool on purpose: it is already
-            // the one prefab every item shares, so a run that drops and picks things up
-            // exercises the pool constantly. Prewarm covers a typical floor's worth of loose
-            // items without a spawn storm on the InRun edge.
-            // Targets are pooled for the opposite reason to items: there are few of them, but
-            // the ones that respawn cycle through spawn and despawn all run long.
             WirePooledPrefabs(networkInstaller,
                 (ItemContentBuilder.LoadWorldItemPrefab(), 24),
                 (CombatContentBuilder.LoadTargetPrefab(), 8));
@@ -505,9 +463,6 @@ namespace Office.Editor
             var uiObject = new GameObject("[DevUI]");
             uiObject.AddComponent<DevSessionPanel>();
 
-            // In the boot scene on purpose: it covers the scene swap, and a loading screen
-            // living inside the scene being loaded can only appear after the wait it was
-            // meant to hide.
             LoadingScreenBuilder.Build();
 
             SaveScene(scene, BootScenePath);
@@ -541,8 +496,6 @@ namespace Office.Editor
 
             Wire(director, ("roster", roster));
 
-            // Every seat spawns the greybox capsule for now. The animated character
-            // variants exist but are opt-in through Office/Setup/Player Prefab.
             Wire(spawner, ("director", director), ("manPrefab", playerPrefab));
             ClearFields(spawner, "womanPrefab");
 
@@ -601,21 +554,6 @@ namespace Office.Editor
             Debug.Log($"[Setup] Session prefab written to {SessionPrefabPath}.");
         }
 
-        /// <summary>
-        /// The unpowered office: dark enough that the flashlight is the only way to read the
-        /// space, light enough that a player is never staring at a black screen.
-        /// </summary>
-        /// <remarks>
-        /// GDD §14 makes darkness the default state and light the resource that buys
-        /// information back, so the sandbox has to be lit the way the real floors will be or it
-        /// tunes combat, movement and props against a brightness the game never has.
-        /// <para>
-        /// The directional light is kept, barely — a floor at literal zero ambient makes
-        /// geometry outside the beam invisible rather than dim, and a player cannot navigate
-        /// towards a shape they cannot see at all. Fog does the rest of the work: it closes the
-        /// corridors off at a readable depth instead of letting the beam pick out the far wall.
-        /// </para>
-        /// </remarks>
         private static void BuildLighting()
         {
             var lightObject = new GameObject("Directional Light");
@@ -624,29 +562,15 @@ namespace Office.Editor
             var light = lightObject.AddComponent<Light>();
             light.type = LightType.Directional;
 
-            // Warm and neutral rather than the blue moonlight this used to be. The palette
-            // pass quantises whatever tint the lighting carries, so a cool key does not read
-            // as "cool lighting" once it is posterised — it reads as a blue filter over the
-            // whole game, which is the one thing the reference frames for this look never do.
-            // Shadows stay on: the flashlight needs something for its cone to cut against.
             light.intensity = 1.1f;
             light.color = new Color(0.98f, 0.94f, 0.86f);
             light.shadows = LightShadows.Soft;
 
-            // Roughly five times what this was, and the reason is the palette pass downstream.
-            // At an ambient of 0.03 every unlit surface resolves to the first of thirty-two
-            // colour steps — the same step as true black — so a wall, a floor and a doorway
-            // all quantise to one flat void and the room stops having a shape at all. Raising
-            // the floor to something the palette can actually describe is what turns darkness
-            // back into something a player can read a room from.
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
             RenderSettings.ambientSkyColor = new Color(0.600f, 0.585f, 0.560f);
             RenderSettings.ambientEquatorColor = new Color(0.440f, 0.425f, 0.400f);
             RenderSettings.ambientGroundColor = new Color(0.260f, 0.250f, 0.235f);
 
-            // Haze, not a curtain. Fog that reaches black four metres out closes a corridor
-            // before the player has seen it is a corridor; a grey-blue that starts further
-            // back gives the same depth cue and leaves the far wall legible as a silhouette.
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.Linear;
             RenderSettings.fogColor = new Color(0.165f, 0.160f, 0.150f);
@@ -714,9 +638,6 @@ namespace Office.Editor
                 scenes.Add(new EditorBuildSettingsScene(path, true));
             }
 
-            // This command replaces the whole list, so authored levels have to be re-discovered
-            // rather than remembered — otherwise every Run All would silently drop them and the
-            // build would ship with the greybox as the only level.
             var levels = 0;
 
             if (AssetDatabase.IsValidFolder(LevelsFolder))
@@ -833,8 +754,6 @@ namespace Office.Editor
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        // Deliberate nulls. Wire treats a null value as a mistake, which it almost always
-        // is — clearing a field has to say so out loud.
         private static void ClearFields(Object target, params string[] fields)
         {
             var serialized = new SerializedObject(target);
@@ -855,8 +774,6 @@ namespace Office.Editor
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        // The pooled list is an array of a struct, so WireArray cannot reach it — that one
-        // only knows how to assign object references.
         private static void WirePooledPrefabs(Object target,
             params (GameObject Prefab, int Prewarm)[] entries)
         {

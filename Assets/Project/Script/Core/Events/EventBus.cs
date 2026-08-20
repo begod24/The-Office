@@ -54,9 +54,6 @@ namespace Office.Core
         {
             private readonly List<Action<T>> handlers = new(4);
 
-            // One snapshot per Invoke, not one per list: a handler is allowed to publish the
-            // same event type again, and a nested call must not touch the list the outer loop
-            // is still walking. Pooled so that nesting stays allocation-free after warmup.
             private readonly Stack<List<Action<T>>> pool = new();
 
             public int Count => handlers.Count;
