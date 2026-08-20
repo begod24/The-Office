@@ -24,6 +24,11 @@ namespace Office.UI
     {
         private const int MaxPlayers = 4;
 
+        // The vertical slice has exactly one objective (GDD §16). It is written here rather
+        // than authored on the panel because the panel is generated, and a generated string is
+        // one nobody can edit into disagreeing with the switch that completes it.
+        private const string PowerObjective = "RESTORE POWER";
+
         [SerializeField] private HudObjectivesPanel objectives;
         [SerializeField] private HudSquadPanel squad;
         [SerializeField] private HudHotbar hotbar;
@@ -38,6 +43,18 @@ namespace Office.UI
         [SerializeField] private GameObject downedBanner;
 
         [SerializeField] private TMP_Text downedLabel;
+
+        [Tooltip("Fills the screen when the local player dies. GDD §15 — death is not a " +
+                 "return to the menu, so the run has to say so without ending it.")]
+        [SerializeField] private GameObject deathScreen;
+
+        [SerializeField] private TMP_Text deathLabel;
+
+        [Tooltip("Fills the screen when the shift ends, either way. It is up for the one tick " +
+                 "the terminal state exists before the session returns everyone to the lobby.")]
+        [SerializeField] private GameObject outcomeScreen;
+
+        [SerializeField] private TMP_Text outcomeLabel;
 
         [Tooltip("Fills the panels with dummy rows when no session is running.")]
         [SerializeField] private bool showPlaceholdersWhenOffline = true;
@@ -76,6 +93,8 @@ namespace Office.UI
                 bus.Subscribe<LocalPauseChanged>(OnPauseChanged);
                 bus.Subscribe<LocalInventoryChanged>(OnInventoryChanged);
                 bus.Subscribe<InteractionPromptChanged>(OnPromptChanged);
+                bus.Subscribe<GameStateChanged>(OnGameStateChanged);
+                bus.Subscribe<PowerStateChanged>(OnPowerChanged);
             }
 
             ServiceLocator.TryGet(out definitions);
@@ -92,6 +111,8 @@ namespace Office.UI
 
             SetPrompt(string.Empty);
             SetDownedBanner(false, 0f);
+            SetDeathScreen(false);
+            SetOutcome(null);
 
             if (objectives != null) objectives.ShowPlaceholders();
             if (heldItem != null) heldItem.Clear();
@@ -106,6 +127,8 @@ namespace Office.UI
             bus?.Unsubscribe<LocalPauseChanged>(OnPauseChanged);
             bus?.Unsubscribe<LocalInventoryChanged>(OnInventoryChanged);
             bus?.Unsubscribe<InteractionPromptChanged>(OnPromptChanged);
+            bus?.Unsubscribe<GameStateChanged>(OnGameStateChanged);
+            bus?.Unsubscribe<PowerStateChanged>(OnPowerChanged);
 
             PlayerInventory.LocalChanged -= BindInventory;
             BindInventory(null);
@@ -195,7 +218,78 @@ namespace Office.UI
 
             if (!ReferenceEquals(health, Health.Local)) return;
 
-            SetDownedBanner(state.IsDowned || state.IsDead, state.BleedOutRemaining);
+            // Two states, two screens. The banner is a countdown a teammate can still stop;
+            // the death screen is what is left when it ran out, and showing the banner for
+            // both told a dead player they had time they no longer had.
+            SetDownedBanner(state.IsDowned, state.BleedOutRemaining);
+            SetDeathScreen(state.IsDead);
+        }
+
+        private void SetDeathScreen(bool visible)
+        {
+            if (deathScreen != null) deathScreen.SetActive(visible);
+
+            if (deathLabel == null || !visible) return;
+
+            // The artwork already carries the stop screen's own copy. The only thing added is
+            // what it cannot know: that the run is still going and there is something to do.
+            deathLabel.text = "[ LMB ]  or  [ A / D ]   watch a colleague";
+        }
+
+        private void SetOutcome(string message)
+        {
+            var visible = !string.IsNullOrEmpty(message);
+
+            if (outcomeScreen != null) outcomeScreen.SetActive(visible);
+
+            if (outcomeLabel != null && visible) outcomeLabel.text = message;
+        }
+
+        // ---------------------------------------------------------------------- the run
+
+        /// <remarks>
+        /// The HUD is the only thing that reads the terminal states. They exist for exactly
+        /// one network tick — <c>SessionDirector</c> has to pass through one before it can
+        /// write Lobby — which is enough to put a screen up and let the scene change take it
+        /// away again.
+        /// </remarks>
+        private void OnGameStateChanged(GameStateChanged evt)
+        {
+            switch (evt.Current)
+            {
+                case GameState.InRun:
+                    if (objectives != null)
+                    {
+                        objectives.Set(0, PowerObjective, HudObjectiveState.Active);
+                        objectives.HideFrom(1);
+                    }
+
+                    SetOutcome(null);
+                    break;
+
+                case GameState.RunComplete:
+                    SetOutcome("SHIFT COMPLETE");
+                    break;
+
+                case GameState.RunFailed:
+                    SetOutcome("SHIFT LOST");
+                    break;
+
+                case GameState.Lobby:
+                    if (objectives != null) objectives.ShowPlaceholders();
+
+                    SetOutcome(null);
+                    SetDeathScreen(false);
+                    SetDownedBanner(false, 0f);
+                    break;
+            }
+        }
+
+        private void OnPowerChanged(PowerStateChanged evt)
+        {
+            if (!evt.IsPowered || objectives == null) return;
+
+            objectives.Set(0, PowerObjective, HudObjectiveState.Complete);
         }
 
         private void SetDownedBanner(bool visible, float bleedOutRemaining)

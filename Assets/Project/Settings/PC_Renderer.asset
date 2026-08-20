@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!114 &-9041781596685103171
+--- !u!114 &-1791089133508736116
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -9,22 +9,16 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: eb688b274d17040819e92b4f7a78a544, type: 3}
-  m_Name: Retro Film
-  m_EditorClassIdentifier: Office.Rendering::Office.Rendering.RetroFilmFeature
+  m_Script: {fileID: 11500000, guid: cac62240f71ac4992a0e5e520d222703, type: 3}
+  m_Name: Pixel Art
+  m_EditorClassIdentifier: Office.Rendering::Office.Rendering.PixelArtFeature
   m_Active: 1
-  shader: {fileID: 4800000, guid: 13631b5ee4d464483a38388bd027c7d5, type: 3}
-  pixelHeight: 594
-  colourSteps: 48
-  ditherStrength: 0.6
-  desaturation: 0.08
-  scanlineStrength: 0.05
-  chromaticOffset: 0.0013
-  wobbleAmplitude: 0.00035
-  wobbleSpeed: 1.6
-  trackingStrength: 0.004
-  trackingSpeed: 0.08
-  noiseStrength: 0.015
+  shader: {fileID: 4800000, guid: 544cdd16d539446a6ae58656394776b7, type: 3}
+  pixelSize: 1
+  colourSteps: 32
+  ditherStrength: 0.9
+  desaturation: 0.06
+  blackLift: 0.06
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -51,8 +45,8 @@ MonoBehaviour:
     probeVolumeBlendStatesCS: {fileID: 7200000, guid: b9a23f869c4fd45f19c5ada54dd82176, type: 3}
   m_RendererFeatures:
   - {fileID: 7833122117494664109}
-  - {fileID: -9041781596685103171}
-  m_RendererFeatureMap: ad6b866f10d7b46cbd8feb108b238582
+  - {fileID: -1791089133508736116}
+  m_RendererFeatureMap: ad6b866f10d7b46c8c4b2634ecc524e7
   m_UseNativeRenderPass: 1
   xrSystemData: {fileID: 0}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}

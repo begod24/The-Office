@@ -6,6 +6,7 @@
         "Office.Core",
         "Office.Network",
         "Unity.Netcode.Runtime",
+        "Unity.Collections",
         "Unity.InputSystem"
     ],
     "includePlatforms": [],

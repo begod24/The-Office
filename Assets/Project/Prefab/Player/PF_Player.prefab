@@ -502,6 +502,8 @@ GameObject:
   - component: {fileID: 3125391884912623228}
   - component: {fileID: 1792786351187439900}
   - component: {fileID: 4282115426383838960}
+  - component: {fileID: 4256005401275095728}
+  - component: {fileID: 5628594936530944651}
   m_Layer: 8
   m_Name: PF_Player
   m_TagString: Untagged
@@ -691,6 +693,7 @@ MonoBehaviour:
   - {fileID: 1951828840658693070}
   - {fileID: 1836286727637803748}
   characterController: {fileID: 8785763423571908919}
+  health: {fileID: 6757609155737015070}
   manageCursor: 1
 --- !u!114 &2436612259584864386
 MonoBehaviour:
@@ -826,3 +829,36 @@ MonoBehaviour:
   startingCharge: 100
   relightThreshold: 5
   rechargePerSecond: 0
+--- !u!114 &4256005401275095728
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7794667978143733364}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d3b8cd199d5014fb4a66e500fadf0d2a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Office.Gameplay::Office.Gameplay.DownedPlayer
+  ShowTopMostFoldoutHeaderGroup: 1
+  health: {fileID: 6757609155737015070}
+  reachRadius: 0.9
+  reachHeight: 0.5
+--- !u!114 &5628594936530944651
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7794667978143733364}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a7b3d26ef20794b3d9e406b848d85df7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Office.Gameplay::Office.Gameplay.SpectatorCamera
+  ShowTopMostFoldoutHeaderGroup: 1
+  rig: {fileID: 1553073467314323565}
+  health: {fileID: 6757609155737015070}
+  followDistance: 0.55
+  followHeight: 0.18

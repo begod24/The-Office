@@ -50,7 +50,20 @@ namespace Office.Editor
         private static readonly Color SegmentDrained = new(0.45f, 0.83f, 0.40f, 0.13f);
         private static readonly Color SegmentCritical = new(0.85f, 0.25f, 0.20f, 1f);
 
+        // The local player's lit segments, a shade brighter and cooler than a teammate's.
+        private static readonly Color SegmentLocal = new(0.62f, 1f, 0.55f, 1f);
+
         private static readonly Color Danger = new(0.85f, 0.25f, 0.20f, 1f);
+
+        // The accent that says "this row is yours". The same green the health segments use,
+        // so the mark and the thing it marks read as one object rather than as two decisions.
+        private static readonly Color Accent = new(0.45f, 0.83f, 0.40f, 1f);
+
+        // The blue out of death-screen-bsod.png. Painted behind the image so an ultrawide
+        // monitor shows more stop screen rather than two black bars and a letterbox.
+        private static readonly Color BsodBlue = new(0.043f, 0.078f, 0.44f, 1f);
+
+        private static readonly Color OutcomeBackdrop = new(0.02f, 0.02f, 0.03f, 0.86f);
 
         private static TMP_FontAsset font;
 
@@ -113,6 +126,10 @@ namespace Office.Editor
             var downed = BuildDownedBanner(root.transform, out var downedLabel);
             BuildStamina(root.transform);
 
+            // Last, so they are the last children drawn: both cover everything above.
+            var death = BuildDeathScreen(root.transform, out var deathLabel);
+            var outcome = BuildOutcomeScreen(root.transform, out var outcomeLabel);
+
             Wire(screen,
                 ("objectives", objectives),
                 ("squad", squad),
@@ -121,9 +138,72 @@ namespace Office.Editor
                 ("crosshair", crosshair),
                 ("interactPrompt", prompt),
                 ("downedBanner", downed),
-                ("downedLabel", downedLabel));
+                ("downedLabel", downedLabel),
+                ("deathScreen", death),
+                ("deathLabel", deathLabel),
+                ("outcomeScreen", outcome),
+                ("outcomeLabel", outcomeLabel));
 
             return true;
+        }
+
+        /// <summary>
+        /// The stop screen a dead player watches the rest of the shift through. GDD §15.
+        /// </summary>
+        /// <remarks>
+        /// The artwork carries its own copy — the sad face, the diagnosis, the error code —
+        /// so nothing is drawn over it except the one line the image cannot know: that the
+        /// player is still in the run and can watch a colleague. Painting the sprite's own
+        /// blue behind it means an aspect ratio the image was not cut for extends the screen
+        /// instead of letterboxing it.
+        /// </remarks>
+        private static GameObject BuildDeathScreen(Transform parent, out TMP_Text hint)
+        {
+            var root = CreateRect("Death", parent);
+            Stretch(root);
+
+            var backdrop = CreateRect("Backdrop", root);
+            Stretch(backdrop);
+            CreateImage(backdrop, BsodBlue);
+
+            var screen = CreateRect("Screen", root);
+            Stretch(screen);
+            var image = CreateImage(screen, Color.white, Sprite("death-screen-bsod"));
+            image.preserveAspect = true;
+
+            hint = CreateLabel("Hint", root, string.Empty, 17f,
+                TextAlignmentOptions.Bottom, new Color(0.75f, 0.80f, 0.95f, 1f));
+            hint.rectTransform.anchorMin = new Vector2(0f, 0f);
+            hint.rectTransform.anchorMax = new Vector2(1f, 0f);
+            hint.rectTransform.pivot = new Vector2(0.5f, 0f);
+            hint.rectTransform.anchoredPosition = new Vector2(0f, 64f);
+            hint.rectTransform.sizeDelta = new Vector2(-160f, 60f);
+
+            root.gameObject.SetActive(false);
+
+            return root.gameObject;
+        }
+
+        /// <summary>
+        /// How the shift ended, for the one tick the terminal state exists.
+        /// </summary>
+        private static GameObject BuildOutcomeScreen(Transform parent, out TMP_Text label)
+        {
+            var root = CreateRect("Outcome", parent);
+            Stretch(root);
+
+            var backdrop = CreateRect("Backdrop", root);
+            Stretch(backdrop);
+            CreateImage(backdrop, OutcomeBackdrop);
+
+            label = CreateLabel("Label", root, "SHIFT COMPLETE", 54f,
+                TextAlignmentOptions.Center, TextPrimary);
+            label.characterSpacing = 12f;
+            Stretch(label.rectTransform);
+
+            root.gameObject.SetActive(false);
+
+            return root.gameObject;
         }
 
         /// <summary>
@@ -234,8 +314,12 @@ namespace Office.Editor
 
         private static HudSquadPanel BuildSquad(Transform parent)
         {
-            const float rowHeight = 34f;
-            const float spacing = 6f;
+            // 40, not 34. A row carries two lines — the name above the bar — and at 34 the
+            // pair needed 31 of them, which left one pixel of air above and below and made
+            // the block read as one smudged line at a glance. The panel is measured from
+            // these two numbers, so raising them cannot leave the frame the wrong size.
+            const float rowHeight = 40f;
+            const float spacing = 8f;
 
             var panel = CreateFrame("Squad", parent);
             var content = panel.Content;
@@ -244,8 +328,10 @@ namespace Office.Editor
             panel.Root.anchorMax = Vector2.zero;
             panel.Root.pivot = Vector2.zero;
             panel.Root.anchoredPosition = new Vector2(ScreenMargin, ScreenMargin);
-            panel.Root.sizeDelta = new Vector2(290f,
-                SquadRows * rowHeight + (SquadRows - 1) * spacing + 52f);
+
+            // Padding (12+12) + title (20) + the gap under it (spacing) + the rows.
+            panel.Root.sizeDelta = new Vector2(304f,
+                SquadRows * rowHeight + SquadRows * spacing + 44f);
 
             var layout = content.gameObject.AddComponent<VerticalLayoutGroup>();
             layout.padding = new RectOffset(14, 14, 12, 12);
@@ -280,6 +366,13 @@ namespace Office.Editor
             var row = CreateRect($"Player_{index + 1}", parent);
             AddLayoutElement(row.gameObject, preferredHeight: height);
 
+            // Behind the row and outside the layout: a tint that marks the local player has
+            // to cover the whole row including its padding, which a layout child cannot do.
+            var background = CreateRect("Background", row);
+            Stretch(background);
+            var rowBackground = CreateImage(background, new Color(0f, 0f, 0f, 0f));
+            background.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+
             var layout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
             layout.padding = new RectOffset(0, 0, 0, 0);
             layout.spacing = 8f;
@@ -289,14 +382,24 @@ namespace Office.Editor
             layout.childForceExpandWidth = false;
             layout.childForceExpandHeight = true;
 
+            // The stripe is the cue that survives peripheral vision. It is a solid vertical
+            // edge where the other three rows have none, which the eye picks up without
+            // being pointed at it — unlike a colour difference, which it does not.
+            var accent = CreateRect("Accent", row);
+            AddLayoutElement(accent.gameObject, preferredWidth: 3f, flexibleWidth: 0f);
+            // Left active and drawn off instead: the space it takes has to exist on every row
+            // or the four seat chips stop forming a column. HudPlayerRow toggles the graphic.
+            var accentStripe = CreateImage(accent, Accent);
+            accentStripe.enabled = false;
+
             // The seat tag in its own box, so P1..P4 reads as a column even when the names
             // beside it are different lengths.
             var tagHolder = CreateRect("Tag", row);
-            AddLayoutElement(tagHolder.gameObject, preferredWidth: 30f, flexibleWidth: 0f);
+            AddLayoutElement(tagHolder.gameObject, preferredWidth: 32f, flexibleWidth: 0f);
 
             var tagBackground = CreateImage(tagHolder, new Color(1f, 1f, 1f, 0.07f));
 
-            var tagLabel = CreateLabel("Label", tagHolder, $"P{index + 1}", 14f,
+            var tagLabel = CreateLabel("Label", tagHolder, $"P{index + 1}", 15f,
                 TextAlignmentOptions.Center, TextPrimary);
             Stretch(tagLabel.rectTransform);
 
@@ -304,24 +407,25 @@ namespace Office.Editor
             AddLayoutElement(body.gameObject, flexibleWidth: 1f);
 
             var bodyLayout = body.gameObject.AddComponent<VerticalLayoutGroup>();
-            bodyLayout.spacing = 3f;
+            bodyLayout.padding = new RectOffset(0, 6, 0, 0);
+            bodyLayout.spacing = 4f;
             bodyLayout.childAlignment = TextAnchor.MiddleLeft;
             bodyLayout.childControlWidth = true;
             bodyLayout.childControlHeight = true;
             bodyLayout.childForceExpandWidth = true;
             bodyLayout.childForceExpandHeight = false;
 
-            var nameLabel = CreateLabel("Name", body, "---", 14f,
+            var nameLabel = CreateLabel("Name", body, "---", 15f,
                 TextAlignmentOptions.MidlineLeft, TextPrimary);
-            AddLayoutElement(nameLabel.gameObject, preferredHeight: 16f);
+            AddLayoutElement(nameLabel.gameObject, preferredHeight: 17f);
 
             var bar = BuildHealthBar(body);
 
             // Occupies the bar's place rather than sitting beside it: a downed teammate has no
             // health worth drawing, and the seconds left are what replaces it.
-            var status = CreateLabel("Status", body, "OFFLINE", 13f,
+            var status = CreateLabel("Status", body, "OFFLINE", 14f,
                 TextAlignmentOptions.MidlineLeft, Danger);
-            AddLayoutElement(status.gameObject, preferredHeight: 12f);
+            AddLayoutElement(status.gameObject, preferredHeight: 13f);
             status.gameObject.SetActive(false);
 
             var component = row.gameObject.AddComponent<HudPlayerRow>();
@@ -330,7 +434,9 @@ namespace Office.Editor
                 ("nameLabel", nameLabel),
                 ("health", bar),
                 ("statusLabel", status),
-                ("tagBackground", tagBackground));
+                ("tagBackground", tagBackground),
+                ("accentStripe", accentStripe),
+                ("rowBackground", rowBackground));
 
             return component;
         }
@@ -338,7 +444,7 @@ namespace Office.Editor
         private static HudSegmentBar BuildHealthBar(RectTransform parent)
         {
             var bar = CreateRect("Health", parent);
-            AddLayoutElement(bar.gameObject, preferredHeight: 12f);
+            AddLayoutElement(bar.gameObject, preferredHeight: 13f);
 
             var layout = bar.gameObject.AddComponent<HorizontalLayoutGroup>();
             layout.spacing = 3f;
@@ -363,10 +469,10 @@ namespace Office.Editor
                 var segment = CreateRect($"Tick_{i + 1}", bar);
 
                 var element = segment.gameObject.AddComponent<LayoutElement>();
-                element.preferredWidth = 16f;
-                element.minWidth = 16f;
-                element.preferredHeight = 10f;
-                element.minHeight = 10f;
+                element.preferredWidth = 18f;
+                element.minWidth = 18f;
+                element.preferredHeight = 11f;
+                element.minHeight = 11f;
 
                 segments[i] = CreateImage(segment, SegmentFilled, Sprite("Green Box inner"));
             }
@@ -377,6 +483,7 @@ namespace Office.Editor
             SetColour(component, "filled", SegmentFilled);
             SetColour(component, "drained", SegmentDrained);
             SetColour(component, "critical", SegmentCritical);
+            SetColour(component, "highlighted", SegmentLocal);
 
             return component;
         }

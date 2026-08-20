@@ -21,6 +21,19 @@ namespace Office.Network
         /// <summary>What the server sends back when it turns a client away.</summary>
         public const string MismatchReason = "BUILD MISMATCH — the host is running different content.";
 
+        /// <summary>
+        /// What the server sends back when the shift has already started.
+        /// </summary>
+        /// <remarks>
+        /// The lobby is the door, and it closes. NGO will happily let a client in mid-run, and
+        /// the run has no honest place to put them: the level's markers were consumed at the
+        /// InRun edge, the objective may already be finished, and the body would appear at
+        /// whichever spawn point the level authored — usually the entrance, across the floor
+        /// from a squad that has moved on. Refusing at the door says so once, clearly, instead
+        /// of producing a player who cannot tell what went wrong.
+        /// </remarks>
+        public const string RunInProgressReason = "SHIFT IN PROGRESS — wait for the run to end.";
+
         /// <summary>The handshake for this build, from the registry currently registered.</summary>
         public static string Build()
         {

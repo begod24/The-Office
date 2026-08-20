@@ -236,6 +236,13 @@ namespace Office.Editor
             var feedback = root.AddComponent<CombatFeedback>();
             var flashlight = root.AddComponent<PlayerFlashlight>();
 
+            // A body on the floor is something a teammate walks up to and presses Interact on,
+            // which makes it an interactable like any other — and the spectator is what the
+            // sixty seconds running out leaves behind. Both live on the player's own
+            // NetworkObject, which is exactly what IInteractable asks for.
+            var downed = root.AddComponent<DownedPlayer>();
+            var spectator = root.AddComponent<SpectatorCamera>();
+
             Wire(movement, ("config", movementConfig), ("input", input));
 
             var optics = CombatContentBuilder.LoadFlashlightOptics();
@@ -294,7 +301,12 @@ namespace Office.Editor
                 ("playerCamera", camera),
                 ("audioListener", listener),
                 ("inputReader", input),
-                ("characterController", controller));
+                ("characterController", controller),
+                ("health", health));
+
+            Wire(downed, ("health", health));
+
+            Wire(spectator, ("rig", rig), ("health", health));
 
             WireArray(rig, "bodyRenderers", body);
 
@@ -524,6 +536,8 @@ namespace Office.Editor
             var itemSpawner = root.AddComponent<WorldItemSpawner>();
             var targetSpawner = root.AddComponent<TargetSpawner>();
             var enemySpawner = root.AddComponent<EnemySpawner>();
+            var powerSpawner = root.AddComponent<PowerSwitchSpawner>();
+            var outcome = root.AddComponent<RunOutcome>();
 
             Wire(director, ("roster", roster));
 
@@ -561,6 +575,20 @@ namespace Office.Editor
 
             Wire(enemySpawner, ("director", director), ("enemyPrefab", enemyPrefab));
 
+            Wire(outcome, ("director", director));
+
+            var switchPrefab = PowerContentBuilder.LoadSwitchPrefab();
+
+            if (switchPrefab == null)
+                Debug.LogError("[Setup] PF_PowerSwitch is missing. Run " +
+                               "'Office/Content/Build Power Content' first — without it the " +
+                               "run has no objective and no way to end in success.");
+
+            Wire(powerSpawner,
+                ("director", director),
+                ("outcome", outcome),
+                ("switchPrefab", switchPrefab));
+
             EnsureFolder(Path.GetDirectoryName(SessionPrefabPath));
             PrefabUtility.SaveAsPrefabAsset(root, SessionPrefabPath);
             Object.DestroyImmediate(root);
@@ -596,22 +624,34 @@ namespace Office.Editor
             var light = lightObject.AddComponent<Light>();
             light.type = LightType.Directional;
 
-            // Moonlight through blinds, not daylight. Shadows stay on: the flashlight needs
-            // something for its cone to cut against.
-            light.intensity = 0.06f;
-            light.color = new Color(0.62f, 0.70f, 0.92f);
+            // Warm and neutral rather than the blue moonlight this used to be. The palette
+            // pass quantises whatever tint the lighting carries, so a cool key does not read
+            // as "cool lighting" once it is posterised — it reads as a blue filter over the
+            // whole game, which is the one thing the reference frames for this look never do.
+            // Shadows stay on: the flashlight needs something for its cone to cut against.
+            light.intensity = 1.1f;
+            light.color = new Color(0.98f, 0.94f, 0.86f);
             light.shadows = LightShadows.Soft;
 
+            // Roughly five times what this was, and the reason is the palette pass downstream.
+            // At an ambient of 0.03 every unlit surface resolves to the first of thirty-two
+            // colour steps — the same step as true black — so a wall, a floor and a doorway
+            // all quantise to one flat void and the room stops having a shape at all. Raising
+            // the floor to something the palette can actually describe is what turns darkness
+            // back into something a player can read a room from.
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
-            RenderSettings.ambientSkyColor = new Color(0.035f, 0.040f, 0.055f);
-            RenderSettings.ambientEquatorColor = new Color(0.022f, 0.024f, 0.032f);
-            RenderSettings.ambientGroundColor = new Color(0.012f, 0.012f, 0.016f);
+            RenderSettings.ambientSkyColor = new Color(0.600f, 0.585f, 0.560f);
+            RenderSettings.ambientEquatorColor = new Color(0.440f, 0.425f, 0.400f);
+            RenderSettings.ambientGroundColor = new Color(0.260f, 0.250f, 0.235f);
 
+            // Haze, not a curtain. Fog that reaches black four metres out closes a corridor
+            // before the player has seen it is a corridor; a grey-blue that starts further
+            // back gives the same depth cue and leaves the far wall legible as a silhouette.
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.Linear;
-            RenderSettings.fogColor = new Color(0.015f, 0.017f, 0.024f);
-            RenderSettings.fogStartDistance = 4f;
-            RenderSettings.fogEndDistance = 26f;
+            RenderSettings.fogColor = new Color(0.165f, 0.160f, 0.150f);
+            RenderSettings.fogStartDistance = 9f;
+            RenderSettings.fogEndDistance = 60f;
         }
 
         private static void BuildSpawnPoints()

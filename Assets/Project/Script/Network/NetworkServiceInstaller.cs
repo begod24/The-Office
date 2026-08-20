@@ -111,11 +111,43 @@ namespace Office.Network
             response.CreatePlayerObject = false;
             response.Reason = response.Approved ? string.Empty : ConnectionHandshake.MismatchReason;
 
-            if (response.Approved) return;
+            if (!response.Approved)
+            {
+                Debug.LogWarning($"[Network] Rejected a client. Expected '{expected}', got " +
+                                 $"'{presented}'. Both sides need the same build and the same " +
+                                 "REG_Definitions.");
+                return;
+            }
 
-            Debug.LogWarning($"[Network] Rejected a client. Expected '{expected}', got " +
-                             $"'{presented}'. Both sides need the same build and the same " +
-                             "REG_Definitions.");
+            if (IsLobbyOpenTo(request.ClientNetworkId)) return;
+
+            response.Approved = false;
+            response.Reason = ConnectionHandshake.RunInProgressReason;
+
+            Debug.Log($"[Network] Refused client {request.ClientNetworkId}: the shift is " +
+                      "already under way.");
+        }
+
+        /// <summary>
+        /// Whether a joiner may still come in. False once the run has started.
+        /// </summary>
+        /// <remarks>
+        /// Read from <see cref="IGameStateService"/> rather than from
+        /// <c>SessionDirector</c>: approval runs on a host that may not have spawned the
+        /// session object yet, and the state service exists from boot. The host's own
+        /// connection travels this callback too and must never be refused by it — it is the
+        /// one client whose arrival cannot be mid-run, because the run cannot exist before it.
+        /// </remarks>
+        private bool IsLobbyOpenTo(ulong clientId)
+        {
+            var manager = Manager;
+
+            if (manager != null && clientId == NetworkManager.ServerClientId) return true;
+
+            if (!ServiceLocator.TryGet<IGameStateService>(out var state)) return true;
+
+            return state.Current is not (GameState.Generating or GameState.InRun
+                or GameState.FloorTransition or GameState.RunComplete or GameState.RunFailed);
         }
 
         // NetworkManager.PrefabHandler does not exist until the manager initialises, which is

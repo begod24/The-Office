@@ -19,6 +19,18 @@ namespace Office.Network
         // that a stalled frame never turns into a run that refuses to end.
         private const int MaxFramesPerTick = 120;
 
+        /// <summary>
+        /// How long a finished run sits in its terminal state before the lobby takes over.
+        /// </summary>
+        /// <remarks>
+        /// A tick was enough for the state to replicate and far too little for anyone to read
+        /// it: measured, RunComplete existed for about thirty milliseconds, so the shift's own
+        /// result flashed past faster than a frame the player would notice. The HUD's outcome
+        /// screen is the reason this needs a duration at all — the run is already decided, and
+        /// these seconds only decide whether the squad finds out what happened.
+        /// </remarks>
+        private const float TerminalDwellSeconds = 3.5f;
+
         private IGameStateService gameState;
         private LobbyService lobbyService;
         private bool ending;
@@ -125,10 +137,35 @@ namespace Office.Network
         public void RequestEndRunRpc(RpcParams rpcParams = default)
         {
             if (rpcParams.Receive.SenderClientId != NetworkManager.ServerClientId) return;
-            if (phase.Value is not (GameState.InRun or GameState.Generating)) return;
-            if (ending) return;
 
-            _ = EndRunAsync();
+            ServerEndRun(GameState.RunFailed);
+        }
+
+        /// <summary>
+        /// Server only. Ends the run through <paramref name="terminal"/>. Returns false when
+        /// there is no run to end, or one is already ending.
+        /// </summary>
+        /// <remarks>
+        /// The seam every way a run can stop goes through: the host abandoning it, the squad
+        /// being wiped out, and the objective being finished all arrive here, so the ordering
+        /// rules below are written once. Callers are server-side systems — a client asking
+        /// travels <see cref="RequestEndRunRpc"/> and is checked there.
+        /// </remarks>
+        public bool ServerEndRun(GameState terminal)
+        {
+            if (!IsServer || !IsSpawned) return false;
+
+            if (terminal is not (GameState.RunComplete or GameState.RunFailed))
+            {
+                Debug.LogError($"[Session] '{terminal}' is not a terminal state. Ignored.");
+                return false;
+            }
+
+            if (phase.Value is not (GameState.InRun or GameState.Generating)) return false;
+            if (ending) return false;
+
+            _ = EndRunAsync(terminal);
+            return true;
         }
 
         /// <summary>
@@ -142,17 +179,26 @@ namespace Office.Network
         /// terminal state would exist on the server only. Nothing reads RunFailed yet; the
         /// results screen will.
         /// </remarks>
-        private async Awaitable EndRunAsync()
+        private async Awaitable EndRunAsync(GameState terminal)
         {
             ending = true;
 
             try
             {
+                // Only InRun has an edge to a terminal state. A run abandoned while it is
+                // still generating never became one, so it returns to the lobby directly.
                 if (phase.Value == GameState.InRun)
                 {
-                    TrySetPhase(GameState.RunFailed);
+                    TrySetPhase(terminal);
 
                     await NextTickAsync();
+
+                    if (this == null || !IsSpawned || !IsServer) return;
+
+                    // Held, not just ticked past. Every client is drawing the outcome screen
+                    // off this state, and the bodies are still standing in the run scene
+                    // behind it — which is the only moment a squad gets to see how it ended.
+                    await Awaitable.WaitForSecondsAsync(TerminalDwellSeconds);
 
                     if (this == null || !IsSpawned || !IsServer) return;
                 }
