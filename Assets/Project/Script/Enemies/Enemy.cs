@@ -1,3 +1,4 @@
+using System;
 using Office.Data;
 using Office.Gameplay;
 using Unity.Netcode;
@@ -34,6 +35,11 @@ namespace Office.Enemies
 
         public Health Health => health;
 
+        // Where the attack the server just resolved landed. The view hangs its blast on this so
+        // the effect fires at the same moment and in the same direction on every machine — the
+        // one thing about an attack the replicated behaviour state cannot carry.
+        public event Action<Vector3> AttackLanded;
+
         public void ServerInitialise(int definition) => pendingDefinitionId = definition;
 
         public bool ServerConfigureHealth(EnemyDefinition source)
@@ -42,6 +48,38 @@ namespace Office.Enemies
 
             health.ServerConfigure(source.MaxHealth, source.Responses);
             return true;
+        }
+
+        public void ServerAnnounceAttack(Vector3 point)
+        {
+            if (!IsServer || !IsSpawned) return;
+
+            AttackLandedRpc(point);
+        }
+
+        [Rpc(SendTo.Everyone)]
+        private void AttackLandedRpc(Vector3 point, RpcParams parameters = default)
+        {
+            // Only the server rules on attacks. A client that could raise this would be able to
+            // leave puddles wherever it liked.
+            if (parameters.Receive.SenderClientId != NetworkManager.ServerClientId) return;
+
+            AttackLanded?.Invoke(point);
+            SpawnHazard(point);
+        }
+
+        private void SpawnHazard(Vector3 point)
+        {
+            var prefab = definition != null ? definition.AttackHazard : null;
+            if (prefab == null) return;
+
+            // Dropped on the floor under the hit rather than at it: a spray that caught someone
+            // in the chest still leaves its puddle at their feet.
+            if (!Physics.Raycast(point + Vector3.up * 0.5f, Vector3.down, out var hit, 4f,
+                    PhysicsLayers.WalkableMask, QueryTriggerInteraction.Ignore))
+                return;
+
+            Instantiate(prefab, hit.point + Vector3.up * 0.01f, Quaternion.identity);
         }
 
         public override void OnNetworkSpawn()

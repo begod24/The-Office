@@ -34,6 +34,11 @@ namespace Office.Data
         [SerializeField] private bool canJump;
         [SerializeField] private float jumpHeight = 0.9f;
 
+        [Header("Knockback")]
+        [Tooltip("Metres per second squared a shove bleeds off at. High values make a blast a " +
+                 "shunt; low values send the player skating across the floor.")]
+        [SerializeField] private float knockbackDamping = 16f;
+
         [Header("Stamina")]
         [SerializeField] private float maxStamina = 100f;
         [SerializeField] private float sprintDrainPerSecond = 18f;
@@ -56,6 +61,7 @@ namespace Office.Data
         public float GroundedStickForce => groundedStickForce;
         public bool CanJump => canJump;
         public float JumpHeight => jumpHeight;
+        public float KnockbackDamping => knockbackDamping;
         public float MaxStamina => maxStamina;
         public float SprintDrainPerSecond => sprintDrainPerSecond;
         public float RecoveryPerSecond => recoveryPerSecond;

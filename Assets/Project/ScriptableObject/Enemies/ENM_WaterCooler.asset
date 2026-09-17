@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ac20f0d993e864b8a87f3357132f7269, type: 3}
+  m_Name: ENM_WaterCooler
+  m_EditorClassIdentifier: Office.Data::Office.Data.EnemyDefinition
+  id: 10
+  displayName: WATER COOLER
+  viewPrefab: {fileID: 3909637004230453002, guid: fed61346af4a3ce41b23b3e9c46608f0, type: 3}
+  icon: {fileID: 0}
+  maxHealth: 70
+  responses:
+    responses:
+    - Type: 1
+      Multiplier: 1.6
+  bodyRadius: 0.5
+  bodyHeight: 1.8
+  patrolSpeed: 1.2
+  chaseSpeed: 3
+  acceleration: 9
+  turnSpeed: 260
+  chaseStopDistance: 4.5
+  sightRadius: 14
+  sightAngle: 110
+  memorySeconds: 4
+  hearingRadius: 16
+  attackDamage: 10
+  attackDamageType: 4
+  attackRange: 7
+  attackWindup: 0.7
+  attackCooldown: 2.2
+  attackConeAngle: 18
+  attackKnockback: 2.5
+  attackHazard: {fileID: 5212624882859589903, guid: 1b651ae93818c464a81f109843e23389, type: 3}
+  corpseSeconds: 10

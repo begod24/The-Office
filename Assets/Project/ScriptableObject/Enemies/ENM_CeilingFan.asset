@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ac20f0d993e864b8a87f3357132f7269, type: 3}
+  m_Name: ENM_CeilingFan
+  m_EditorClassIdentifier: Office.Data::Office.Data.EnemyDefinition
+  id: 8
+  displayName: CEILING FAN
+  viewPrefab: {fileID: 2123410496011049347, guid: 303b3a3b639a2354496ce15ef9acdde4, type: 3}
+  icon: {fileID: 0}
+  maxHealth: 120
+  responses:
+    responses:
+    - Type: 1
+      Multiplier: 1.6
+  bodyRadius: 0.9
+  bodyHeight: 2.5
+  patrolSpeed: 1
+  chaseSpeed: 2.6
+  acceleration: 6
+  turnSpeed: 150
+  chaseStopDistance: 3.2
+  sightRadius: 15
+  sightAngle: 120
+  memorySeconds: 5
+  hearingRadius: 18
+  attackDamage: 18
+  attackDamageType: 1
+  attackRange: 5.5
+  attackWindup: 1.1
+  attackCooldown: 3
+  attackConeAngle: 70
+  attackKnockback: 9
+  attackHazard: {fileID: 0}
+  corpseSeconds: 14

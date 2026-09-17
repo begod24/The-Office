@@ -12,8 +12,8 @@ namespace Office.Editor
 {
     internal static class EnemyContentBuilder
     {
-        private const string DefinitionFolder = "Assets/Project/ScriptableObject/Enemies";
-        private const string PrefabFolder = "Assets/Project/Prefab/Enemies";
+        internal const string DefinitionFolder = "Assets/Project/ScriptableObject/Enemies";
+        internal const string PrefabFolder = "Assets/Project/Prefab/Enemies";
         private const string MaterialFolder = "Assets/Project/Art/Materials/Enemies";
 
         private const string EnemyPrefabPath = PrefabFolder + "/PF_Enemy.prefab";
@@ -23,6 +23,7 @@ namespace Office.Editor
         {
             BuildEnemyPrefab();
             BuildEnemyDefinitions();
+            RiggedEnemyBuilder.BuildAll();
 
             AssetDatabase.SaveAssets();
 
@@ -171,7 +172,7 @@ namespace Office.Editor
             return material;
         }
 
-        private static T CreateOrLoad<T>(string path) where T : ScriptableObject
+        internal static T CreateOrLoad<T>(string path) where T : ScriptableObject
         {
             var existing = AssetDatabase.LoadAssetAtPath<T>(path);
             if (existing != null) return existing;
@@ -183,7 +184,7 @@ namespace Office.Editor
             return created;
         }
 
-        private static void EnsureFolder(string folder)
+        internal static void EnsureFolder(string folder)
         {
             if (string.IsNullOrEmpty(folder) || AssetDatabase.IsValidFolder(folder)) return;
 
@@ -191,7 +192,7 @@ namespace Office.Editor
             AssetDatabase.Refresh();
         }
 
-        private static void Wire(Object target, params (string Field, Object Value)[] fields)
+        internal static void Wire(Object target, params (string Field, Object Value)[] fields)
         {
             var serialized = new SerializedObject(target);
 
@@ -215,7 +216,7 @@ namespace Office.Editor
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        private static void SetBool(Object target, string field, bool value)
+        internal static void SetBool(Object target, string field, bool value)
         {
             var serialized = new SerializedObject(target);
             var property = serialized.FindProperty(field);

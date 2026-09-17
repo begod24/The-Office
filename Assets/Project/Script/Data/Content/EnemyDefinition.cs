@@ -42,6 +42,13 @@ namespace Office.Data
         [Min(0f)]
         [SerializeField] private float turnSpeed = 720f;
 
+        [Tooltip("Metres the enemy stops short of what it is chasing. Zero walks all the way in, " +
+                 "which is right for something that bites and wrong for something that sprays: " +
+                 "a ranged enemy with no stand-off shoves the player instead of firing at them. " +
+                 "Clamped below AttackRange, or it would stop outside its own reach.")]
+        [Min(0f)]
+        [SerializeField] private float chaseStopDistance;
+
         [Header("Sight")]
         [Tooltip("Metres. Sight is blocked by level geometry — see CombatGeometry.IsOccluded.")]
         [Min(0f)]
@@ -85,6 +92,23 @@ namespace Office.Data
         [Min(0.05f)]
         [SerializeField] private float attackCooldown = 1.2f;
 
+        [Tooltip("Full cone width in degrees. Zero hits only the target being chased — a bite. " +
+                 "Above zero hits every standing player inside the cone and inside AttackRange, " +
+                 "which is what GDD §9.1 means by area damage: standing behind a teammate stops " +
+                 "being cover.")]
+        [Range(0f, 180f)]
+        [SerializeField] private float attackConeAngle;
+
+        [Tooltip("Metres per second a hit player is shoved away at. Carried out by the victim's " +
+                 "own machine, because player movement is owner-authoritative.")]
+        [Min(0f)]
+        [SerializeField] private float attackKnockback;
+
+        [Tooltip("Plain prefab left on the floor where the attack landed, on every machine — " +
+                 "the water cooler's puddle. Optional, and never networked: the server already " +
+                 "said where it goes, so each machine builds its own.")]
+        [SerializeField] private GameObject attackHazard;
+
         [Header("After it dies")]
         [Tooltip("Seconds the body stays before it is despawned. Zero leaves it until the run " +
                  "ends — right for one shredder, wrong for a swarm that would pile up.")]
@@ -107,6 +131,8 @@ namespace Office.Data
 
         public float TurnSpeed => turnSpeed;
 
+        public float ChaseStopDistance => Mathf.Min(chaseStopDistance, attackRange * 0.85f);
+
         public float SightRadius => sightRadius;
 
         public float SightAngle => sightAngle;
@@ -124,6 +150,14 @@ namespace Office.Data
         public float AttackWindup => attackWindup;
 
         public float AttackCooldown => attackCooldown;
+
+        public float AttackConeAngle => attackConeAngle;
+
+        public bool AttackHitsArea => attackConeAngle > 0f;
+
+        public float AttackKnockback => attackKnockback;
+
+        public GameObject AttackHazard => attackHazard;
 
         public float CorpseSeconds => corpseSeconds;
 

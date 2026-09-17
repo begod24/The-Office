@@ -83,10 +83,18 @@ namespace Office.Editor
 
             PlaceEnemy(group, "Enemy_Stapler_A", "ENM_Stapler", new Vector3(-9f, 0f, 9f));
             PlaceEnemy(group, "Enemy_Stapler_B", "ENM_Stapler", new Vector3(9f, 0f, -9f));
+
+            // One of each rigged enemy, all three in the open half of the room. The ceiling fan
+            // is 4.6 m across its legs and the only door here is a metre wide, so it is parked
+            // where it has room to walk rather than where it would stand in a doorway forever.
+            PlaceEnemy(group, "Enemy_CeilingFan", "ENM_CeilingFan", new Vector3(2f, 0f, -8f));
+            PlaceEnemy(group, "Enemy_WaterCooler", "ENM_WaterCooler", new Vector3(8f, 0f, 4f),
+                270f);
+            PlaceEnemy(group, "Enemy_Projector", "ENM_Projector", new Vector3(-6f, 0f, 9f), 160f);
         }
 
         private static void PlaceEnemy(Transform parent, string name, string definitionName,
-            Vector3 position)
+            Vector3 position, float yaw = 0f)
         {
             var definition = AssetDatabase.LoadAssetAtPath<EnemyDefinition>(
                 $"{EnemyDefinitionFolder}/{definitionName}.asset");
@@ -101,6 +109,7 @@ namespace Office.Editor
             var marker = new GameObject(name);
             marker.transform.SetParent(parent, false);
             marker.transform.localPosition = position;
+            marker.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
 
             var placement = marker.AddComponent<EnemyPlacement>();
 

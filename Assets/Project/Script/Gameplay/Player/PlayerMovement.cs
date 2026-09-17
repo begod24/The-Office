@@ -15,6 +15,7 @@ namespace Office.Gameplay
 
         private CharacterController controller;
 
+        private Vector3 knockback;
         private Vector3 horizontalVelocity;
         private float verticalVelocity;
         private float stamina;
@@ -73,9 +74,27 @@ namespace Office.Gameplay
             UpdateHorizontalVelocity(deltaTime);
             UpdateVerticalVelocity(deltaTime);
 
-            var motion = horizontalVelocity;
+            var motion = horizontalVelocity + knockback;
             motion.y = verticalVelocity;
             controller.Move(motion * deltaTime);
+
+            knockback = Vector3.MoveTowards(knockback, Vector3.zero,
+                config.KnockbackDamping * deltaTime);
+        }
+
+        // Applied here rather than on the server because the server does not move this body —
+        // the owner does (Architecture §4). The server decides that a shove happened and how
+        // hard; the owner is the only thing that can carry it out.
+        [Rpc(SendTo.Owner)]
+        public void ApplyKnockbackRpc(Vector3 velocity, RpcParams parameters = default)
+        {
+            // Untrusted by construction, like RequestInteractRpc: a client that could call this
+            // on someone else could push a teammate off a ramp.
+            if (parameters.Receive.SenderClientId != NetworkManager.ServerClientId) return;
+
+            knockback += new Vector3(velocity.x, 0f, velocity.z);
+
+            if (velocity.y > 0f) verticalVelocity = Mathf.Max(verticalVelocity, velocity.y);
         }
 
         private void UpdateCrouch(float deltaTime)
@@ -174,6 +193,8 @@ namespace Office.Gameplay
             var speed = isCrouching ? config.CrouchSpeed
                 : IsSprinting ? config.SprintSpeed
                 : config.WalkSpeed;
+
+            speed *= SlowZone.SpeedMultiplierAt(transform.position);
 
             var target = wishDirection * speed;
             var acceleration = controller.isGrounded

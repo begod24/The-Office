@@ -143,6 +143,10 @@ namespace Office.Enemies
             if (agent == null || !agent.enabled || !agent.isOnNavMesh) return;
 
             agent.speed = definition.ChaseSpeed;
+
+            // A sprayer holds its distance; a biter closes all the way. Without this the ranged
+            // enemies walk into the player they are shooting at and the attack reads as a shove.
+            agent.stoppingDistance = definition.ChaseStopDistance;
             agent.isStopped = false;
             agent.SetDestination(target.transform.position);
         }
@@ -160,6 +164,7 @@ namespace Office.Enemies
             }
 
             agent.speed = definition.ChaseSpeed;
+            agent.stoppingDistance = 0f;
             agent.isStopped = false;
             agent.SetDestination(noisePoint);
 
@@ -205,17 +210,70 @@ namespace Office.Enemies
             attackLandsAt = -1f;
             nextAttackTime = Time.time + definition.AttackCooldown;
 
-            if (target == null || !target.State.IsStanding) return;
+            // Announced before anything is resolved, and whether or not it connects: the blast
+            // the players see is the attack happening, not the damage arriving.
+            if (enemy != null) enemy.ServerAnnounceAttack(LandingPoint(definition));
 
-            var point = target.transform.position + Vector3.up * (definition.BodyHeight * 0.5f);
+            if (!definition.AttackHitsArea)
+            {
+                if (target != null) Hit(definition, target, false);
+                return;
+            }
+
+            var players = Health.SpawnedPlayerList;
+
+            for (var i = players.Count - 1; i >= 0; i--) Hit(definition, players[i], true);
+        }
+
+        private Vector3 LandingPoint(EnemyDefinition definition)
+        {
+            if (target != null) return CombatGeometry.AimPoint(target.NetworkObject);
+
+            return transform.position
+                   + Vector3.up * EyeHeight(definition)
+                   + transform.forward * definition.AttackRange;
+        }
+
+        private void Hit(EnemyDefinition definition, Health victim, bool area)
+        {
+            if (victim == null || !victim.IsSpawned || !victim.State.IsStanding) return;
+
+            var point = area
+                ? CombatGeometry.AimPoint(victim.NetworkObject)
+                : victim.transform.position + Vector3.up * (definition.BodyHeight * 0.5f);
+
             var offset = point - transform.position;
 
             if (offset.sqrMagnitude > definition.AttackRange * definition.AttackRange) return;
+
+            if (area)
+            {
+                var flat = new Vector3(offset.x, 0f, offset.z);
+
+                if (flat.sqrMagnitude > 0.0001f &&
+                    Vector3.Angle(transform.forward, flat) > definition.AttackConeAngle * 0.5f)
+                    return;
+            }
+
             if (CombatGeometry.IsOccluded(transform, point, EyeHeight(definition))) return;
 
-            target.ApplyDamage(new DamageInfo(
+            var direction = offset.normalized;
+
+            victim.ApplyDamage(new DamageInfo(
                 definition.AttackDamage, definition.AttackDamageType, DamageInfo.World,
-                point, offset.normalized));
+                point, direction));
+
+            if (definition.AttackKnockback <= 0f) return;
+            if (!victim.TryGetComponent<PlayerMovement>(out var movement)) return;
+
+            var shove = new Vector3(direction.x, 0f, direction.z).normalized *
+                        definition.AttackKnockback;
+
+            // A little of it upward, so the player is lifted off the floor rather than scraped
+            // along it — the shove is readable only if it breaks their footing.
+            shove.y = definition.AttackKnockback * 0.3f;
+
+            movement.ApplyKnockbackRpc(shove);
         }
 
         private void Enter(EnemyBehaviourState next)
