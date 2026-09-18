@@ -239,6 +239,50 @@ Adding a shortcut would let a run end without ever reaching a terminal state.
 have their `CharacterController` disabled by `PlayerRig` so it cannot fight the replicated
 transform.
 
+### 4.2 The player record
+
+A body is not a player. Bodies are despawned at the end of every run and built again at the
+start of the next, and three things in the GDD ask a question about a player whose body does not
+exist: §15 reconnecting into the run you dropped out of, §7.1 a dead player who stays on as a
+spectator, and §7.3.1 a dead player's voice still carrying through the office equipment.
+
+So `PF_PersistentPlayer` — one per connected client, spawned by `PersistentPlayerSpawner` on
+PF_Session the moment they connect, despawned when they drop. It carries no art, no collider and
+no transform: it is a row in a table that happens to be a `NetworkObject`.
+
+| Field | Written by | Read by |
+|---|---|---|
+| `Seat` | `SeatRegistry`, at spawn | Which character prefab the body uses |
+| `DisplayName` | `SeatRegistry`, at spawn | Rosters, nameplates, the spectator list |
+| `Status` | `PlayerStatusReporter` on the body | Anything that needs to know the player is down or dead when their body is gone |
+
+It calls `DontDestroyOnLoad` on itself for the same reason `SessionRoot` does. A record of the
+player that dies with the scene the player left is not a record.
+
+**Status is pushed, not pulled.** `Office.Network` cannot see `Office.Gameplay` — §1 keeps the
+dependency pointing the other way — so `PlayerStatusReporter` sits on the body, watches `Health`
+and writes the result onto the record. The record needs no idea what a body is, which is the
+whole point of it outliving one.
+
+**Spectating is not a status.** A dead player watching a teammate is what `Dead` looks like from
+inside their own camera, and `SpectatorCamera` already derives it from the same vitals. Two
+sources for one fact is how the two come to disagree.
+
+### 4.3 Seats
+
+`SeatRegistry` is a static, server-side table of client id to seat, and the display name is
+derived from the seat rather than stored beside it. Three callers need a seat — the lobby
+roster, the persistent player and the body spawner — and each asks from its own connection
+callback, in whatever order those happen to be subscribed. A registry that assigns on first ask
+is the only version of this where the order cannot produce two different answers.
+
+It replaces a `Dictionary<ulong, int>` that lived inside `PlayerSpawner` and died with the run,
+and it fixes a naming bug on the way: the roster used to name a joining player from its own
+list length, so the player who joined after a middle seat emptied wore a name the player in the
+last seat still had. Seats are released on disconnect and not before — until GDD §15
+reconnection lands there is nothing to come back to, and holding a seat open would leave a
+four-player lobby with three usable seats after one person's network hiccup.
+
 ---
 
 ## 5. Player prefab
@@ -258,10 +302,18 @@ PF_Player                    layer: Player
 ├── PlayerInteractor         camera probe, server-validated interact request
 ├── PlayerInventory          NetworkList of slots, owner-selected index
 ├── HeldItemView             draws the selected item at the socket
+├── Health                   server writes; vitals, resistances, bleed-out (§10.2)
+├── PlayerAttacker           swing, server-validated (§10)
+├── CombatFeedback           impact effects on every machine
+├── PlayerFlashlight         the beam under CameraPivot, battery from MOD_Light
+├── DownedPlayer             IInteractable; a standing teammate revives this one
+├── SpectatorCamera          owner only; takes over when its own Health dies
+├── PlayerStatusReporter     server only; mirrors Health onto the player record (§4.2)
 ├── Body (capsule)           hidden from the owner
 ├── FacingMarker (cube)      so facing is readable in greybox
 ├── Socket                   (0.256, 1.251, 0.437) — where a carried item hangs
 └── CameraPivot              y 1.62 standing, 0.92 crouched
+    ├── Flashlight           Spot light, off in the prefab
     └── PlayerCamera         Camera + AudioListener, owner only
 ```
 
@@ -770,7 +822,7 @@ configured from the definition before the object spawns. A new enemy is an asset
 | Component | Runs on | Owns |
 |---|---|---|
 | `Enemy` | everyone | The definition, the view, the capsule, the agent's dimensions, the corpse timer |
-| `EnemyBrain` | server only | Sight, hearing, the state machine, the attack |
+| `EnemyBrain` | server only | Sight, hearing, patrol, the state machine, the attack |
 | `Health` | server writes | Damage, resistances, death — `canBeDowned` is off, so zero is dead |
 
 **How one reaches the world.** `EnemySpawner` on `PF_Session` is the third subclass of
@@ -788,8 +840,33 @@ the wire, and what a client sees is the replicated behaviour state changing. An 
 noise when the distance clears **the smaller of** the noise's radius and its own
 `HearingRadius` — the quieter of the two decides, so both numbers stay worth authoring. A heard
 noise sends a targetless enemy to the point at chase speed (`Investigating`); it lingers there
-for `MemorySeconds`, then forgets. Sight always wins: the moment anything is seen the noise is
-dropped, and a noise never interrupts a chase or a committed swing.
+for `MemorySeconds`, then forgets and falls back into patrol. Sight always wins: the moment
+anything is seen the noise is dropped, and a noise never interrupts a chase or a committed
+swing.
+
+**Patrol.** With nothing seen and nothing heard, an enemy walks a circle around where it spawned
+(`Patrolling`). It draws a point inside `PatrolRadius` of its spawn anchor, puts it through
+`NavMesh.SamplePosition` against **the agent's own area mask** — an enemy barred from an area
+must not patrol through it either — walks there at `PatrolSpeed`, and stands for `PatrolPause`
+jittered half either side before drawing the next. Two of the same enemy spawned in one room
+fall out of step with each other within a couple of points.
+
+The circle is centred on the spawn anchor rather than on the enemy, which gives the walk home
+for free: one that gave up a chase three rooms away draws its next point near the anchor and
+walks back to its patch. The anchor is taken on the first frame the agent reports itself on the
+mesh, not at spawn — `Enemy` snaps the transform onto the mesh during its own spawn and nothing
+orders the two, so a position read at spawn can be the marker's rather than the one the agent
+actually stands on.
+
+`PatrolRadius` of zero holds station on the marker: GDD §9.1 #11 is a stationary hazard, and a
+socket that strolls is not one. `Idle` is what the brain is in whenever it is not walking — the
+pause between points, a marker off the mesh, a definition that holds station — so `Idle` now
+means *standing still* rather than *has not noticed anything*.
+
+A marker sealed in by geometry has no point to draw. Six draws per pick, then a one-second
+back-off instead of resampling every frame, and a warning naming the definition on the third
+consecutive failure: the only other symptom is an enemy standing there, which is exactly what a
+patrol at rest looks like.
 
 **The brain disables itself everywhere but the server**, and so does the `NavMeshAgent`. An
 agent left live on a client fights the replicated transform for the same object and wins about
@@ -859,11 +936,15 @@ numbers are in `PostProcessBuilder` at commit `072d658`.
 
 ## 15. What is deliberately not here yet
 
-Level generation, power, voice, SFX and ambience. Each has an empty assembly waiting for it —
+Level generation, voice, SFX and ambience. Each has an empty assembly waiting for it —
 `Office.Audio` now holds the music and the settings-to-sound binding, and no sound effect,
-stinger or ambience system yet. Props are defined but no prop behaviour exists yet — the first
-door will need `PropDefinition`, a `PropPlacement` marker and a component implementing
-`IInteractable`, all of which the item path already demonstrates.
+stinger or ambience system yet.
+
+Power has its first piece: `PowerSwitch` is a prop implementing `IInteractable`, placed from
+`PowerSwitchPlacement` markers by `PowerSwitchSpawner`, which hands each one the `RunOutcome`
+it reports to — so a run can now be won. What is not there is a power *state* — nothing in the building is dark because a
+switch is off, and nothing else asks whether it is. The service GDD §6 wants still has to be
+written; the switches are its objective, not its implementation.
 
 `LightSourceModule` is read by the flashlight and the item card, but a held item that glows —
 a laser pointer lighting the wall it points at — is not built. The numbers are resolved and
@@ -888,3 +969,12 @@ Known gaps in what does exist:
 - **The lobby look is placeholder.** GDD §14 wants a retro terminal HUD, and no render layer
   will deliver one: screen-space UI is composited after URP entirely. That pass is its own piece
   of work, in the UI rather than in rendering.
+- **An enemy is silent and has no animation of its own.** It patrols, hears, chases and swings,
+  and does all of it without a footstep, a servo or an idle. The procedural walker moves the
+  legs; nothing else about it reads as alive. For a co-op horror this is the largest remaining
+  hole in what does exist: a player cannot react to a thing they cannot hear coming, and GDD
+  §2's "the building is the antagonist" is not testable until they can.
+- **`SCN_Level_1` has no baked NavMesh and no lights.** It is in build settings and it is a
+  floor plan, not a level: `m_NavMeshData` is empty, so nothing that walks can path in it, and
+  every enemy spawned there will log the snap warning and stand still. The only baked mesh in
+  the project is `NavMesh_SCN_Sandbox`.
