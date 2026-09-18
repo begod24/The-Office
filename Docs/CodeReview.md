@@ -833,6 +833,45 @@ private void SpawnPlacements()
 - **До первого врага:** пункты 4–6.
 - **Вместе с первым врагом:** пункты 7–9.
 
+### 8.1 Статус на 18 сентября 2026
+
+Ревью выше датировано 7 августа, коммитом `622db33`. С тех пор в проекте появились враги,
+ProBuilder-блокаут и первый уровень. Таблица приоритетов закрыта почти целиком — сверено по
+коду, не по памяти:
+
+| # | Что | Статус | Чем проверено |
+|---|---|---|---|
+| 1 | Генерируемые и авторские сцены | ✅ | Авторские уровни в `Assets/Project/Scenes/Level/`, `ProjectSetup.ConfigureBuildSettings` подхватывает папку |
+| 2 | `ItemDefinition` → модули | ✅ | Architecture §9, `ItemModuleTests` |
+| 3 | `EventBus` + тест | ✅ | Публикация по снапшоту из пула; `Handler_CanUnsubscribeItselfWhileBeingNotified`, `NestedPublish_StillReachesTheRemainingHandlers` |
+| 4 | `ConnectionApproval` + версия контента | ✅ | `ConnectionHandshake`, FNV-1a по реестру, `ConnectionHandshakeTests` |
+| 5 | Отвал хоста + late join | ⚠️ частично | Отвал хоста — `OnClientStopped` в `NetworkServiceInstaller`. Late join спавнит тело по `ClientReadyDuringRun`. **Лобби по-прежнему не лочится**: `RunState.IsLocked` есть, соединить его с `ConnectionApproval` некому |
+| 6 | Обобщить `DefinitionRegistry` | ✅ | `Dictionary<int, ContentDefinition>`, без привязки к двум типам |
+| 7 | `IDamageable` + таблица резистов | ✅ | `DamageResponseTable`, `DamageResponseTests` |
+| 8 | `PF_PersistentPlayer` | ✅ | Architecture §4.2. Сиденье уехало из `PlayerSpawner` в `SeatRegistry`, статус пишет `PlayerStatusReporter` с тела |
+| 9 | Пул сетевых объектов | ✅ | Architecture §11 |
+| 10 | README | ✅ | Переписан 18 сентября, расхождения с кодом убраны |
+
+**Что вскрылось при сверке и в таблице не было:**
+
+- **README врал.** Три заявленные дыры из трёх были закрыты в коде и не отражены в тексте:
+  ревайв (`DownedPlayer.Interact` → `Health.ServerRevive`), спектатор (`SpectatorCamera`) и
+  патруль врага. Команда из двух человек, работающая по докам, на таком делает работу дважды.
+- **`SCN_Level_1` лежит в build settings без запечённого NavMesh и без источников света.**
+  Пути в нём нет ни для чего ходящего — единственный запечённый меш в проекте
+  `NavMesh_SCN_Sandbox`.
+- **Наименование игроков в лобби дублировалось.** `LobbyRoster` называл входящего по длине
+  собственного списка, так что после выхода игрока из середины следующий получал имя, которое
+  ещё носил кто-то в последнем сиденье. Закрыто вместе с пунктом 8 — имя теперь выводится из
+  сиденья, `SeatRegistryTests`.
+
+**Следующее по приоритету, по состоянию на сегодня:**
+
+1. Звук врага — шаги, дыхание, сервоприводы. Без него противник не тестируется.
+2. NavMesh и свет в `SCN_Level_1`.
+3. Лок лобби во время рана (пункт 5, остаток).
+4. Состояние питания — не выключатель как объектив, а само питание как сервис (GDD §6).
+
 ---
 
 ## 9. Источники

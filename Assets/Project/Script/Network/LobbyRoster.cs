@@ -1,5 +1,4 @@
 using System;
-using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -101,16 +100,12 @@ namespace Office.Network
         {
             if (!IsServer || TryFind(clientId, out _)) return;
 
-            slots.Add(new PlayerSlot(clientId, BuildDisplayName(slots.Count + 1)));
-        }
+            // Named from the seat rather than from this list's length. The two agreed only while
+            // nobody ever left: a roster rebuilt after the second of three players dropped used
+            // to hand the third player a name someone else was still wearing on their body.
+            var seat = SeatRegistry.Take(clientId, clientId == NetworkManager.ServerClientId);
 
-        private static FixedString32Bytes BuildDisplayName(int ordinal)
-        {
-            FixedString32Bytes name = default;
-            name.Append("EMPLOYEE ");
-            if (ordinal < 10) name.Append('0');
-            name.Append(ordinal);
-            return name;
+            slots.Add(new PlayerSlot(clientId, SeatRegistry.NameForSeat(seat)));
         }
 
         private bool TryFind(ulong clientId, out int index)

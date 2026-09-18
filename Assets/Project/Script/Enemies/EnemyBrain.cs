@@ -29,6 +29,14 @@ namespace Office.Enemies
         [Min(0f)]
         [SerializeField] private float repathDistance = 0.4f;
 
+        [Tooltip("Metres a drawn patrol point may be off the navigation mesh before it is thrown " +
+                 "away and another is drawn. The point comes out of a circle that knows nothing " +
+                 "about where the walls are, so most draws land inside geometry and this sample " +
+                 "is what rescues them. Too small and a corridor enemy finds nothing to walk to; " +
+                 "too large and it teleports its intent through a wall into the next room.")]
+        [Min(0.1f)]
+        [SerializeField] private float patrolSampleRadius = 2f;
+
         private readonly NetworkVariable<EnemyBehaviourState> state = new(
             EnemyBehaviourState.Idle, NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Server);
@@ -48,7 +56,29 @@ namespace Office.Enemies
         private Vector3 destination;
         private bool hasDestination;
 
+        private Vector3 anchor;
+        private bool hasAnchor;
+        private bool hasPatrolPoint;
+        private float patrolResumeTime;
+        private int patrolFailures;
+
         private const float NoiseArriveDistance = 0.75f;
+
+        // Draws per pick. Six is enough that a point in open floor is found on the first or
+        // second try and a boxed-in marker gives up inside one frame instead of stalling.
+        private const int PatrolDraws = 6;
+
+        private const float PatrolArriveDistance = 0.5f;
+
+        // A point at its own feet is a patrol that never moves. Anything closer than this is
+        // redrawn, unless the enemy is already outside its circle and any point is progress home.
+        private const float PatrolMinStep = 1.5f;
+
+        // How long a failed pick waits before trying again. Without it a marker with no mesh
+        // around it samples six times a frame forever.
+        private const float PatrolBackoffSeconds = 1f;
+
+        private const int PatrolFailuresBeforeWarning = 3;
 
         public EnemyBehaviourState State => state.Value;
 
@@ -69,6 +99,15 @@ namespace Office.Enemies
                 hasNoise = false;
                 noiseArrivedTime = -1f;
                 hasDestination = false;
+
+                // The anchor is not taken here. Enemy snaps the transform onto the navigation
+                // mesh in its own spawn, and nothing orders the two, so a position read now can
+                // be the marker's rather than the one the agent actually stands on. It is taken
+                // on the first frame the agent reports itself on the mesh instead.
+                hasAnchor = false;
+                hasPatrolPoint = false;
+                patrolResumeTime = 0f;
+                patrolFailures = 0;
 
                 // Spread across the interval rather than landing on the same frame as everything
                 // else that spawned with it. A scan is a raycast per player, so a schedule shared
@@ -121,7 +160,7 @@ namespace Office.Enemies
             if (target == null)
             {
                 if (hasNoise) Investigate(definition);
-                else Idle(definition);
+                else Patrol(definition);
                 return;
             }
 
@@ -152,6 +191,126 @@ namespace Office.Enemies
 
             agent.ResetPath();
             hasDestination = false;
+        }
+
+        // Nothing seen, nothing heard. The enemy walks a circle around where it spawned, pausing
+        // at each point it reaches. This is the state it is in for most of a run, so it is also
+        // the one the player learns the building's threat from: a thing that only ever moves once
+        // it has already noticed you gives them nothing to avoid.
+        private void Patrol(EnemyDefinition definition)
+        {
+            var agent = enemy.Agent;
+
+            // A marker off the mesh, or a definition that holds station. Both stand still, and
+            // Idle is what standing still is called.
+            if (agent == null || !agent.enabled || !agent.isOnNavMesh || !definition.Patrols)
+            {
+                Idle(definition);
+                return;
+            }
+
+            if (!hasAnchor)
+            {
+                anchor = transform.position;
+                hasAnchor = true;
+            }
+
+            // Waiting out the pause at the point it just reached.
+            if (Time.time < patrolResumeTime)
+            {
+                Idle(definition);
+                return;
+            }
+
+            Enter(EnemyBehaviourState.Patrolling);
+
+            agent.speed = definition.PatrolSpeed;
+            agent.stoppingDistance = 0f;
+            agent.isStopped = false;
+
+            if (hasPatrolPoint && !agent.pathPending)
+            {
+                if (agent.pathStatus == NavMeshPathStatus.PathInvalid)
+                {
+                    hasPatrolPoint = false;
+                }
+                else if (agent.remainingDistance <= PatrolArriveDistance)
+                {
+                    hasPatrolPoint = false;
+                    patrolResumeTime = Time.time + PauseFor(definition);
+                    return;
+                }
+            }
+
+            if (hasPatrolPoint) return;
+
+            if (TryDrawPatrolPoint(agent, definition, out var point))
+            {
+                patrolFailures = 0;
+                hasPatrolPoint = true;
+
+                // Issued directly rather than through Steer. Steer exists to swallow re-paths at
+                // a target that has only drifted a few centimetres; a patrol point is drawn once
+                // and never moves, so the only thing that dedup could ever do here is swallow the
+                // one call that matters and leave the enemy standing on its last destination.
+                agent.SetDestination(point);
+
+                destination = point;
+                hasDestination = true;
+                return;
+            }
+
+            // Nothing on the mesh inside the circle. Back off rather than redrawing every frame,
+            // and say so once: a marker sealed in a cupboard is a level bug whose only other
+            // symptom is an enemy that stands there, which is exactly what a working idle looks
+            // like.
+            patrolResumeTime = Time.time + PatrolBackoffSeconds;
+
+            if (++patrolFailures == PatrolFailuresBeforeWarning)
+                Debug.LogWarning(
+                    $"[Enemy] '{definition.name}' found nowhere to patrol within " +
+                    $"{definition.PatrolRadius:0.#}m of where it spawned. Check the marker is " +
+                    "not boxed in by geometry, widen its PatrolRadius, or set it to zero if the " +
+                    "enemy is meant to hold station.", this);
+
+            Idle(definition);
+        }
+
+        // Jittered half either side so two of the same enemy spawned in one room fall out of step
+        // with each other within a couple of points.
+        private static float PauseFor(EnemyDefinition definition) =>
+            definition.PatrolPause * UnityEngine.Random.Range(0.5f, 1.5f);
+
+        private bool TryDrawPatrolPoint(NavMeshAgent agent, EnemyDefinition definition,
+            out Vector3 point)
+        {
+            var radius = definition.PatrolRadius;
+
+            // Outside its own circle — it gave up a chase somewhere else — every point on the
+            // mesh is progress homeward, so the short-step rule is dropped for the walk back.
+            var strayed = (transform.position - anchor).sqrMagnitude > radius * radius;
+
+            for (var draw = 0; draw < PatrolDraws; draw++)
+            {
+                var offset = UnityEngine.Random.insideUnitCircle * radius;
+                var candidate = anchor + new Vector3(offset.x, 0f, offset.y);
+
+                // The agent's own mask rather than every area: an enemy barred from a door area
+                // must not patrol through it either.
+                if (!NavMesh.SamplePosition(candidate, out var hit, patrolSampleRadius,
+                        agent.areaMask))
+                    continue;
+
+                if (!strayed &&
+                    (hit.position - transform.position).sqrMagnitude < PatrolMinStep * PatrolMinStep)
+                    continue;
+
+                point = hit.position;
+                return true;
+            }
+
+            point = default;
+            return false;
         }
 
         private void Chase(EnemyDefinition definition)
@@ -317,7 +476,14 @@ namespace Office.Enemies
 
         private void Enter(EnemyBehaviourState next)
         {
-            if (state.Value != next) state.Value = next;
+            if (state.Value == next) return;
+
+            // Leaving patrol throws the current point away. Whatever interrupted it will have
+            // carried the enemy somewhere else, and a point chosen from the old position is no
+            // longer the one it would pick from the new one. Coming back draws fresh.
+            if (state.Value == EnemyBehaviourState.Patrolling) hasPatrolPoint = false;
+
+            state.Value = next;
         }
 
         private void OnNoise(NoiseRaised evt)

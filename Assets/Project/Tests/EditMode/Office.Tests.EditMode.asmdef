@@ -13,7 +13,8 @@
         "Office.Anomalies",
         "Office.UI",
         "Office.Audio",
-        "Office.Rendering"
+        "Office.Rendering",
+        "Unity.Collections"
     ],
     "includePlatforms": [
         "Editor"
