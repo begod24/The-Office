@@ -19,8 +19,6 @@ namespace Office.Network
 
         private readonly List<NetworkObject> spawned = new(4);
 
-        private readonly Dictionary<ulong, int> seats = new(4);
-
         private GameState lastPhase = GameState.Lobby;
 
         private void Awake()
@@ -54,7 +52,6 @@ namespace Office.Network
             if (IsServer) NetworkManager.OnClientDisconnectCallback -= OnClientDisconnected;
 
             spawned.Clear();
-            seats.Clear();
         }
 
         private void OnPhaseChanged(GameState phase)
@@ -124,16 +121,12 @@ namespace Office.Network
             spawned.Add(networkObject);
         }
 
-        private int TakeSeat(ulong clientId)
-        {
-            if (seats.TryGetValue(clientId, out var seat)) return seat;
-
-            seat = clientId == NetworkManager.ServerClientId ? 0 : 1;
-            while (seats.ContainsValue(seat)) seat++;
-
-            seats[clientId] = seat;
-            return seat;
-        }
+        // The seat used to be kept here, in a dictionary that died with the run. It now lives in
+        // SeatRegistry, where PersistentPlayer and the lobby roster read the same answer — three
+        // callers deriving a seat independently is three chances to disagree about who the host
+        // is.
+        private int TakeSeat(ulong clientId) =>
+            SeatRegistry.Take(clientId, clientId == NetworkManager.ServerClientId);
 
         private void DespawnAll()
         {
@@ -148,8 +141,6 @@ namespace Office.Network
 
         private void OnClientDisconnected(ulong clientId)
         {
-            seats.Remove(clientId);
-
             for (var i = spawned.Count - 1; i >= 0; i--)
             {
                 var networkObject = spawned[i];

@@ -29,6 +29,20 @@ namespace Office.Data
         [Min(0f)]
         [SerializeField] private float patrolSpeed = 1.2f;
 
+        [Tooltip("Metres around its spawn marker the enemy wanders while nothing has its " +
+                 "attention. The circle is centred on where it spawned, not on where it is, so " +
+                 "one that gave up a chase walks itself home. Zero holds station on the marker " +
+                 "— GDD §9.1 #11 is a stationary hazard, and a socket that strolls is not one.")]
+        [Min(0f)]
+        [SerializeField] private float patrolRadius = 8f;
+
+        [Tooltip("Seconds it stands at a patrol point before choosing the next one. Jittered " +
+                 "either side at runtime, so a pair spawned in the same room does not pace in " +
+                 "lockstep. Zero walks a continuous circuit, which reads as a machine rather " +
+                 "than something looking for you.")]
+        [Min(0f)]
+        [SerializeField] private float patrolPause = 2.5f;
+
         [Tooltip("Metres per second while chasing. GDD §9.1 #13 makes the stapler fast and " +
                  "fragile; the player's walk is 3.2 and sprint is 5.6, so anything above 5.6 " +
                  "cannot be outrun and should be a deliberate decision, not a typo.")]
@@ -134,6 +148,12 @@ namespace Office.Data
         public float BodyHeight => bodyHeight;
 
         public float PatrolSpeed => patrolSpeed;
+
+        public float PatrolRadius => patrolRadius;
+
+        public float PatrolPause => patrolPause;
+
+        public bool Patrols => patrolRadius > 0f;
 
         public float ChaseSpeed => chaseSpeed;
 

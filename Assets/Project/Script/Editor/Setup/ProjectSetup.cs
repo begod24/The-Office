@@ -55,6 +55,7 @@ namespace Office.Editor
             ItemContentBuilder.BuildAll();
 
             BuildPlayerPrefab();
+            PersistentPlayerBuilder.Build();
             BuildSessionPrefab();
             BuildSandboxScene();
             BuildLobbyScene();
@@ -216,6 +217,7 @@ namespace Office.Editor
 
             var downed = root.AddComponent<DownedPlayer>();
             var spectator = root.AddComponent<SpectatorCamera>();
+            var statusReporter = root.AddComponent<PlayerStatusReporter>();
 
             Wire(movement, ("config", movementConfig), ("input", input));
 
@@ -275,6 +277,8 @@ namespace Office.Editor
             Wire(downed, ("health", health));
 
             Wire(spectator, ("rig", rig), ("health", health));
+
+            Wire(statusReporter, ("health", health));
 
             WireArray(rig, "bodyRenderers", body);
 
@@ -487,6 +491,7 @@ namespace Office.Editor
             var roster = root.AddComponent<LobbyRoster>();
             var director = root.AddComponent<SessionDirector>();
             var spawner = root.AddComponent<PlayerSpawner>();
+            var recordSpawner = root.AddComponent<PersistentPlayerSpawner>();
             var sceneFlow = root.AddComponent<RunSceneFlow>();
             var itemSpawner = root.AddComponent<WorldItemSpawner>();
             var targetSpawner = root.AddComponent<TargetSpawner>();
@@ -498,6 +503,16 @@ namespace Office.Editor
 
             Wire(spawner, ("director", director), ("manPrefab", playerPrefab));
             ClearFields(spawner, "womanPrefab");
+
+            var persistentPlayerPrefab = PersistentPlayerBuilder.Load();
+
+            if (persistentPlayerPrefab == null)
+                Debug.LogError("[Setup] PF_PersistentPlayer is missing. Run " +
+                               "'Office/Setup/Build Persistent Player Prefab' first — without " +
+                               "it nothing about a player survives their body, and the seat, " +
+                               "the name and the status all die with the run.");
+
+            Wire(recordSpawner, ("persistentPlayerPrefab", persistentPlayerPrefab));
 
             Wire(sceneFlow, ("director", director));
 
@@ -549,7 +564,8 @@ namespace Office.Editor
             AssetDatabase.SaveAssets();
 
             NetworkPrefabRegistry.Register(
-                AssetDatabase.LoadAssetAtPath<GameObject>(SessionPrefabPath), playerPrefab);
+                AssetDatabase.LoadAssetAtPath<GameObject>(SessionPrefabPath), playerPrefab,
+                persistentPlayerPrefab);
 
             Debug.Log($"[Setup] Session prefab written to {SessionPrefabPath}.");
         }
