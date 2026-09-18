@@ -29,30 +29,50 @@ namespace Office.Editor
                 ClearComponents(profile);
             }
 
+            // The look brief is the second concept frame: near-black corridors, cold
+            // cast, a single warm emergency source, film grain — and NO pixelisation.
+            // That last part is the whole reason render scale and nearest-neighbour
+            // upscaling stay out of this stack. Grain and chromatic aberration give the
+            // image its texture; downsampling would give it aliasing instead.
+
             var tonemapping = Add<Tonemapping>(profile);
             tonemapping.mode.Override(TonemappingMode.Neutral);
 
             var colour = Add<ColorAdjustments>(profile);
-            colour.postExposure.Override(0.45f);
-            colour.contrast.Override(6f);
-            colour.saturation.Override(-12f);
-            colour.colorFilter.Override(new Color(1f, 0.975f, 0.935f));
+            colour.postExposure.Override(-0.1f);
+            colour.contrast.Override(10f);
+            colour.saturation.Override(-30f);
+            colour.colorFilter.Override(new Color(0.94f, 0.97f, 1f));
+
+            var balance = Add<WhiteBalance>(profile);
+            balance.temperature.Override(-18f);
+            balance.tint.Override(4f);
+
+            // Shadows pushed towards cyan, highlights left almost neutral. This is what
+            // reads as "fluorescent light in a dead building" rather than "blue filter".
+            var tonal = Add<ShadowsMidtonesHighlights>(profile);
+            tonal.shadows.Override(new Vector4(0.86f, 0.95f, 1.08f, -0.06f));
+            tonal.midtones.Override(new Vector4(0.98f, 1f, 1.02f, 0f));
+            tonal.highlights.Override(new Vector4(1.02f, 1f, 0.97f, -0.03f));
 
             var bloom = Add<Bloom>(profile);
-            bloom.threshold.Override(0.95f);
-            bloom.intensity.Override(0.35f);
-            bloom.scatter.Override(0.6f);
-            bloom.tint.Override(new Color(0.9f, 0.93f, 1f));
+            bloom.threshold.Override(0.85f);
+            bloom.intensity.Override(0.45f);
+            bloom.scatter.Override(0.68f);
+            bloom.tint.Override(new Color(0.86f, 0.92f, 1f));
 
             var vignette = Add<Vignette>(profile);
             vignette.color.Override(Color.black);
-            vignette.intensity.Override(0.22f);
-            vignette.smoothness.Override(0.5f);
+            vignette.intensity.Override(0.45f);
+            vignette.smoothness.Override(0.45f);
+
+            var aberration = Add<ChromaticAberration>(profile);
+            aberration.intensity.Override(0.08f);
 
             var grain = Add<FilmGrain>(profile);
             grain.type.Override(FilmGrainLookup.Medium1);
-            grain.intensity.Override(0.12f);
-            grain.response.Override(0.8f);
+            grain.intensity.Override(0.22f);
+            grain.response.Override(0.75f);
 
             EditorUtility.SetDirty(profile);
             AssetDatabase.SaveAssets();
@@ -80,7 +100,11 @@ namespace Office.Editor
             var data = camera.GetUniversalAdditionalCameraData();
             data.renderPostProcessing = true;
 
-            data.antialiasing = AntialiasingMode.None;
+            // SMAA, not TAA: this is a dark scene full of thin blockout edges, and TAA
+            // smears them while the camera turns. Neither one resamples the image, which
+            // is what keeps the result sharp instead of pixelated.
+            data.antialiasing = AntialiasingMode.SubpixelMorphologicalAntiAliasing;
+            data.antialiasingQuality = AntialiasingQuality.High;
         }
 
         private static T Add<T>(VolumeProfile profile) where T : VolumeComponent

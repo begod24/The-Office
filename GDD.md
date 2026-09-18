@@ -31,7 +31,7 @@ Four office workers stay late to finish a release. They fall asleep at their des
 
 To get out, the team must restore power, restart the servers, destroy the AI core that caused the infection, and reach the exit before the workday begins.
 
-**Pitch line:** *Lethal Company's cooperative tension inside a PS1-era corporate haunted house.*
+**Pitch line:** *Lethal Company's cooperative tension inside a corporate haunted house.*
 
 ---
 
@@ -58,7 +58,7 @@ Every feature must serve at least one pillar. Features that serve none get cut.
 | Platform | PC (Windows) first. Steam. |
 | Target rating | Mature / 16+ |
 | Camera | First person |
-| Art style | PS1-era low-poly, VHS post-processing |
+| Art style | Modern low-key realism — dark, fog-heavy, practical light sources |
 | Monetization | Premium, single purchase `[OPEN]` |
 | Release model | Steam Early Access after vertical slice `[OPEN]` |
 
@@ -371,30 +371,61 @@ This decision removes an entire subsystem from the technical plan. If a metagame
 
 ### 12.1 Visual target
 
-PS1-era rendering, executed deliberately rather than as an excuse for low quality:
+**Changed in v0.2. The PS1 target is dropped.** The reference is a modern low-key
+interior: near-black corridors, a handful of practical light sources, and enough
+readable detail to navigate by. Not a retro filter.
 
-- Vertex snapping / jitter (no sub-pixel precision)
-- Affine texture mapping (warped texture perspective)
-- Low internal render resolution (320×240 or 480×360) upscaled with nearest-neighbour
-- Limited colour depth with ordered dithering
-- No shadows on most objects; use baked-in darkness and light pools
-- Aggressive fog for draw distance and dread
-- VHS layer: scanlines, chromatic aberration, tape wobble, tracking errors
+Nothing in this section is nostalgic. Every item is either something the reference
+frames actually show, or something URP can deliver without a custom pipeline:
 
-This style is a strategic choice, not only an aesthetic one — it slashes texture and polygon budgets, hides animation limitations, and makes a two-person art pipeline viable.
+- **Native resolution, no downsampling.** Render scale stays at 1 and anti-aliasing is
+  SMAA. There is no low internal resolution, no nearest-neighbour upscale, no
+  pixelation. This is the single most important line in the section.
+- **Forward+ with per-pixel local lights.** A corridor holds twenty small sources at
+  once. The building is lit only by what is still switched on inside it.
+- **Shadows from local lights.** Ceiling fittings are wide spot lights aimed down, not
+  point lights: one shadow map each instead of six, and physically what a panel in a
+  suspended ceiling actually does.
+- **SSAO** for contact darkening where geometry meets geometry.
+- **HDR colour grading** — LDR bands the near-black gradients this look lives in.
+- **Grading:** Neutral tonemap, exposure slightly down, contrast up, saturation −30,
+  white balance cold, shadows pushed towards cyan.
+- **Heavy exponential-squared fog**, dark blue-grey, for draw distance and dread.
+- **Film grain and light chromatic aberration** carry the image's texture. This is where
+  the grit comes from now that resolution tricks are gone.
+- **Wet, reflective floors.** URP has no screen-space reflections — that is HDRP. Wet
+  floors are high-smoothness materials lit by reflection probes. A custom Render Graph
+  SSR pass is a later option, not a dependency.
+- **No volumetric fog component either.** Light shafts, when wanted, are fake cones or a
+  custom fullscreen pass.
+
+**What this costs.** The PS1 target was chosen partly because it slashed asset budgets
+and made a two-person art pipeline viable. Dropping it removes that protection, so
+§12.2 is re-cut below. Darkness now does the work the low resolution used to do: most
+of the frame is unlit, so detail is only needed where light falls.
 
 ### 12.2 Budgets
 
+Raised from the PS1 figures, which were derived from hardware limits that no longer
+apply. Still deliberately tight — this is a two-person team, and the lighting hides far
+more than a higher poly count would buy.
+
 | Asset type | Triangle budget | Texture |
 |---|---|---|
-| Small prop | 100–400 | 128×128 |
-| Large prop / furniture | 400–1200 | 256×256 |
-| Standard enemy | 800–2000 | 256×256 |
-| Mini-boss | 3000–6000 | 512×512 |
-| Player hands / held item | 500–1500 | 256×256 |
-| Modular wall / floor piece | 20–200 | 256×256 tileable |
+| Small prop | 300–1200 | 512×512 |
+| Large prop / furniture | 1200–4000 | 1024×1024 |
+| Standard enemy | 3000–8000 | 1024×1024 |
+| Mini-boss | 10000–20000 | 2048×2048 |
+| Player hands / held item | 2000–5000 | 1024×1024 |
+| Modular wall / floor piece | 50–500 | 1024×1024 tileable |
 
-Palette: desaturated corporate greys, beige, fluorescent white, with red emergency lighting and sickly green CRT glow as the only saturated colours.
+Materials need roughness and normal maps now; flat unlit textures will not read under
+local lighting. Metallic stays near zero for almost everything — this is an office, not
+a spaceship.
+
+Palette: desaturated corporate greys, beige, fluorescent white, with red emergency
+lighting and sickly green CRT glow as the only saturated colours. Unchanged — it was
+never a PS1 decision.
 
 ### 12.3 Modular kit
 
@@ -464,7 +495,7 @@ Everything above is the full vision. This is what actually gets built first. Not
 - 4 weapons: mug, fire extinguisher, staple gun, laser pointer
 - 1 objective type: Restore Power
 - 1 exit: Reach the Elevator
-- Full PS1 render pipeline
+- Full dark-realism render stack (§12.1)
 - Full audio layer for the above content
 - No bosses, no crafting, no progression
 
@@ -500,6 +531,6 @@ Nine decisions are locked in §0. These remain.
 | Fears to Fathom | Atmosphere, mundane-made-wrong tone |
 | SCP: Secret Laboratory | Cooperative survival under systemic pressure |
 | Left 4 Dead | Wave pacing, director-style tension curve |
-| PS1-era horror | Rendering constraints as aesthetic |
+| Amnesia: The Bunker | Low-key lighting, darkness as the main occluder |
 
 **Explicitly not borrowed:** comedy tone. This design is a dark technological horror. Every asset, sound, and line of AI dialogue should be evaluated against that.

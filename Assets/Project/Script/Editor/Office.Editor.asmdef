@@ -12,6 +12,8 @@
         "Office.UI",
         "Office.Audio",
         "Office.Rendering",
+        "Unity.ProBuilder",
+        "Unity.ProBuilder.Editor",
         "Unity.AI.Navigation",
         "Unity.Netcode.Runtime",
         "Unity.RenderPipelines.Universal.Runtime",
