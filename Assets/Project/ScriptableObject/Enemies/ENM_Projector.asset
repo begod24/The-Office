@@ -22,10 +22,13 @@ MonoBehaviour:
   bodyRadius: 0.25
   bodyHeight: 0.7
   patrolSpeed: 1.8
+  patrolRadius: 8
+  patrolPause: 2.5
   chaseSpeed: 4
   acceleration: 14
   turnSpeed: 540
   chaseStopDistance: 6
+  obstacleAvoidance: 1
   sightRadius: 16
   sightAngle: 100
   memorySeconds: 3
@@ -34,7 +37,7 @@ MonoBehaviour:
   attackDamageType: 32
   attackRange: 9
   attackWindup: 0.9
-  attackCooldown: 2.5
+  attackCooldown: 3
   attackConeAngle: 0
   attackKnockback: 0
   attackHazard: {fileID: 0}
