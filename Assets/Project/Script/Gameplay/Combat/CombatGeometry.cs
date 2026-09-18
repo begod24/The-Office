@@ -6,9 +6,16 @@ namespace Office.Gameplay
 {
     public static class CombatGeometry
     {
+        // Anything that can be hurt already knows where its middle is. This is the overload the
+        // per-frame callers want — sight scans and aim tracking run against a swarm.
+        public static Vector3 AimPoint(Health target) =>
+            target != null ? target.AimCentre : Vector3.zero;
+
         public static Vector3 AimPoint(NetworkObject target)
         {
             if (target == null) return Vector3.zero;
+
+            if (target.TryGetComponent<Health>(out var health)) return health.AimCentre;
 
             var collider = target.GetComponentInChildren<Collider>();
 

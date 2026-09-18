@@ -25,6 +25,13 @@ namespace Office.Gameplay
                  "immune to physical weapons' is expressed — as data, not as an if.")]
         [SerializeField] private DamageResponseTable responses = new();
 
+        [Header("Geometry")]
+        [Tooltip("The collider a shot aims at and a sight line is drawn to. Left empty it is the " +
+                 "first one on or under this object, resolved once at wake: every enemy in a " +
+                 "swarm asks every player for this several times a second, and a hierarchy walk " +
+                 "per ask is the whole cost.")]
+        [SerializeField] private Collider aimCollider;
+
         private readonly NetworkVariable<VitalsState> vitals = new(
             default, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
@@ -66,6 +73,16 @@ namespace Office.Gameplay
         }
 
         public bool IsAlive => vitals.Value.IsAlive;
+
+        // Centre of the body, which is what both a shot and a sight line want: the pivot sits on
+        // the floor, and aiming at someone's feet reads as a miss.
+        public Vector3 AimCentre =>
+            aimCollider != null ? aimCollider.bounds.center : transform.position;
+
+        private void Awake()
+        {
+            if (aimCollider == null) aimCollider = GetComponentInChildren<Collider>();
+        }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics()

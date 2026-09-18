@@ -158,6 +158,7 @@ namespace Office.Enemies
             agent.speed = source.PatrolSpeed;
             agent.acceleration = source.Acceleration;
             agent.angularSpeed = source.TurnSpeed;
+            agent.obstacleAvoidanceType = source.ObstacleAvoidance;
 
             agent.stoppingDistance = 0f;
 

@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.AI;
 
 namespace Office.Data
 {
@@ -48,6 +49,15 @@ namespace Office.Data
                  "Clamped below AttackRange, or it would stop outside its own reach.")]
         [Min(0f)]
         [SerializeField] private float chaseStopDistance;
+
+        [Tooltip("How hard the agent works to step around the others. This is the most expensive " +
+                 "thing navigation does per agent, and GDD §9.1 asks for swarms — at high " +
+                 "quality a crowd of them costs the host more than everything else it runs. Low " +
+                 "is enough for something allowed to jostle its neighbours; raise it only for " +
+                 "something big enough that walking through one would read as a bug.")]
+        [SerializeField]
+        private ObstacleAvoidanceType obstacleAvoidance =
+            ObstacleAvoidanceType.LowQualityObstacleAvoidance;
 
         [Header("Sight")]
         [Tooltip("Metres. Sight is blocked by level geometry — see CombatGeometry.IsOccluded.")]
@@ -132,6 +142,8 @@ namespace Office.Data
         public float TurnSpeed => turnSpeed;
 
         public float ChaseStopDistance => Mathf.Min(chaseStopDistance, attackRange * 0.85f);
+
+        public ObstacleAvoidanceType ObstacleAvoidance => obstacleAvoidance;
 
         public float SightRadius => sightRadius;
 

@@ -22,6 +22,13 @@ namespace Office.Enemies
         [Min(0.02f)]
         [SerializeField] private float scanInterval = 0.15f;
 
+        [Tooltip("Metres the thing being chased may drift before the path is asked for again. " +
+                 "Re-planning is the most expensive thing navigation does, and GDD §9.1 has the " +
+                 "host doing it for the whole swarm at once: a path to where someone stood a few " +
+                 "centimetres ago arrives at the same place.")]
+        [Min(0f)]
+        [SerializeField] private float repathDistance = 0.4f;
+
         private readonly NetworkVariable<EnemyBehaviourState> state = new(
             EnemyBehaviourState.Idle, NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Server);
@@ -37,6 +44,9 @@ namespace Office.Enemies
         private Vector3 noisePoint;
         private bool hasNoise;
         private float noiseArrivedTime = -1f;
+
+        private Vector3 destination;
+        private bool hasDestination;
 
         private const float NoiseArriveDistance = 0.75f;
 
@@ -56,9 +66,14 @@ namespace Office.Enemies
                 target = null;
                 attackLandsAt = -1f;
                 nextAttackTime = 0f;
-                nextScanTime = 0f;
                 hasNoise = false;
                 noiseArrivedTime = -1f;
+                hasDestination = false;
+
+                // Spread across the interval rather than landing on the same frame as everything
+                // else that spawned with it. A scan is a raycast per player, so a schedule shared
+                // by a whole swarm is a spike every interval instead of a steady trickle.
+                nextScanTime = Time.time + UnityEngine.Random.Range(0f, scanInterval);
 
                 if (ServiceLocator.TryGet(out bus)) bus.Subscribe<NoiseRaised>(OnNoise);
             }
@@ -112,9 +127,10 @@ namespace Office.Enemies
 
             hasNoise = false;
 
-            var distance = Vector3.Distance(transform.position, target.transform.position);
+            var reach = definition.AttackRange;
+            var offset = target.transform.position - transform.position;
 
-            if (distance <= definition.AttackRange && Time.time >= nextAttackTime)
+            if (offset.sqrMagnitude <= reach * reach && Time.time >= nextAttackTime)
             {
                 BeginAttack(definition);
                 return;
@@ -132,7 +148,10 @@ namespace Office.Enemies
 
             agent.speed = definition.PatrolSpeed;
 
-            if (agent.hasPath) agent.ResetPath();
+            if (!agent.hasPath) return;
+
+            agent.ResetPath();
+            hasDestination = false;
         }
 
         private void Chase(EnemyDefinition definition)
@@ -148,7 +167,23 @@ namespace Office.Enemies
             // enemies walk into the player they are shooting at and the attack reads as a shove.
             agent.stoppingDistance = definition.ChaseStopDistance;
             agent.isStopped = false;
-            agent.SetDestination(target.transform.position);
+
+            Steer(agent, target.transform.position);
+        }
+
+        // A path is only asked for when the destination has actually moved somewhere else. The
+        // agent keeps walking its current one in between, which is what it would have done with
+        // a freshly planned identical path anyway.
+        private void Steer(NavMeshAgent agent, Vector3 point)
+        {
+            if (hasDestination &&
+                (point - destination).sqrMagnitude <= repathDistance * repathDistance)
+                return;
+
+            agent.SetDestination(point);
+
+            destination = point;
+            hasDestination = true;
         }
 
         private void Investigate(EnemyDefinition definition)
@@ -166,7 +201,8 @@ namespace Office.Enemies
             agent.speed = definition.ChaseSpeed;
             agent.stoppingDistance = 0f;
             agent.isStopped = false;
-            agent.SetDestination(noisePoint);
+
+            Steer(agent, noisePoint);
 
             if (agent.pathPending) return;
 
@@ -199,7 +235,10 @@ namespace Office.Enemies
             if (agent != null && agent.enabled && agent.isOnNavMesh)
             {
                 agent.isStopped = true;
+
                 if (agent.hasPath) agent.ResetPath();
+
+                hasDestination = false;
             }
 
             attackLandsAt = Time.time + definition.AttackWindup;
@@ -227,7 +266,7 @@ namespace Office.Enemies
 
         private Vector3 LandingPoint(EnemyDefinition definition)
         {
-            if (target != null) return CombatGeometry.AimPoint(target.NetworkObject);
+            if (target != null) return CombatGeometry.AimPoint(target);
 
             return transform.position
                    + Vector3.up * EyeHeight(definition)
@@ -239,7 +278,7 @@ namespace Office.Enemies
             if (victim == null || !victim.IsSpawned || !victim.State.IsStanding) return;
 
             var point = area
-                ? CombatGeometry.AimPoint(victim.NetworkObject)
+                ? CombatGeometry.AimPoint(victim)
                 : victim.transform.position + Vector3.up * (definition.BodyHeight * 0.5f);
 
             var offset = point - transform.position;
@@ -333,7 +372,7 @@ namespace Office.Enemies
 
                 if (candidate == null || !candidate.State.IsStanding) continue;
 
-                var distance = Vector3.Distance(transform.position, candidate.transform.position);
+                var distance = (candidate.transform.position - transform.position).sqrMagnitude;
                 if (distance >= nearestDistance) continue;
 
                 if (!CanSee(definition, candidate)) continue;
@@ -349,7 +388,7 @@ namespace Office.Enemies
         {
             var eye = EyeHeight(definition);
             var origin = transform.position + Vector3.up * eye;
-            var point = CombatGeometry.AimPoint(candidate.NetworkObject);
+            var point = CombatGeometry.AimPoint(candidate);
 
             var offset = point - origin;
             if (offset.sqrMagnitude > definition.SightRadius * definition.SightRadius) return false;

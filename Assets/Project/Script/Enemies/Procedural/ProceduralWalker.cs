@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Office.Data;
 using UnityEngine;
 
@@ -99,6 +100,13 @@ namespace Office.Enemies
         [Min(0.5f)]
         [SerializeField] private float teleportDistance = 3f;
 
+        [Tooltip("Metres from the player before this walker stops looking for floor and stands " +
+                 "its feet on the plane its body is on. A foot a few centimetres off the ground " +
+                 "is not readable at that range, and probing is the most expensive thing a swarm " +
+                 "asks of the machine watching it.")]
+        [Min(0f)]
+        [SerializeField] private float probeDistance = 30f;
+
         private sealed class LegState
         {
             public Vector3 HomeLocal;
@@ -128,7 +136,17 @@ namespace Office.Enemies
             public float ShinLength;
         }
 
+        // One frame's answer for one foot. Resolved says the batch was asked about this leg at
+        // all, which is what separates "there is no floor here" from "nobody looked".
+        private struct Probe
+        {
+            public bool Resolved;
+            public bool Hit;
+            public float Height;
+        }
+
         private LegState[] states = Array.Empty<LegState>();
+        private Probe[] probes = Array.Empty<Probe>();
 
         private Vector3 restBodyPosition;
         private Quaternion restBodyRotation;
@@ -142,6 +160,15 @@ namespace Office.Enemies
         private float breathePhase;
 
         private bool ready;
+
+        // The stride this frame was prepared with. Kept rather than recomputed so the tick lands
+        // on exactly the stride the probes were aimed for — a probe taken for one lead and used
+        // for another is a foot placed on floor that was never under it.
+        private Vector3 pendingLead;
+        private float pendingDuration;
+
+        private int preparedFrame = -1;
+        private bool probesSkipped;
 
         // Set by the view that owns this walker: a recoil shove, a windup crouch, the sag of a
         // dead thing. Kept as plain properties because they are per-frame intent, not authored
@@ -180,7 +207,12 @@ namespace Office.Enemies
             velocity = Vector3.zero;
             acceleration = Vector3.zero;
             groundHeight = 0f;
+            preparedFrame = -1;
+
+            GroundProbes.Register(this);
         }
+
+        private void OnDisable() => GroundProbes.Unregister(this);
 
         private void LateUpdate() => Tick(Time.deltaTime);
 
@@ -190,11 +222,80 @@ namespace Office.Enemies
         {
             if (!ready || deltaTime <= 0f) return;
 
-            UpdateMotion(deltaTime);
+            // Normally GroundProbes prepared this frame and filled the feet in before this ran.
+            // An editor preview has no driver, so it prepares its own and every foot falls back
+            // to its own cast — the right trade for one walker nobody is playing against.
+            if (preparedFrame != Time.frameCount) Prepare(deltaTime);
+
             ResetPose();
             UpdateSteps(deltaTime);
             UpdateBody(deltaTime);
             SolveLegs();
+        }
+
+        // Called by GroundProbes before this frame's tick. The motion estimate has to be current
+        // for the probes to be aimed where the feet are actually going, so it is taken here rather
+        // than inside the tick.
+        internal void CollectProbes(float deltaTime, Vector3 viewer, bool hasViewer,
+            List<GroundProbes.ProbeRequest> into)
+        {
+            if (!ready || deltaTime <= 0f) return;
+
+            Prepare(deltaTime);
+
+            // A collapsing thing has stopped stepping, and a walker too far away to read does not
+            // earn a cast per foot. Both stand on the plane their body is on instead.
+            if (Collapse > 0.5f ||
+                (hasViewer && (transform.position - viewer).sqrMagnitude >
+                    probeDistance * probeDistance))
+            {
+                probesSkipped = true;
+                return;
+            }
+
+            var height = transform.position.y + probeUp;
+            var distance = probeUp + probeDown;
+
+            for (var i = 0; i < states.Length; i++)
+            {
+                if (!states[i].Swinging) continue;
+
+                var desired = transform.TransformPoint(states[i].HomeLocal) + pendingLead;
+
+                into.Add(new GroundProbes.ProbeRequest(this, i,
+                    new Vector3(desired.x, height, desired.z), distance));
+            }
+        }
+
+        internal void ApplyProbe(int leg, bool hit, float height)
+        {
+            if (leg < 0 || leg >= probes.Length) return;
+
+            probes[leg] = new Probe { Resolved = true, Hit = hit, Height = height };
+        }
+
+        private void Prepare(float deltaTime)
+        {
+            preparedFrame = Time.frameCount;
+            probesSkipped = false;
+
+            for (var i = 0; i < probes.Length; i++) probes[i] = default;
+
+            UpdateMotion(deltaTime);
+
+            var speed = velocity.magnitude;
+
+            // One swing carries the foot the whole of its spare reach, so a faster body gets a
+            // shorter swing. The clamps are what keeps a sprint from turning into a blur and a
+            // crawl from freezing mid-step.
+            pendingDuration = speed > 0.01f
+                ? Mathf.Clamp(stepReach / speed, minStepDuration, maxStepDuration)
+                : maxStepDuration;
+
+            // The foot is aimed one swing ahead of where the body is now, so it lands where the
+            // body will be rather than where it was. Without this every step lands behind and the
+            // legs trail the body like a dragged chair.
+            pendingLead = Vector3.ClampMagnitude(velocity * pendingDuration, stepReach);
         }
 
         private void CacheRestPose()
@@ -210,6 +311,7 @@ namespace Office.Enemies
             restBodyRotation = body.localRotation;
 
             states = new LegState[legs.Length];
+            probes = new Probe[legs.Length];
 
             for (var i = 0; i < legs.Length; i++)
             {
@@ -301,7 +403,7 @@ namespace Office.Enemies
                 var state = states[i];
 
                 state.Swinging = false;
-                state.Planted = Ground(i, Vector3.zero);
+                state.Planted = GroundDirect(i, Vector3.zero);
                 state.Current = state.Planted;
             }
         }
@@ -327,19 +429,8 @@ namespace Office.Enemies
 
         private void UpdateSteps(float deltaTime)
         {
-            var speed = velocity.magnitude;
-
-            // One swing carries the foot the whole of its spare reach, so a faster body gets a
-            // shorter swing. The clamps are what keeps a sprint from turning into a blur and a
-            // crawl from freezing mid-step.
-            var duration = speed > 0.01f
-                ? Mathf.Clamp(stepReach / speed, minStepDuration, maxStepDuration)
-                : maxStepDuration;
-
-            // The foot is aimed one swing ahead of where the body is now, so it lands where the
-            // body will be rather than where it was. Without this every step lands behind and
-            // the legs trail the body like a dragged chair.
-            var lead = Vector3.ClampMagnitude(velocity * duration, stepReach);
+            var duration = pendingDuration;
+            var lead = pendingLead;
 
             var threshold = Mathf.Max(stepReach * settleFraction, lead.magnitude * 2f);
 
@@ -425,6 +516,28 @@ namespace Office.Enemies
         }
 
         private Vector3 Ground(int index, Vector3 lead)
+        {
+            var state = states[index];
+            var desired = transform.TransformPoint(state.HomeLocal) + lead;
+
+            var probe = probes[index];
+
+            if (probe.Resolved)
+                return probe.Hit
+                    ? new Vector3(desired.x, probe.Height + state.HomeLocal.y, desired.z)
+                    : desired;
+
+            // Deliberately not probed: too far to read, or collapsing. The flat answer costs
+            // nothing and looks the same from there.
+            if (probesSkipped) return desired;
+
+            return GroundDirect(index, lead);
+        }
+
+        // The batch can only answer probes that were queued for it. A replant happens inside the
+        // collect pass itself and an editor preview has no batch at all — both are rare enough to
+        // pay for their own cast.
+        private Vector3 GroundDirect(int index, Vector3 lead)
         {
             var state = states[index];
             var desired = transform.TransformPoint(state.HomeLocal) + lead;

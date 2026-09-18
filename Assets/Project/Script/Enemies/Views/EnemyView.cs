@@ -76,6 +76,10 @@ namespace Office.Enemies
             }
 
             AimPoint = transform.position + transform.forward * 2f + Vector3.up;
+
+            // Staggered for the same reason the brain's scan is: a swarm spawns together, and a
+            // schedule they all share turns a steady trickle into a spike every interval.
+            nextScanTime = Time.time + UnityEngine.Random.Range(0f, aimScanInterval);
         }
 
         protected virtual void OnDestroy()
@@ -125,7 +129,7 @@ namespace Office.Enemies
 
             if (!HasAim) return;
 
-            var point = CombatGeometry.AimPoint(aimTarget.NetworkObject);
+            var point = CombatGeometry.AimPoint(aimTarget);
 
             // The point is followed rather than snapped to, so a head that was looking elsewhere
             // swings across instead of teleporting onto the player.
@@ -140,14 +144,14 @@ namespace Office.Enemies
             var players = Health.SpawnedPlayerList;
 
             Health nearest = null;
-            var nearestDistance = SightRadius;
+            var nearestDistance = SightRadius * SightRadius;
 
             for (var i = 0; i < players.Count; i++)
             {
                 var player = players[i];
                 if (player == null || !player.IsSpawned || !player.State.IsStanding) continue;
 
-                var distance = Vector3.Distance(transform.position, player.transform.position);
+                var distance = (player.transform.position - transform.position).sqrMagnitude;
                 if (distance >= nearestDistance) continue;
 
                 nearest = player;
